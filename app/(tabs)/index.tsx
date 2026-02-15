@@ -1,98 +1,149 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, FlatList, Pressable, Alert } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Play } from 'lucide-react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { TemplateCard } from '@/components/workout/template-card';
+import { EmptyState } from '@/components/workout/empty-state';
+import { Fab } from '@/components/shared/fab';
+import { useTemplateStore } from '@/stores/template-store';
+import { useWorkoutStore } from '@/stores/workout-store';
+import { mediumHaptic, heavyHaptic } from '@/lib/haptics';
 
-export default function HomeScreen() {
+export default function WorkoutsScreen() {
+  const router = useRouter();
+
+  const templates = useTemplateStore((s) => s.templates);
+  const deleteTemplate = useTemplateStore((s) => s.deleteTemplate);
+  const duplicateTemplate = useTemplateStore((s) => s.duplicateTemplate);
+  const startWorkout = useWorkoutStore((s) => s.startWorkout);
+  const startEmptyWorkout = useWorkoutStore((s) => s.startEmptyWorkout);
+  const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
+
+  const handleStartFromTemplate = (templateId: string) => {
+    const template = templates.find((t) => t.id === templateId);
+    if (!template) return;
+
+    if (activeWorkout) {
+      Alert.alert(
+        'Workout in Progress',
+        'You already have an active workout. Would you like to discard it?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Discard & Start New',
+            style: 'destructive',
+            onPress: () => {
+              startWorkout(template.name, template.exercises, template.id);
+              mediumHaptic();
+              router.push('/workout/active');
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    startWorkout(template.name, template.exercises, template.id);
+    mediumHaptic();
+    router.push('/workout/active');
+  };
+
+  const handleStartEmpty = () => {
+    if (activeWorkout) {
+      Alert.alert(
+        'Workout in Progress',
+        'You already have an active workout. Would you like to discard it?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Discard & Start New',
+            style: 'destructive',
+            onPress: () => {
+              startEmptyWorkout();
+              mediumHaptic();
+              router.push('/workout/active');
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    startEmptyWorkout();
+    mediumHaptic();
+    router.push('/workout/active');
+  };
+
+  const handleContextMenu = (templateId: string) => {
+    heavyHaptic();
+    Alert.alert('Template Actions', '', [
+      {
+        text: 'Edit',
+        onPress: () => router.push(`/template/${templateId}`),
+      },
+      {
+        text: 'Duplicate',
+        onPress: () => duplicateTemplate(templateId),
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          Alert.alert('Delete Template', 'Are you sure?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: () => deleteTemplate(templateId),
+            },
+          ]);
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <View className="px-4 pb-2 pt-2">
+        <Text className="text-3xl font-bold">Workouts</Text>
+      </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      {/* Start Empty Workout */}
+      <Pressable
+        onPress={handleStartEmpty}
+        className="mx-4 mb-4 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+      >
+        <Play size={18} color="white" fill="white" />
+        <Text className="font-semibold text-primary-foreground">Start Empty Workout</Text>
+      </Pressable>
+
+      {templates.length === 0 ? (
+        <EmptyState
+          title="No Templates Yet"
+          description="Create your first workout template to get started. Templates let you save and reuse your favorite workouts."
+        />
+      ) : (
+        <FlatList
+          data={templates}
+          keyExtractor={(item) => item.id}
+          contentContainerClassName="px-4 pb-24"
+          renderItem={({ item, index }) => (
+            <TemplateCard
+              template={item}
+              index={index}
+              onPress={() => router.push(`/template/${item.id}`)}
+              onStart={() => handleStartFromTemplate(item.id)}
+              onLongPress={() => handleContextMenu(item.id)}
+            />
+          )}
+        />
+      )}
+
+      <Fab onPress={() => router.push('/template/create')} />
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
