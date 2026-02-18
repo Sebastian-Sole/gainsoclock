@@ -173,7 +173,7 @@ export default function ActiveWorkoutScreen() {
           <View key={exercise.id} className="mt-6">
             {/* Exercise Header */}
             <View className="mb-2 flex-row items-center justify-between">
-              <View className="flex-row items-center gap-1">
+              <View className="flex-1 flex-row items-center gap-1">
                 <View className="items-center justify-center">
                   <Pressable
                     onPress={() => handleMoveExercise(exercise.id, 'up')}
