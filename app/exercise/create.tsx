@@ -12,14 +12,18 @@ import { RestTimerPresets } from '@/components/workout/rest-timer-presets';
 import { StepIndicator } from '@/components/shared/step-indicator';
 import { NumericInput } from '@/components/shared/numeric-input';
 
+import { SetInput } from '@/components/workout/set-input';
+import { TimeInput } from '@/components/shared/time-input';
+
 import type { Exercise, ExerciseType } from '@/lib/types';
 import { createDefaultSets } from '@/lib/defaults';
+import type { SetDefaults } from '@/lib/defaults';
 import { generateId } from '@/lib/id';
 import { DEFAULT_REST_TIME } from '@/lib/defaults';
 import { lightHaptic } from '@/lib/haptics';
 import { useTemplateCreateStore } from '@/stores/exercise-draft-store';
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 export default function CreateExerciseScreen() {
   const router = useRouter();
@@ -32,6 +36,10 @@ export default function CreateExerciseScreen() {
   const [exerciseType, setExerciseType] = useState<ExerciseType | undefined>();
   const [name, setName] = useState('');
   const [setsCount, setSetsCount] = useState(3);
+  const [defaultReps, setDefaultReps] = useState(10);
+  const [defaultWeight, setDefaultWeight] = useState(0);
+  const [defaultTime, setDefaultTime] = useState(30);
+  const [defaultDistance, setDefaultDistance] = useState(0);
   const [restTime, setRestTime] = useState(DEFAULT_REST_TIME);
 
   const canProceed = useCallback(() => {
@@ -39,7 +47,8 @@ export default function CreateExerciseScreen() {
       case 0: return exerciseType !== undefined;
       case 1: return name.trim().length > 0;
       case 2: return setsCount > 0;
-      case 3: return true;
+      case 3: return true; // default values always valid
+      case 4: return true; // rest time always valid
       default: return false;
     }
   }, [step, exerciseType, name, setsCount]);
@@ -65,11 +74,17 @@ export default function CreateExerciseScreen() {
 
   const handleSave = () => {
     if (!exerciseType) return;
+    const defaults: SetDefaults = {
+      reps: defaultReps,
+      weight: defaultWeight,
+      time: defaultTime,
+      distance: defaultDistance,
+    };
     const exercise: Exercise = {
       id: generateId(),
       name: name.trim(),
       type: exerciseType,
-      sets: createDefaultSets(exerciseType, setsCount),
+      sets: createDefaultSets(exerciseType, setsCount, defaults),
       restTimeSeconds: restTime,
     };
     addExercise(exercise);
@@ -114,6 +129,39 @@ export default function CreateExerciseScreen() {
       case 3:
         return (
           <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-3" className="flex-1">
+            <Text className="mb-2 text-2xl font-bold">Default Values</Text>
+            <Text className="mb-6 text-muted-foreground">Set starting values for each set</Text>
+            <View className="gap-4">
+              {(exerciseType === 'reps_weight' || exerciseType === 'reps_time' || exerciseType === 'reps_only') && (
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-base font-medium">Reps</Text>
+                  <SetInput value={defaultReps} onValueChange={setDefaultReps} placeholder="10" />
+                </View>
+              )}
+              {exerciseType === 'reps_weight' && (
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-base font-medium">Weight</Text>
+                  <SetInput value={defaultWeight} onValueChange={setDefaultWeight} placeholder="0" />
+                </View>
+              )}
+              {(exerciseType === 'reps_time' || exerciseType === 'time_only' || exerciseType === 'time_distance') && (
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-base font-medium">Time</Text>
+                  <TimeInput value={defaultTime} onValueChange={setDefaultTime} />
+                </View>
+              )}
+              {exerciseType === 'time_distance' && (
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-base font-medium">Distance</Text>
+                  <SetInput value={defaultDistance} onValueChange={setDefaultDistance} placeholder="0" />
+                </View>
+              )}
+            </View>
+          </Animated.View>
+        );
+      case 4:
+        return (
+          <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-4" className="flex-1">
             <Text className="mb-2 text-2xl font-bold">Rest Time</Text>
             <Text className="mb-6 text-muted-foreground">Rest between sets</Text>
             <RestTimerPresets selected={restTime} onSelect={setRestTime} />

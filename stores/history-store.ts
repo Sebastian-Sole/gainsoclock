@@ -11,6 +11,7 @@ interface HistoryState {
   deleteLog: (id: string) => void;
   getLogsForDate: (date: Date) => WorkoutLog[];
   getDatesWithWorkouts: (year: number, month: number) => Set<string>;
+  getLastLogForTemplate: (templateId: string) => WorkoutLog | undefined;
 }
 
 export const useHistoryStore = create<HistoryState>()(
@@ -31,6 +32,10 @@ export const useHistoryStore = create<HistoryState>()(
         return get().logs.filter(
           (log) => format(new Date(log.startedAt), 'yyyy-MM-dd') === dateStr
         );
+      },
+
+      getLastLogForTemplate: (templateId) => {
+        return get().logs.find((log) => log.templateId === templateId);
       },
 
       getDatesWithWorkouts: (year, month) => {

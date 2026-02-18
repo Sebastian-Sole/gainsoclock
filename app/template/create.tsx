@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useRouter, Stack } from 'expo-router';
-import { Plus, Trash2 } from 'lucide-react-native';
+import { Plus } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
 import { ExerciseRow } from '@/components/workout/exercise-row';
 import { useTemplateStore } from '@/stores/template-store';
 import { useTemplateCreateStore } from '@/stores/exercise-draft-store';
+import { createDefaultSet } from '@/lib/defaults';
 import { lightHaptic } from '@/lib/haptics';
 
 export default function CreateTemplateScreen() {
@@ -20,6 +21,9 @@ export default function CreateTemplateScreen() {
   const exercises = useTemplateCreateStore((s) => s.exercises);
   const removeExercise = useTemplateCreateStore((s) => s.removeExercise);
   const clearExercises = useTemplateCreateStore((s) => s.clearExercises);
+  const updateExerciseSet = useTemplateCreateStore((s) => s.updateExerciseSet);
+  const addExerciseSet = useTemplateCreateStore((s) => s.addExerciseSet);
+  const removeExerciseSet = useTemplateCreateStore((s) => s.removeExerciseSet);
   const addTemplate = useTemplateStore((s) => s.addTemplate);
 
   useEffect(() => {
@@ -84,20 +88,19 @@ export default function CreateTemplateScreen() {
           ) : (
             <View className="gap-1 rounded-xl border border-border bg-card px-3">
               {exercises.map((exercise, index) => (
-                <View key={exercise.id} className="flex-row items-center">
-                  <View className="flex-1">
-                    <ExerciseRow exercise={exercise} index={index} />
-                  </View>
-                  <Pressable
-                    onPress={() => {
-                      lightHaptic();
-                      removeExercise(exercise.id);
-                    }}
-                    className="h-8 w-8 items-center justify-center"
-                  >
-                    <Trash2 size={16} color="#ef4444" />
-                  </Pressable>
-                </View>
+                <ExerciseRow
+                  key={exercise.id}
+                  exercise={exercise}
+                  index={index}
+                  expandable
+                  onUpdateSet={(setId, updates) => updateExerciseSet(exercise.id, setId, updates)}
+                  onAddSet={() => addExerciseSet(exercise.id, createDefaultSet(exercise.type))}
+                  onRemoveSet={(setId) => removeExerciseSet(exercise.id, setId)}
+                  onRemoveExercise={() => {
+                    lightHaptic();
+                    removeExercise(exercise.id);
+                  }}
+                />
               ))}
             </View>
           )}

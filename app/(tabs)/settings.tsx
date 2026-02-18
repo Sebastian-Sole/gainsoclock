@@ -4,7 +4,7 @@ import { Text } from '@/components/ui/text';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Weight, Ruler, Timer, Vibrate } from 'lucide-react-native';
+import { Weight, Ruler, Timer, Vibrate, RotateCcw } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
 import { useSettingsStore } from '@/stores/settings-store';
@@ -21,10 +21,12 @@ export default function SettingsScreen() {
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
   const defaultRestTime = useSettingsStore((s) => s.defaultRestTime);
   const hapticsEnabled = useSettingsStore((s) => s.hapticsEnabled);
+  const useLastWorkoutValues = useSettingsStore((s) => s.useLastWorkoutValues);
   const setWeightUnit = useSettingsStore((s) => s.setWeightUnit);
   const setDistanceUnit = useSettingsStore((s) => s.setDistanceUnit);
   const setDefaultRestTime = useSettingsStore((s) => s.setDefaultRestTime);
   const setHapticsEnabled = useSettingsStore((s) => s.setHapticsEnabled);
+  const setUseLastWorkoutValues = useSettingsStore((s) => s.setUseLastWorkoutValues);
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -167,6 +169,20 @@ export default function SettingsScreen() {
             <Switch
               checked={hapticsEnabled}
               onCheckedChange={setHapticsEnabled}
+            />
+          </View>
+
+          <Separator />
+
+          <View className="flex-row items-center gap-3 px-4 py-4">
+            <RotateCcw size={20} color={iconColor} />
+            <View className="flex-1">
+              <Text className="font-medium">Use Last Workout Values</Text>
+              <Text className="text-sm text-muted-foreground">Start with values from your last workout</Text>
+            </View>
+            <Switch
+              checked={useLastWorkoutValues}
+              onCheckedChange={setUseLastWorkoutValues}
             />
           </View>
         </View>

@@ -10,6 +10,9 @@ import { EmptyState } from '@/components/workout/empty-state';
 import { Fab } from '@/components/shared/fab';
 import { useTemplateStore } from '@/stores/template-store';
 import { useWorkoutStore } from '@/stores/workout-store';
+import { useSettingsStore } from '@/stores/settings-store';
+import { useHistoryStore } from '@/stores/history-store';
+import { resolveExercisesFromLastWorkout } from '@/lib/workout-utils';
 import { mediumHaptic, heavyHaptic } from '@/lib/haptics';
 
 export default function WorkoutsScreen() {
@@ -21,10 +24,21 @@ export default function WorkoutsScreen() {
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
   const startEmptyWorkout = useWorkoutStore((s) => s.startEmptyWorkout);
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
+  const useLastWorkoutValues = useSettingsStore((s) => s.useLastWorkoutValues);
+  const getLastLogForTemplate = useHistoryStore((s) => s.getLastLogForTemplate);
+
+  const resolveExercises = (template: { id: string; exercises: import('@/lib/types').Exercise[] }) => {
+    if (!useLastWorkoutValues) return template.exercises;
+    const lastLog = getLastLogForTemplate(template.id);
+    if (!lastLog) return template.exercises;
+    return resolveExercisesFromLastWorkout(template.exercises, lastLog);
+  };
 
   const handleStartFromTemplate = (templateId: string) => {
     const template = templates.find((t) => t.id === templateId);
     if (!template) return;
+
+    const exercises = resolveExercises(template);
 
     if (activeWorkout) {
       Alert.alert(
@@ -36,7 +50,7 @@ export default function WorkoutsScreen() {
             text: 'Discard & Start New',
             style: 'destructive',
             onPress: () => {
-              startWorkout(template.name, template.exercises, template.id);
+              startWorkout(template.name, exercises, template.id);
               mediumHaptic();
               router.push('/workout/active');
             },
@@ -46,7 +60,7 @@ export default function WorkoutsScreen() {
       return;
     }
 
-    startWorkout(template.name, template.exercises, template.id);
+    startWorkout(template.name, exercises, template.id);
     mediumHaptic();
     router.push('/workout/active');
   };

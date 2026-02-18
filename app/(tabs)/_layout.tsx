@@ -1,10 +1,10 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { useColorScheme } from 'nativewind';
-import { Dumbbell, CalendarDays, Settings2 } from 'lucide-react-native';
+import { Tabs } from "expo-router";
+import { CalendarDays, Dumbbell, Settings2 } from "lucide-react-native";
+import { useColorScheme } from "nativewind";
+import React from "react";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { Colors } from '@/constants/theme';
+import { HapticTab } from "@/components/haptic-tab";
+import { Colors } from "@/constants/theme";
 
 export default function TabLayout() {
   const { colorScheme } = useColorScheme();
@@ -12,7 +12,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
         headerShown: false,
         tabBarButton: HapticTab,
       }}
@@ -20,7 +20,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Workouts',
+          title: "Workouts",
           tabBarIcon: ({ color, size }) => (
             <Dumbbell size={size} color={color} />
           ),
@@ -29,7 +29,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: 'History',
+          title: "History",
           tabBarIcon: ({ color, size }) => (
             <CalendarDays size={size} color={color} />
           ),
@@ -38,7 +38,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: "Settings",
           tabBarIcon: ({ color, size }) => (
             <Settings2 size={size} color={color} />
           ),

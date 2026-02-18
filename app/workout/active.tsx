@@ -14,10 +14,20 @@ import { useHistoryStore } from '@/stores/history-store';
 import { useWorkoutTimer } from '@/hooks/use-workout-timer';
 import { useRestTimer } from '@/hooks/use-rest-timer';
 import { createDefaultSet } from '@/lib/defaults';
+import type { SetDefaults } from '@/lib/defaults';
 import { generateId } from '@/lib/id';
 import { formatDuration, exerciseTypeLabel } from '@/lib/format';
 import { mediumHaptic, successHaptic } from '@/lib/haptics';
-import type { Exercise, WorkoutLog } from '@/lib/types';
+import type { Exercise, WorkoutLog, WorkoutSet } from '@/lib/types';
+
+function extractSetValues(set: WorkoutSet): SetDefaults {
+  const defaults: SetDefaults = {};
+  if ('reps' in set) defaults.reps = set.reps;
+  if ('weight' in set) defaults.weight = set.weight;
+  if ('time' in set) defaults.time = set.time;
+  if ('distance' in set) defaults.distance = set.distance;
+  return defaults;
+}
 
 export default function ActiveWorkoutScreen() {
   const router = useRouter();
@@ -64,7 +74,9 @@ export default function ActiveWorkoutScreen() {
   };
 
   const handleAddSet = (exercise: Exercise) => {
-    const newSet = createDefaultSet(exercise.type);
+    const lastSet = exercise.sets[exercise.sets.length - 1];
+    const defaults = lastSet ? extractSetValues(lastSet) : undefined;
+    const newSet = createDefaultSet(exercise.type, defaults);
     addSet(exercise.id, newSet);
   };
 
