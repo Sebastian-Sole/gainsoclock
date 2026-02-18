@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
 import { generateId } from '@/lib/id';
+import { syncToConvex } from '@/lib/convex-sync';
+import { api } from '@/convex/_generated/api';
 import type { WorkoutTemplate, Exercise } from '@/lib/types';
 
 interface TemplateState {
@@ -12,6 +14,7 @@ interface TemplateState {
   deleteTemplate: (id: string) => void;
   duplicateTemplate: (id: string) => WorkoutTemplate | null;
   getTemplate: (id: string) => WorkoutTemplate | undefined;
+  hydrateFromServer: (serverTemplates: Array<{ clientId: string; name: string; exercises: Exercise[]; createdAt: string; updatedAt: string }>) => void;
 }
 
 export const useTemplateStore = create<TemplateState>()(
@@ -29,22 +32,43 @@ export const useTemplateStore = create<TemplateState>()(
           updatedAt: now,
         };
         set((state) => ({ templates: [...state.templates, template] }));
+
+        syncToConvex(api.templates.create, {
+          clientId: template.id,
+          name: template.name,
+          exercises: template.exercises,
+          createdAt: template.createdAt,
+          updatedAt: template.updatedAt,
+        });
+
         return template;
       },
 
-      updateTemplate: (id, updates) =>
+      updateTemplate: (id, updates) => {
+        const now = new Date().toISOString();
         set((state) => ({
           templates: state.templates.map((t) =>
             t.id === id
-              ? { ...t, ...updates, updatedAt: new Date().toISOString() }
+              ? { ...t, ...updates, updatedAt: now }
               : t
           ),
-        })),
+        }));
 
-      deleteTemplate: (id) =>
+        syncToConvex(api.templates.updateByClientId, {
+          clientId: id,
+          name: updates.name,
+          exercises: updates.exercises,
+          updatedAt: now,
+        });
+      },
+
+      deleteTemplate: (id) => {
         set((state) => ({
           templates: state.templates.filter((t) => t.id !== id),
-        })),
+        }));
+
+        syncToConvex(api.templates.remove, { clientId: id });
+      },
 
       duplicateTemplate: (id) => {
         const original = get().templates.find((t) => t.id === id);
@@ -63,10 +87,30 @@ export const useTemplateStore = create<TemplateState>()(
           updatedAt: now,
         };
         set((state) => ({ templates: [...state.templates, duplicate] }));
+
+        syncToConvex(api.templates.create, {
+          clientId: duplicate.id,
+          name: duplicate.name,
+          exercises: duplicate.exercises,
+          createdAt: duplicate.createdAt,
+          updatedAt: duplicate.updatedAt,
+        });
+
         return duplicate;
       },
 
       getTemplate: (id) => get().templates.find((t) => t.id === id),
+
+      hydrateFromServer: (serverTemplates) => {
+        const mapped: WorkoutTemplate[] = serverTemplates.map((t) => ({
+          id: t.clientId,
+          name: t.name,
+          exercises: t.exercises,
+          createdAt: t.createdAt,
+          updatedAt: t.updatedAt,
+        }));
+        set({ templates: mapped });
+      },
     }),
     {
       name: 'template-storage',
