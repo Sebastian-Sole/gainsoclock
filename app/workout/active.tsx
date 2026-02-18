@@ -69,30 +69,7 @@ export default function ActiveWorkoutScreen() {
   };
 
   const handleAddExercise = () => {
-    // For simplicity, we add a quick exercise inline
-    // In a full implementation, this would navigate to exercise/create
-    Alert.prompt(
-      'Add Exercise',
-      'Enter exercise name:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add (Reps & Weight)',
-          onPress: (name?: string) => {
-            if (!name?.trim()) return;
-            const exercise: Exercise = {
-              id: generateId(),
-              name: name.trim(),
-              type: 'reps_weight',
-              sets: [createDefaultSet('reps_weight'), createDefaultSet('reps_weight'), createDefaultSet('reps_weight')],
-              restTimeSeconds: 90,
-            };
-            addExercise(exercise);
-          },
-        },
-      ],
-      'plain-text'
-    );
+    router.push('/exercise/create?source=active');
   };
 
   const handleEndWorkout = () => {
