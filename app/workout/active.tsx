@@ -69,12 +69,11 @@ export default function ActiveWorkoutScreen() {
     addSet(exercise.id, newSet);
   };
 
-  const handleMoveExercise = (exerciseId: string, direction: 'up' | 'down') => {
+  const handleMoveExercise = (index: number, direction: 'up' | 'down') => {
     if (!activeWorkout) return;
-    const exercises = [...activeWorkout.exercises];
-    const index = exercises.findIndex((e) => e.id === exerciseId);
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= exercises.length) return;
+    if (targetIndex < 0 || targetIndex >= activeWorkout.exercises.length) return;
+    const exercises = [...activeWorkout.exercises];
     [exercises[index], exercises[targetIndex]] = [exercises[targetIndex], exercises[index]];
     reorderExercises(exercises);
     mediumHaptic();
@@ -176,7 +175,7 @@ export default function ActiveWorkoutScreen() {
               <View className="flex-1 flex-row items-center gap-1">
                 <View className="items-center justify-center">
                   <Pressable
-                    onPress={() => handleMoveExercise(exercise.id, 'up')}
+                    onPress={() => handleMoveExercise(exerciseIndex, 'up')}
                     disabled={exerciseIndex === 0}
                     className="h-6 w-6 items-center justify-center"
                     style={{ opacity: exerciseIndex === 0 ? 0.25 : 1 }}
@@ -184,7 +183,7 @@ export default function ActiveWorkoutScreen() {
                     <ChevronUp size={14} color={iconColor} />
                   </Pressable>
                   <Pressable
-                    onPress={() => handleMoveExercise(exercise.id, 'down')}
+                    onPress={() => handleMoveExercise(exerciseIndex, 'down')}
                     disabled={exerciseIndex === activeWorkout.exercises.length - 1}
                     className="h-6 w-6 items-center justify-center"
                     style={{ opacity: exerciseIndex === activeWorkout.exercises.length - 1 ? 0.25 : 1 }}
