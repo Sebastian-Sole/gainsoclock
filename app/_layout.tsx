@@ -15,7 +15,13 @@ import secureStorage from "@/lib/secure-storage";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { ConvexSyncProvider } from "@/providers/convex-sync-provider";
 
-const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
+if (!process.env.EXPO_PUBLIC_CONVEX_URL) {
+  throw new Error(
+    "Missing EXPO_PUBLIC_CONVEX_URL — add it to .env.local (run `npx convex dev` to get the URL)"
+  );
+}
+
+const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL, {
   unsavedChangesWarning: false,
 });
 

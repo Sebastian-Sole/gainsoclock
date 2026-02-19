@@ -75,14 +75,14 @@ export const bulkUpsert = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
+    const allExisting = await ctx.db
+      .query("workoutLogs")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const existingClientIds = new Set(allExisting.map((l) => l.clientId));
+
     for (const log of args.logs) {
-      const existing = await ctx.db
-        .query("workoutLogs")
-        .withIndex("by_user_clientId", (q) =>
-          q.eq("userId", userId).eq("clientId", log.clientId)
-        )
-        .unique();
-      if (!existing) {
+      if (!existingClientIds.has(log.clientId)) {
         await ctx.db.insert("workoutLogs", { userId, ...log });
       }
     }

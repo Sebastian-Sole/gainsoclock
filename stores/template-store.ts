@@ -54,12 +54,10 @@ export const useTemplateStore = create<TemplateState>()(
           ),
         }));
 
-        syncToConvex(api.templates.updateByClientId, {
-          clientId: id,
-          name: updates.name,
-          exercises: updates.exercises,
-          updatedAt: now,
-        });
+        const syncArgs: Record<string, unknown> = { clientId: id, updatedAt: now };
+        if (updates.name !== undefined) syncArgs.name = updates.name;
+        if (updates.exercises !== undefined) syncArgs.exercises = updates.exercises;
+        syncToConvex(api.templates.updateByClientId, syncArgs);
       },
 
       deleteTemplate: (id) => {
