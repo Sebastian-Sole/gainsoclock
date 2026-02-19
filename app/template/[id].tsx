@@ -94,7 +94,6 @@ export default function EditTemplateScreen() {
             onChangeText={setName}
             placeholder="e.g. Push Day"
             placeholderTextColor="#9ca3af"
-            autoFocus
             className="mb-6 rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
           />
 
