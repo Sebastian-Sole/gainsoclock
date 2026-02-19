@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
+import { syncToConvex } from '@/lib/convex-sync';
+import { api } from '@/convex/_generated/api';
 
 export type WeightUnit = 'kg' | 'lbs';
 export type DistanceUnit = 'km' | 'mi';
@@ -15,20 +17,54 @@ interface SettingsState {
   setDistanceUnit: (unit: DistanceUnit) => void;
   setDefaultRestTime: (seconds: number) => void;
   setHapticsEnabled: (enabled: boolean) => void;
+  hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean }) => void;
+}
+
+function syncSettings(state: SettingsState) {
+  syncToConvex(api.settings.upsert, {
+    weightUnit: state.weightUnit,
+    distanceUnit: state.distanceUnit,
+    defaultRestTime: state.defaultRestTime,
+    hapticsEnabled: state.hapticsEnabled,
+  });
 }
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       weightUnit: 'kg',
       distanceUnit: 'km',
       defaultRestTime: 90,
       hapticsEnabled: true,
 
-      setWeightUnit: (unit) => set({ weightUnit: unit }),
-      setDistanceUnit: (unit) => set({ distanceUnit: unit }),
-      setDefaultRestTime: (seconds) => set({ defaultRestTime: seconds }),
-      setHapticsEnabled: (enabled) => set({ hapticsEnabled: enabled }),
+      setWeightUnit: (unit) => {
+        set({ weightUnit: unit });
+        syncSettings(get());
+      },
+
+      setDistanceUnit: (unit) => {
+        set({ distanceUnit: unit });
+        syncSettings(get());
+      },
+
+      setDefaultRestTime: (seconds) => {
+        set({ defaultRestTime: seconds });
+        syncSettings(get());
+      },
+
+      setHapticsEnabled: (enabled) => {
+        set({ hapticsEnabled: enabled });
+        syncSettings(get());
+      },
+
+      hydrateFromServer: (serverSettings) => {
+        set({
+          weightUnit: serverSettings.weightUnit as WeightUnit,
+          distanceUnit: serverSettings.distanceUnit as DistanceUnit,
+          defaultRestTime: serverSettings.defaultRestTime,
+          hapticsEnabled: serverSettings.hapticsEnabled,
+        });
+      },
     }),
     {
       name: 'settings-storage',
