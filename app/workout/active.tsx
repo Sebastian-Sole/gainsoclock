@@ -4,7 +4,7 @@ import { Text } from '@/components/ui/text';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, X } from 'lucide-react-native';
+import { Plus, X, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
 import { SetRow } from '@/components/workout/set-row';
@@ -32,6 +32,7 @@ export default function ActiveWorkoutScreen() {
   const removeSet = useWorkoutStore((s) => s.removeSet);
   const addExercise = useWorkoutStore((s) => s.addExercise);
   const removeExercise = useWorkoutStore((s) => s.removeExercise);
+  const reorderExercises = useWorkoutStore((s) => s.reorderExercises);
   const endWorkout = useWorkoutStore((s) => s.endWorkout);
   const discardWorkout = useWorkoutStore((s) => s.discardWorkout);
   const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
@@ -68,31 +69,18 @@ export default function ActiveWorkoutScreen() {
     addSet(exercise.id, newSet);
   };
 
+  const handleMoveExercise = (index: number, direction: 'up' | 'down') => {
+    if (!activeWorkout) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= activeWorkout.exercises.length) return;
+    const exercises = [...activeWorkout.exercises];
+    [exercises[index], exercises[targetIndex]] = [exercises[targetIndex], exercises[index]];
+    reorderExercises(exercises);
+    mediumHaptic();
+  };
+
   const handleAddExercise = () => {
-    // For simplicity, we add a quick exercise inline
-    // In a full implementation, this would navigate to exercise/create
-    Alert.prompt(
-      'Add Exercise',
-      'Enter exercise name:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add (Reps & Weight)',
-          onPress: (name?: string) => {
-            if (!name?.trim()) return;
-            const exercise: Exercise = {
-              id: generateId(),
-              name: name.trim(),
-              type: 'reps_weight',
-              sets: [createDefaultSet('reps_weight'), createDefaultSet('reps_weight'), createDefaultSet('reps_weight')],
-              restTimeSeconds: 90,
-            };
-            addExercise(exercise);
-          },
-        },
-      ],
-      'plain-text'
-    );
+    router.push('/exercise/create?source=active');
   };
 
   const handleEndWorkout = () => {
@@ -157,15 +145,35 @@ export default function ActiveWorkoutScreen() {
 
       {/* Body */}
       <ScrollView className="flex-1" contentContainerClassName="px-4 pb-32">
-        {activeWorkout.exercises.map((exercise) => (
+        {activeWorkout.exercises.map((exercise, exerciseIndex) => (
           <View key={exercise.id} className="mt-6">
             {/* Exercise Header */}
             <View className="mb-2 flex-row items-center justify-between">
-              <View className="flex-1 flex-row items-center gap-2">
-                <Text className="text-base font-semibold">{exercise.name}</Text>
-                <Badge variant="outline">
-                  <Text className="text-xs">{exerciseTypeLabel(exercise.type)}</Text>
-                </Badge>
+              <View className="flex-1 flex-row items-center gap-1">
+                <View className="items-center justify-center">
+                  <Pressable
+                    onPress={() => handleMoveExercise(exerciseIndex, 'up')}
+                    disabled={exerciseIndex === 0}
+                    className="h-6 w-6 items-center justify-center"
+                    style={{ opacity: exerciseIndex === 0 ? 0.25 : 1 }}
+                  >
+                    <ChevronUp size={14} color={iconColor} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => handleMoveExercise(exerciseIndex, 'down')}
+                    disabled={exerciseIndex === activeWorkout.exercises.length - 1}
+                    className="h-6 w-6 items-center justify-center"
+                    style={{ opacity: exerciseIndex === activeWorkout.exercises.length - 1 ? 0.25 : 1 }}
+                  >
+                    <ChevronDown size={14} color={iconColor} />
+                  </Pressable>
+                </View>
+                <View className="flex-1 flex-row items-center gap-2">
+                  <Text className="text-base font-semibold">{exercise.name}</Text>
+                  <Badge variant="outline">
+                    <Text className="text-xs">{exerciseTypeLabel(exercise.type)}</Text>
+                  </Badge>
+                </View>
               </View>
               <View className="flex-row items-center gap-1">
                 <Pressable

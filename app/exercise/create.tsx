@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, ChevronLeft } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
@@ -18,6 +18,7 @@ import { generateId } from '@/lib/id';
 import { DEFAULT_REST_TIME } from '@/lib/defaults';
 import { lightHaptic } from '@/lib/haptics';
 import { useTemplateCreateStore } from '@/stores/exercise-draft-store';
+import { useWorkoutStore } from '@/stores/workout-store';
 
 const TOTAL_STEPS = 4;
 
@@ -26,7 +27,9 @@ export default function CreateExerciseScreen() {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const iconColor = isDark ? '#f2f2f2' : '#1c1008';
-  const addExercise = useTemplateCreateStore((s) => s.addExercise);
+  const { source } = useLocalSearchParams<{ source?: string }>();
+  const isActiveWorkout = source === 'active';
+  const addTemplateExercise = useTemplateCreateStore((s) => s.addExercise);
 
   const [step, setStep] = useState(0);
   const [exerciseType, setExerciseType] = useState<ExerciseType | undefined>();
@@ -72,7 +75,11 @@ export default function CreateExerciseScreen() {
       sets: createDefaultSets(exerciseType, setsCount),
       restTimeSeconds: restTime,
     };
-    addExercise(exercise);
+    if (isActiveWorkout) {
+      useWorkoutStore.getState().addExercise(exercise);
+    } else {
+      addTemplateExercise(exercise);
+    }
     router.back();
   };
 
@@ -97,7 +104,7 @@ export default function CreateExerciseScreen() {
               placeholder="e.g. Bench Press"
               placeholderTextColor="#9ca3af"
               autoFocus
-              className="rounded-xl border border-input bg-card px-4 py-4 text-lg text-foreground"
+              className="rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
             />
           </Animated.View>
         );
