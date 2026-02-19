@@ -1,29 +1,39 @@
-import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
-import { Plus, Trash2 } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
+import { Text } from "@/components/ui/text";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Plus, Trash2 } from "lucide-react-native";
+import { useColorScheme } from "nativewind";
+import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from "react-native";
 
-import { ExerciseRow } from '@/components/workout/exercise-row';
-import { useTemplateStore } from '@/stores/template-store';
-import { useTemplateCreateStore } from '@/stores/exercise-draft-store';
-import { lightHaptic } from '@/lib/haptics';
+import { ExerciseRow } from "@/components/workout/exercise-row";
+import { lightHaptic } from "@/lib/haptics";
+import { useTemplateCreateStore } from "@/stores/exercise-draft-store";
+import { useTemplateStore } from "@/stores/template-store";
 
 export default function EditTemplateScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = colorScheme === "dark";
 
-  const template = useTemplateStore((s) => s.templates.find((t) => t.id === id));
+  const template = useTemplateStore((s) =>
+    s.templates.find((t) => t.id === id),
+  );
   const updateTemplate = useTemplateStore((s) => s.updateTemplate);
   const exercises = useTemplateCreateStore((s) => s.exercises);
   const removeExercise = useTemplateCreateStore((s) => s.removeExercise);
   const setExercises = useTemplateCreateStore((s) => s.setExercises);
   const clearExercises = useTemplateCreateStore((s) => s.clearExercises);
 
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
 
   useEffect(() => {
     if (template) {
@@ -36,7 +46,7 @@ export default function EditTemplateScreen() {
   const handleSave = () => {
     if (!id) return;
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter a template name');
+      Alert.alert("Error", "Please enter a template name");
       return;
     }
     updateTemplate(id, { name: name.trim(), exercises });
@@ -45,7 +55,7 @@ export default function EditTemplateScreen() {
   };
 
   const handleAddExercise = () => {
-    router.push('/exercise/create');
+    router.push("/exercise/create");
   };
 
   if (!template) {
@@ -60,7 +70,7 @@ export default function EditTemplateScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Edit Template',
+          title: "Edit Template",
           headerRight: () => (
             <Pressable onPress={handleSave}>
               <Text className="text-base font-semibold text-primary">Save</Text>
@@ -68,20 +78,32 @@ export default function EditTemplateScreen() {
           ),
         }}
       />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-background">
-        <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
-          <Text className="mb-2 text-sm font-medium text-muted-foreground">TEMPLATE NAME</Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1 bg-background"
+      >
+        <ScrollView
+          className="flex-1 px-4 pt-4"
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text className="mb-2 text-sm font-medium text-muted-foreground">
+            TEMPLATE NAME
+          </Text>
           <TextInput
             value={name}
             onChangeText={setName}
             placeholder="e.g. Push Day"
             placeholderTextColor="#9ca3af"
-            className="mb-6 rounded-xl border border-input bg-card px-4 py-4 text-lg text-foreground"
+            className="mb-6 rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
           />
 
           <View className="mb-4 flex-row items-center justify-between">
-            <Text className="text-sm font-medium text-muted-foreground">EXERCISES</Text>
-            <Text className="text-sm text-muted-foreground">{exercises.length} total</Text>
+            <Text className="text-sm font-medium text-muted-foreground">
+              EXERCISES
+            </Text>
+            <Text className="text-sm text-muted-foreground">
+              {exercises.length} total
+            </Text>
           </View>
 
           {exercises.length === 0 ? (
@@ -113,7 +135,7 @@ export default function EditTemplateScreen() {
             onPress={handleAddExercise}
             className="mt-4 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-4"
           >
-            <Plus size={20} color={isDark ? '#fb923c' : '#f97316'} />
+            <Plus size={20} color={isDark ? "#fb923c" : "#f97316"} />
             <Text className="font-medium text-primary">Add Exercise</Text>
           </Pressable>
         </ScrollView>

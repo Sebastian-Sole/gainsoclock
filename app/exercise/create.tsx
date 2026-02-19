@@ -104,7 +104,7 @@ export default function CreateExerciseScreen() {
               placeholder="e.g. Bench Press"
               placeholderTextColor="#9ca3af"
               autoFocus
-              className="rounded-xl border border-input bg-card px-4 py-4 text-lg text-foreground"
+              className="rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
             />
           </Animated.View>
         );
