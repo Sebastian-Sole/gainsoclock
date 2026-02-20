@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as exercises from "../exercises.js";
 import type * as http from "../http.js";
 import type * as settings from "../settings.js";
 import type * as templates from "../templates.js";
@@ -23,6 +24,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  exercises: typeof exercises;
   http: typeof http;
   settings: typeof settings;
   templates: typeof templates;

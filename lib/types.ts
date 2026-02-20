@@ -47,20 +47,51 @@ export type WorkoutSet =
   | TimeDistanceSet
   | RepsOnlySet;
 
-// Exercise
+// Master exercise definition (from exercises table)
+export interface ExerciseDefinition {
+  id: string; // clientId
+  name: string;
+  type: ExerciseType;
+  createdAt: string;
+}
+
+// Exercise as configured in a template
+export interface TemplateExercise {
+  id: string; // clientId of the templateExercise row
+  exerciseId: string; // clientId referencing ExerciseDefinition
+  name: string; // denormalized for display
+  type: ExerciseType; // denormalized for display
+  order: number;
+  restTimeSeconds: number;
+  defaultSetsCount: number;
+}
+
+// Exercise during an active workout (mutable sets)
 export interface Exercise {
   id: string;
+  exerciseId: string; // reference to master exercise
   name: string;
   type: ExerciseType;
   sets: WorkoutSet[];
   restTimeSeconds: number;
 }
 
+// Exercise as performed in a completed workout log
+export interface WorkoutLogExercise {
+  id: string; // clientId of the workoutLogExercise row
+  exerciseId: string; // clientId referencing ExerciseDefinition
+  name: string; // denormalized
+  type: ExerciseType; // denormalized
+  order: number;
+  restTimeSeconds: number;
+  sets: WorkoutSet[];
+}
+
 // Workout Template
 export interface WorkoutTemplate {
   id: string;
   name: string;
-  exercises: Exercise[];
+  exercises: TemplateExercise[];
   createdAt: string;
   updatedAt: string;
 }
@@ -81,7 +112,7 @@ export interface WorkoutLog {
   id: string;
   templateId?: string;
   templateName: string;
-  exercises: Exercise[];
+  exercises: WorkoutLogExercise[];
   startedAt: string;
   completedAt: string;
   durationSeconds: number;

@@ -18,7 +18,7 @@ import { generateId } from '@/lib/id';
 import { formatDuration, exerciseTypeLabel } from '@/lib/format';
 import { mediumHaptic, successHaptic } from '@/lib/haptics';
 import { saveWorkoutToHealthKit } from '@/lib/healthkit';
-import type { Exercise, WorkoutLog } from '@/lib/types';
+import type { Exercise, WorkoutLog, WorkoutLogExercise } from '@/lib/types';
 
 export default function ActiveWorkoutScreen() {
   const router = useRouter();
@@ -105,11 +105,21 @@ export default function ActiveWorkoutScreen() {
               0
             );
 
+            const logExercises: WorkoutLogExercise[] = workout.exercises.map((e, i) => ({
+              id: generateId(),
+              exerciseId: e.exerciseId,
+              name: e.name,
+              type: e.type,
+              order: i,
+              restTimeSeconds: e.restTimeSeconds,
+              sets: e.sets,
+            }));
+
             const log: WorkoutLog = {
               id: generateId(),
               templateId: workout.templateId,
               templateName: workout.templateName,
-              exercises: workout.exercises,
+              exercises: logExercises,
               startedAt: workout.startedAt,
               completedAt: new Date().toISOString(),
               durationSeconds: elapsed,

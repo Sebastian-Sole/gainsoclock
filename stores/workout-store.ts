@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import type { ActiveWorkout, Exercise, WorkoutSet } from '@/lib/types';
+import type { ActiveWorkout, Exercise, TemplateExercise, WorkoutSet } from '@/lib/types';
 import { generateId } from '@/lib/id';
+import { createDefaultSets } from '@/lib/defaults';
 
 interface WorkoutState {
   activeWorkout: ActiveWorkout | null;
 
-  startWorkout: (templateName: string, exercises: Exercise[], templateId?: string) => void;
+  startWorkout: (templateName: string, exercises: TemplateExercise[], templateId?: string) => void;
   startEmptyWorkout: () => void;
   endWorkout: () => ActiveWorkout | null;
   discardWorkout: () => void;
@@ -30,16 +31,21 @@ interface WorkoutState {
 export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
   activeWorkout: null,
 
-  startWorkout: (templateName, exercises, templateId) => {
+  startWorkout: (templateName, templateExercises, templateId) => {
+    const exercises: Exercise[] = templateExercises.map((te) => ({
+      id: generateId(),
+      exerciseId: te.exerciseId,
+      name: te.name,
+      type: te.type,
+      sets: createDefaultSets(te.type, te.defaultSetsCount),
+      restTimeSeconds: te.restTimeSeconds,
+    }));
+
     const workout: ActiveWorkout = {
       id: generateId(),
       templateId,
       templateName,
-      exercises: exercises.map((e) => ({
-        ...e,
-        id: generateId(),
-        sets: e.sets.map((s) => ({ ...s, id: generateId(), completed: false })),
-      })),
+      exercises,
       startedAt: new Date().toISOString(),
       isRestTimerActive: false,
       restTimeRemaining: 0,

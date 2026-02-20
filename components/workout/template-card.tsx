@@ -56,7 +56,7 @@ export function TemplateCard({ template, index, onPress, onStart, onLongPress }:
             {template.exercises.slice(0, 3).map((exercise) => (
               <View key={exercise.id} className="flex-row items-center gap-2">
                 <Text className="text-sm text-muted-foreground">
-                  {exercise.sets.length} x {exercise.name}
+                  {exercise.defaultSetsCount} x {exercise.name}
                 </Text>
                 <Text className="text-xs text-muted-foreground/60">
                   {exerciseTypeLabel(exercise.type)}
