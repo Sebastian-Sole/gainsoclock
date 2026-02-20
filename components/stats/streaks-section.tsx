@@ -4,6 +4,7 @@ import { Text } from '@/components/ui/text';
 import { Flame, Trophy } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { format } from 'date-fns';
+import { Colors } from '@/constants/theme';
 import type { StreakStats } from '@/lib/stats';
 
 interface StreaksSectionProps {
@@ -12,7 +13,7 @@ interface StreaksSectionProps {
 
 export function StreaksSection({ streaks }: StreaksSectionProps) {
   const { colorScheme } = useColorScheme();
-  const iconColor = colorScheme === 'dark' ? '#fb923c' : '#f97316';
+  const iconColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
 
   const longestRange = streaks.longestStreakStart && streaks.longestStreakEnd
     ? `${format(new Date(streaks.longestStreakStart), 'MMM d')} – ${format(new Date(streaks.longestStreakEnd), 'MMM d, yyyy')}`

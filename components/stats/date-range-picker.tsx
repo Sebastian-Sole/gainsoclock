@@ -3,9 +3,10 @@ import { View, Pressable, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useColorScheme } from 'nativewind';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { Calendar } from 'lucide-react-native';
 
+import { Colors } from '@/constants/theme';
 import { PRESET_OPTIONS, type PresetKey, type DateRangeFilter } from '@/lib/stats';
 
 interface DateRangePickerProps {
@@ -16,7 +17,7 @@ interface DateRangePickerProps {
 export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const mutedColor = isDark ? '#9BA1A6' : '#687076';
+  const mutedColor = Colors[isDark ? 'dark' : 'light'].icon;
 
   const [isCustomOpen, setIsCustomOpen] = useState(false);
   const [draftFrom, setDraftFrom] = useState<Date>(() => {
@@ -49,9 +50,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
     } else {
       const now = new Date();
       const daysMap: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
-      const from = new Date();
-      from.setDate(now.getDate() - daysMap[key]);
-      onChange({ preset: key, from, to: null });
+      onChange({ preset: key, from: subDays(now, daysMap[key]), to: null });
     }
   };
 

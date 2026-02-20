@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Dumbbell, Clock, Weight, Route } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
+import { Colors } from '@/constants/theme';
 import { StatCard } from './stat-card';
 import { formatDuration, formatWeight, formatDistance } from '@/lib/format';
 import type { TotalStats } from '@/lib/stats';
@@ -16,7 +17,7 @@ interface TotalsSectionProps {
 
 export function TotalsSection({ totals, weightUnit, distanceUnit }: TotalsSectionProps) {
   const { colorScheme } = useColorScheme();
-  const iconColor = colorScheme === 'dark' ? '#fb923c' : '#f97316';
+  const iconColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const iconSize = 20;
 
   return (

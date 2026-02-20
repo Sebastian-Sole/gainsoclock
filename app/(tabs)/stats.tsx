@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChartNoAxesCombined } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
+import { Colors } from '@/constants/theme';
 import { useStats } from '@/hooks/use-stats';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useHistoryStore } from '@/stores/history-store';
@@ -19,7 +20,7 @@ const DEFAULT_FILTER: DateRangeFilter = { preset: 'all', from: null, to: null };
 
 export default function StatsScreen() {
   const { colorScheme } = useColorScheme();
-  const primaryColor = colorScheme === 'dark' ? '#fb923c' : '#f97316';
+  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
 
   const [dateFilter, setDateFilter] = useState<DateRangeFilter>(DEFAULT_FILTER);
   const [activeTab, setActiveTab] = useState('overview');

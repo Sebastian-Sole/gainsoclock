@@ -5,6 +5,7 @@ import { Search, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { format } from 'date-fns';
 
+import { Colors } from '@/constants/theme';
 import { formatWeight, formatDistance, formatTime } from '@/lib/format';
 import type { ExerciseStats } from '@/lib/stats';
 import type { WeightUnit, DistanceUnit } from '@/stores/settings-store';
@@ -17,7 +18,7 @@ interface ExercisesTabProps {
 
 export function ExercisesTab({ exerciseStats, weightUnit, distanceUnit }: ExercisesTabProps) {
   const { colorScheme } = useColorScheme();
-  const mutedColor = colorScheme === 'dark' ? '#9BA1A6' : '#687076';
+  const mutedColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].icon;
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 

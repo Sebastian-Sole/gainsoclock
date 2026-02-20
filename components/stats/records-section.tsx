@@ -4,6 +4,7 @@ import { Text } from '@/components/ui/text';
 import { Calendar, CalendarDays, Star, Heart, Clock, Repeat } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
+import { Colors } from '@/constants/theme';
 import type { MonthRecord, YearRecord, FavoriteStats } from '@/lib/stats';
 
 interface RecordsSectionProps {
@@ -36,7 +37,7 @@ function RecordRow({ icon, label, value, subtitle }: RecordRowProps) {
 
 export function RecordsSection({ bestMonth, bestYear, favorites }: RecordsSectionProps) {
   const { colorScheme } = useColorScheme();
-  const iconColor = colorScheme === 'dark' ? '#fb923c' : '#f97316';
+  const iconColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const iconSize = 20;
 
   const rows: { key: string; icon: React.ReactNode; label: string; value: string; subtitle?: string }[] = [];
