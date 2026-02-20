@@ -1,13 +1,13 @@
 import { create } from 'zustand';
-import type { Exercise } from '@/lib/types';
+import type { TemplateExercise } from '@/lib/types';
 
 interface TemplateCreateState {
-  exercises: Exercise[];
-  addExercise: (exercise: Exercise) => void;
+  exercises: TemplateExercise[];
+  addExercise: (exercise: TemplateExercise) => void;
   removeExercise: (id: string) => void;
-  reorderExercises: (exercises: Exercise[]) => void;
+  reorderExercises: (exercises: TemplateExercise[]) => void;
   clearExercises: () => void;
-  setExercises: (exercises: Exercise[]) => void;
+  setExercises: (exercises: TemplateExercise[]) => void;
 }
 
 export const useTemplateCreateStore = create<TemplateCreateState>()((set) => ({

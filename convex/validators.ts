@@ -51,3 +51,33 @@ export const exerciseValidator = v.object({
   sets: v.array(workoutSetValidator),
   restTimeSeconds: v.number(),
 });
+
+// Flat set shape for the workoutSets table (optional fields instead of discriminated union)
+export const flatSetValidator = v.object({
+  clientId: v.string(),
+  order: v.number(),
+  completed: v.boolean(),
+  type: exerciseTypeValidator,
+  reps: v.optional(v.number()),
+  weight: v.optional(v.number()),
+  time: v.optional(v.number()),
+  distance: v.optional(v.number()),
+});
+
+// Template exercise join table payload
+export const templateExerciseValidator = v.object({
+  clientId: v.string(),
+  exerciseClientId: v.string(),
+  order: v.number(),
+  restTimeSeconds: v.number(),
+  defaultSetsCount: v.number(),
+});
+
+// Workout log exercise payload (includes sets for bulk creation)
+export const workoutLogExerciseValidator = v.object({
+  clientId: v.string(),
+  exerciseClientId: v.string(),
+  order: v.number(),
+  restTimeSeconds: v.number(),
+  sets: v.array(flatSetValidator),
+});
