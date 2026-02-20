@@ -1,14 +1,15 @@
 import React from 'react';
-import { View, ScrollView, Pressable, Alert } from 'react-native';
+import { View, ScrollView, Pressable, Alert, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Weight, Ruler, Timer, Vibrate, LogOut } from 'lucide-react-native';
+import { Weight, Ruler, Timer, Vibrate, LogOut, Heart } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useAuthActions } from '@convex-dev/auth/react';
 
 import { useSettingsStore } from '@/stores/settings-store';
+import { useHealthKit } from '@/hooks/use-healthkit';
 import { REST_TIME_PRESETS } from '@/lib/constants';
 import { formatTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -34,6 +35,7 @@ export default function SettingsScreen() {
   const setDistanceUnit = useSettingsStore((s) => s.setDistanceUnit);
   const setDefaultRestTime = useSettingsStore((s) => s.setDefaultRestTime);
   const setHapticsEnabled = useSettingsStore((s) => s.setHapticsEnabled);
+  const { isAvailable: healthKitAvailable, isEnabled: healthKitEnabled, isRequesting: healthKitRequesting, enable: enableHealthKit, disable: disableHealthKit } = useHealthKit();
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -179,6 +181,37 @@ export default function SettingsScreen() {
             />
           </View>
         </View>
+
+        {/* Apple Health Section - iOS only */}
+        {Platform.OS === 'ios' && healthKitAvailable && (
+          <>
+            <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">APPLE HEALTH</Text>
+            <View className="rounded-xl bg-card">
+              <View className="flex-row items-center gap-3 px-4 py-4">
+                <Heart size={20} color={iconColor} />
+                <View className="flex-1">
+                  <Text className="font-medium">Sync with Apple Health</Text>
+                  <Text className="text-sm text-muted-foreground">
+                    {healthKitEnabled
+                      ? 'Workouts are synced to Health'
+                      : 'Save completed workouts to Apple Health'}
+                  </Text>
+                </View>
+                <Switch
+                  checked={healthKitEnabled}
+                  onCheckedChange={async (checked) => {
+                    if (checked) {
+                      await enableHealthKit();
+                    } else {
+                      disableHealthKit();
+                    }
+                  }}
+                  disabled={healthKitRequesting}
+                />
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Account Section */}
         <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">ACCOUNT</Text>

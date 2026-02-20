@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.gainsoclock"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +20,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.gainsoclock"
     },
     "web": {
       "output": "static",
@@ -39,7 +41,15 @@
           }
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "GainSoClock reads your health data to display body measurements and workout history.",
+          "NSHealthUpdateUsageDescription": "GainSoClock saves your completed workouts to Apple Health.",
+          "background": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
