@@ -72,6 +72,9 @@ export function Calendar({
         <View key={weekIndex} className="flex-row">
           {week.map((day) => {
             const dateStr = format(day, 'yyyy-MM-dd');
+            if (!isSameMonth(day, currentMonth)) {
+              return <View key={dateStr} className="h-10 flex-1" />;
+            }
             return (
               <CalendarDay
                 key={dateStr}
@@ -79,7 +82,7 @@ export function Calendar({
                 isToday={isToday(day)}
                 isSelected={isSameDay(day, selectedDate)}
                 hasWorkout={workoutDates.has(dateStr)}
-                isCurrentMonth={isSameMonth(day, currentMonth)}
+                isCurrentMonth
                 onPress={() => onSelectDate(day)}
               />
             );
