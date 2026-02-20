@@ -2,11 +2,11 @@ import React from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Badge } from '@/components/ui/badge';
-import type { Exercise } from '@/lib/types';
+import type { TemplateExercise } from '@/lib/types';
 import { exerciseTypeLabel } from '@/lib/format';
 
 interface ExerciseRowProps {
-  exercise: Exercise;
+  exercise: TemplateExercise;
   index: number;
 }
 
@@ -17,7 +17,7 @@ export function ExerciseRow({ exercise, index }: ExerciseRowProps) {
       <View className="flex-1">
         <Text className="font-medium">{exercise.name}</Text>
         <Text className="text-sm text-muted-foreground">
-          {exercise.sets.length} sets
+          {exercise.defaultSetsCount} sets
         </Text>
       </View>
       <Badge variant="secondary">

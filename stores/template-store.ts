@@ -4,17 +4,43 @@ import { zustandStorage } from '@/lib/storage';
 import { generateId } from '@/lib/id';
 import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
-import type { WorkoutTemplate, Exercise } from '@/lib/types';
+import type { WorkoutTemplate, TemplateExercise } from '@/lib/types';
 
 interface TemplateState {
   templates: WorkoutTemplate[];
 
-  addTemplate: (name: string, exercises: Exercise[]) => WorkoutTemplate;
+  addTemplate: (name: string, exercises: TemplateExercise[]) => WorkoutTemplate;
   updateTemplate: (id: string, updates: Partial<Pick<WorkoutTemplate, 'name' | 'exercises'>>) => void;
   deleteTemplate: (id: string) => void;
   duplicateTemplate: (id: string) => WorkoutTemplate | null;
   getTemplate: (id: string) => WorkoutTemplate | undefined;
-  hydrateFromServer: (serverTemplates: Array<{ clientId: string; name: string; exercises: Exercise[]; createdAt: string; updatedAt: string }>) => void;
+  hydrateFromServer: (serverTemplates: Array<{
+    clientId: string;
+    name: string;
+    exercises: Array<{
+      id: string;
+      exerciseId: string;
+      name: string;
+      type: string;
+      order: number;
+      restTimeSeconds: number;
+      defaultSetsCount: number;
+    }>;
+    createdAt: string;
+    updatedAt: string;
+  }>) => void;
+}
+
+function toSyncExercises(exercises: TemplateExercise[]) {
+  return exercises.map((e) => ({
+    clientId: e.id,
+    exerciseClientId: e.exerciseId,
+    exerciseName: e.name,
+    exerciseType: e.type,
+    order: e.order,
+    restTimeSeconds: e.restTimeSeconds,
+    defaultSetsCount: e.defaultSetsCount,
+  }));
 }
 
 export const useTemplateStore = create<TemplateState>()(
@@ -36,7 +62,7 @@ export const useTemplateStore = create<TemplateState>()(
         syncToConvex(api.templates.create, {
           clientId: template.id,
           name: template.name,
-          exercises: template.exercises,
+          exercises: toSyncExercises(template.exercises),
           createdAt: template.createdAt,
           updatedAt: template.updatedAt,
         });
@@ -56,7 +82,9 @@ export const useTemplateStore = create<TemplateState>()(
 
         const syncArgs: Record<string, unknown> = { clientId: id, updatedAt: now };
         if (updates.name !== undefined) syncArgs.name = updates.name;
-        if (updates.exercises !== undefined) syncArgs.exercises = updates.exercises;
+        if (updates.exercises !== undefined) {
+          syncArgs.exercises = toSyncExercises(updates.exercises);
+        }
         syncToConvex(api.templates.updateByClientId, syncArgs);
       },
 
@@ -79,7 +107,6 @@ export const useTemplateStore = create<TemplateState>()(
           exercises: original.exercises.map((e) => ({
             ...e,
             id: generateId(),
-            sets: e.sets.map((s) => ({ ...s, id: generateId() })),
           })),
           createdAt: now,
           updatedAt: now,
@@ -89,7 +116,7 @@ export const useTemplateStore = create<TemplateState>()(
         syncToConvex(api.templates.create, {
           clientId: duplicate.id,
           name: duplicate.name,
-          exercises: duplicate.exercises,
+          exercises: toSyncExercises(duplicate.exercises),
           createdAt: duplicate.createdAt,
           updatedAt: duplicate.updatedAt,
         });
@@ -103,7 +130,15 @@ export const useTemplateStore = create<TemplateState>()(
         const mapped: WorkoutTemplate[] = serverTemplates.map((t) => ({
           id: t.clientId,
           name: t.name,
-          exercises: t.exercises,
+          exercises: t.exercises.map((e) => ({
+            id: e.id,
+            exerciseId: e.exerciseId,
+            name: e.name,
+            type: e.type as TemplateExercise['type'],
+            order: e.order,
+            restTimeSeconds: e.restTimeSeconds,
+            defaultSetsCount: e.defaultSetsCount,
+          })),
           createdAt: t.createdAt,
           updatedAt: t.updatedAt,
         }));
@@ -113,6 +148,11 @@ export const useTemplateStore = create<TemplateState>()(
     {
       name: 'template-storage',
       storage: zustandStorage,
+      version: 2,
+      migrate: () => {
+        // Old format data is incompatible — start fresh (server will re-hydrate)
+        return { templates: [] };
+      },
     }
   )
 );

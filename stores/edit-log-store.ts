@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { WorkoutLog, Exercise, WorkoutSet } from '@/lib/types';
+import type { WorkoutLog, WorkoutLogExercise, Exercise, WorkoutSet } from '@/lib/types';
 
 interface EditLogState {
   editingLog: WorkoutLog | null;
@@ -13,7 +13,7 @@ interface EditLogState {
 
   addExercise: (exercise: Exercise) => void;
   removeExercise: (exerciseId: string) => void;
-  reorderExercises: (exercises: Exercise[]) => void;
+  reorderExercises: (exercises: WorkoutLogExercise[]) => void;
 
   addSet: (exerciseId: string, set: WorkoutSet) => void;
   removeSet: (exerciseId: string, setId: string) => void;
@@ -59,10 +59,19 @@ export const useEditLogStore = create<EditLogState>()((set) => ({
   addExercise: (exercise) =>
     set((state) => {
       if (!state.editingLog) return state;
+      const logExercise: WorkoutLogExercise = {
+        id: exercise.id,
+        exerciseId: exercise.exerciseId,
+        name: exercise.name,
+        type: exercise.type,
+        order: state.editingLog.exercises.length,
+        restTimeSeconds: exercise.restTimeSeconds,
+        sets: exercise.sets,
+      };
       return {
         editingLog: {
           ...state.editingLog,
-          exercises: [...state.editingLog.exercises, exercise],
+          exercises: [...state.editingLog.exercises, logExercise],
         },
       };
     }),

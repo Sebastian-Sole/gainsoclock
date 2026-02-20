@@ -13,10 +13,9 @@ import { SetRow } from '@/components/workout/set-row';
 import { useEditLogStore } from '@/stores/edit-log-store';
 import { useHistoryStore } from '@/stores/history-store';
 import { createDefaultSet } from '@/lib/defaults';
-import { generateId } from '@/lib/id';
 import { exerciseTypeLabel } from '@/lib/format';
 import { lightHaptic, mediumHaptic, successHaptic } from '@/lib/haptics';
-import type { Exercise } from '@/lib/types';
+import type { WorkoutLogExercise } from '@/lib/types';
 
 export default function EditLogScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -65,7 +64,7 @@ export default function EditLogScreen() {
     );
     updateLog(editingLog.id, {
       templateName: editingLog.templateName.trim(),
-      exercises: editingLog.exercises,
+      exercises: editingLog.exercises.map((e, i) => ({ ...e, order: i })),
       startedAt: editingLog.startedAt,
       completedAt: editingLog.completedAt,
       durationSeconds: duration,
@@ -109,7 +108,7 @@ export default function EditLogScreen() {
     saveLog();
   };
 
-  const handleAddSet = (exercise: Exercise) => {
+  const handleAddSet = (exercise: WorkoutLogExercise) => {
     const newSet = createDefaultSet(exercise.type);
     addSet(exercise.id, newSet);
   };

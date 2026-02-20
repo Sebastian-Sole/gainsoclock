@@ -3,8 +3,22 @@ import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
 import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
-import type { WorkoutLog, Exercise } from '@/lib/types';
+import type { WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
 import { format } from 'date-fns';
+import { generateId } from '@/lib/id';
+
+function flattenSet(s: WorkoutSet) {
+  return {
+    clientId: s.id,
+    order: 0, // will be set by caller
+    completed: s.completed,
+    type: s.type,
+    ...('reps' in s && { reps: s.reps }),
+    ...('weight' in s && { weight: s.weight }),
+    ...('time' in s && { time: s.time }),
+    ...('distance' in s && { distance: s.distance }),
+  };
+}
 
 interface HistoryState {
   logs: WorkoutLog[];
@@ -14,7 +28,31 @@ interface HistoryState {
   deleteLog: (id: string) => void;
   getLogsForDate: (date: Date) => WorkoutLog[];
   getDatesWithWorkouts: (year: number, month: number) => Set<string>;
-  hydrateFromServer: (serverLogs: Array<{ clientId: string; templateId?: string; templateName: string; exercises: Exercise[]; startedAt: string; completedAt: string; durationSeconds: number }>) => void;
+  hydrateFromServer: (serverLogs: Array<{
+    clientId: string;
+    templateId?: string;
+    templateName: string;
+    exercises: Array<{
+      id: string;
+      exerciseId: string;
+      name: string;
+      type: string;
+      order: number;
+      restTimeSeconds: number;
+      sets: Array<{
+        id: string;
+        completed: boolean;
+        type: string;
+        reps?: number;
+        weight?: number;
+        time?: number;
+        distance?: number;
+      }>;
+    }>;
+    startedAt: string;
+    completedAt: string;
+    durationSeconds: number;
+  }>) => void;
 }
 
 export const useHistoryStore = create<HistoryState>()(
@@ -29,10 +67,19 @@ export const useHistoryStore = create<HistoryState>()(
           clientId: log.id,
           templateId: log.templateId,
           templateName: log.templateName,
-          exercises: log.exercises,
           startedAt: log.startedAt,
           completedAt: log.completedAt,
           durationSeconds: log.durationSeconds,
+          exercises: log.exercises.map((e) => ({
+            clientId: e.id,
+            exerciseClientId: e.exerciseId,
+            order: e.order,
+            restTimeSeconds: e.restTimeSeconds,
+            sets: e.sets.map((s, i) => ({
+              ...flattenSet(s),
+              order: i,
+            })),
+          })),
         });
       },
 
@@ -43,9 +90,22 @@ export const useHistoryStore = create<HistoryState>()(
           ),
         }));
 
+        const { exercises, ...rest } = updates;
         syncToConvex(api.workoutLogs.update, {
           clientId: id,
-          ...updates,
+          ...rest,
+          ...(exercises && {
+            exercises: exercises.map((e) => ({
+              clientId: e.id,
+              exerciseClientId: e.exerciseId,
+              order: e.order,
+              restTimeSeconds: e.restTimeSeconds,
+              sets: e.sets.map((s, i) => ({
+                ...flattenSet(s),
+                order: i,
+              })),
+            })),
+          }),
         });
       },
 
@@ -80,7 +140,23 @@ export const useHistoryStore = create<HistoryState>()(
           id: l.clientId,
           templateId: l.templateId,
           templateName: l.templateName,
-          exercises: l.exercises,
+          exercises: l.exercises.map((e) => ({
+            id: e.id,
+            exerciseId: e.exerciseId,
+            name: e.name,
+            type: e.type as WorkoutLogExercise['type'],
+            order: e.order,
+            restTimeSeconds: e.restTimeSeconds,
+            sets: e.sets.map((s) => ({
+              id: s.id,
+              completed: s.completed,
+              type: s.type,
+              ...('reps' in s && s.reps !== undefined && { reps: s.reps }),
+              ...('weight' in s && s.weight !== undefined && { weight: s.weight }),
+              ...('time' in s && s.time !== undefined && { time: s.time }),
+              ...('distance' in s && s.distance !== undefined && { distance: s.distance }),
+            })) as WorkoutSet[],
+          })),
           startedAt: l.startedAt,
           completedAt: l.completedAt,
           durationSeconds: l.durationSeconds,
@@ -96,6 +172,11 @@ export const useHistoryStore = create<HistoryState>()(
     {
       name: 'history-storage',
       storage: zustandStorage,
+      version: 2,
+      migrate: () => {
+        // Old format data is incompatible — start fresh (server will re-hydrate)
+        return { logs: [] };
+      },
     }
   )
 );

@@ -4,6 +4,7 @@ import { api } from "@/convex/_generated/api";
 import { useTemplateStore } from "@/stores/template-store";
 import { useHistoryStore } from "@/stores/history-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useExerciseLibraryStore } from "@/stores/exercise-library-store";
 import { setConvexClient } from "@/lib/convex-sync";
 import { useDataMigration } from "@/hooks/use-data-migration";
 
@@ -29,12 +30,19 @@ export function ConvexSyncProvider({
 }
 
 function SyncEngine() {
-  const templates = useQuery(api.templates.list);
-  const logs = useQuery(api.workoutLogs.list);
+  const exercises = useQuery(api.exercises.list);
+  const templates = useQuery(api.templates.listWithExercises);
+  const logs = useQuery(api.workoutLogs.listWithExercises);
   const settings = useQuery(api.settings.get);
 
   // Run one-time migration of local data to Convex
   useDataMigration();
+
+  // Hydrate exercise library from server
+  useEffect(() => {
+    if (exercises === undefined) return;
+    useExerciseLibraryStore.getState().hydrateFromServer(exercises);
+  }, [exercises]);
 
   // Hydrate template store from server
   useEffect(() => {
