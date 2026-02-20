@@ -16,28 +16,28 @@ export function CalendarDay({ day, isToday, isSelected, hasWorkout, isCurrentMon
   return (
     <Pressable
       onPress={onPress}
-      className={cn(
-        'h-10 flex-1 items-center justify-center rounded-lg',
-        isSelected && 'bg-primary',
-        isToday && !isSelected && 'bg-accent'
-      )}
+      className="h-10 flex-1 items-center justify-center"
     >
-      <Text
+      <View
         className={cn(
-          'text-sm',
-          !isCurrentMonth && 'text-muted-foreground/40',
-          isSelected && 'font-bold text-primary-foreground',
-          isToday && !isSelected && 'font-bold text-primary'
+          'h-10 w-10 items-center justify-center rounded-full',
+          isSelected && 'bg-primary',
+          hasWorkout && !isSelected && 'bg-primary/25',
+          isToday && !isSelected && !hasWorkout && 'bg-accent border-2 border-primary'
         )}
       >
-        {day}
-      </Text>
-      {hasWorkout && !isSelected && (
-        <View className="absolute bottom-1 h-1 w-1 rounded-full bg-primary" />
-      )}
-      {hasWorkout && isSelected && (
-        <View className="absolute bottom-1 h-1 w-1 rounded-full bg-primary-foreground" />
-      )}
+        <Text
+          className={cn(
+            'text-sm',
+            !isCurrentMonth && 'text-muted-foreground/40',
+            isSelected && 'font-bold text-primary-foreground',
+            isToday && !isSelected && 'font-bold text-primary',
+            hasWorkout && !isSelected && !isToday && 'font-semibold text-primary'
+          )}
+        >
+          {day}
+        </Text>
+      </View>
     </Pressable>
   );
 }
