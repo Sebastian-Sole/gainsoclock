@@ -57,6 +57,32 @@ export const remove = mutation({
   },
 });
 
+export const update = mutation({
+  args: {
+    clientId: v.string(),
+    templateName: v.optional(v.string()),
+    exercises: v.optional(v.array(exerciseValidator)),
+    startedAt: v.optional(v.string()),
+    completedAt: v.optional(v.string()),
+    durationSeconds: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const log = await ctx.db
+      .query("workoutLogs")
+      .withIndex("by_user_clientId", (q) =>
+        q.eq("userId", userId).eq("clientId", args.clientId)
+      )
+      .unique();
+    if (!log) return;
+
+    const { clientId: _, ...updates } = args;
+    await ctx.db.patch(log._id, updates);
+  },
+});
+
 export const bulkUpsert = mutation({
   args: {
     logs: v.array(

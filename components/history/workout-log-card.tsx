@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Clock, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Clock, ChevronDown, ChevronUp, Pencil } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
+import { useRouter } from 'expo-router';
 import type { WorkoutLog } from '@/lib/types';
 import { formatDuration, exerciseTypeLabel } from '@/lib/format';
 import { format } from 'date-fns';
@@ -14,6 +15,7 @@ interface WorkoutLogCardProps {
 export function WorkoutLogCard({ log }: WorkoutLogCardProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
 
   const completedSets = log.exercises.reduce(
@@ -76,6 +78,13 @@ export function WorkoutLogCard({ log }: WorkoutLogCardProps) {
               </View>
             );
           })}
+          <Pressable
+            onPress={() => router.push(`/workout/${log.id}`)}
+            className="mt-3 flex-row items-center justify-center gap-2 rounded-lg bg-primary/10 py-2.5"
+          >
+            <Pencil size={14} color={isDark ? '#fb923c' : '#f97316'} />
+            <Text className="text-sm font-medium text-primary">Edit Workout</Text>
+          </Pressable>
         </View>
       )}
     </Pressable>

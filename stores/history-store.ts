@@ -10,6 +10,7 @@ interface HistoryState {
   logs: WorkoutLog[];
 
   addLog: (log: WorkoutLog) => void;
+  updateLog: (id: string, updates: Partial<Omit<WorkoutLog, 'id'>>) => void;
   deleteLog: (id: string) => void;
   getLogsForDate: (date: Date) => WorkoutLog[];
   getDatesWithWorkouts: (year: number, month: number) => Set<string>;
@@ -32,6 +33,19 @@ export const useHistoryStore = create<HistoryState>()(
           startedAt: log.startedAt,
           completedAt: log.completedAt,
           durationSeconds: log.durationSeconds,
+        });
+      },
+
+      updateLog: (id, updates) => {
+        set((state) => ({
+          logs: state.logs.map((l) =>
+            l.id === id ? { ...l, ...updates } : l
+          ),
+        }));
+
+        syncToConvex(api.workoutLogs.update, {
+          clientId: id,
+          ...updates,
         });
       },
 

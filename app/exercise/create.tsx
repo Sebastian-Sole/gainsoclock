@@ -19,6 +19,7 @@ import { DEFAULT_REST_TIME } from '@/lib/defaults';
 import { lightHaptic } from '@/lib/haptics';
 import { useTemplateCreateStore } from '@/stores/exercise-draft-store';
 import { useWorkoutStore } from '@/stores/workout-store';
+import { useEditLogStore } from '@/stores/edit-log-store';
 
 const TOTAL_STEPS = 4;
 
@@ -77,6 +78,8 @@ export default function CreateExerciseScreen() {
     };
     if (isActiveWorkout) {
       useWorkoutStore.getState().addExercise(exercise);
+    } else if (source === 'edit-log') {
+      useEditLogStore.getState().addExercise(exercise);
     } else {
       addTemplateExercise(exercise);
     }

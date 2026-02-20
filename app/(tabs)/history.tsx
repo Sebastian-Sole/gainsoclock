@@ -18,18 +18,28 @@ export default function HistoryScreen() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const getLogsForDate = useHistoryStore((s) => s.getLogsForDate);
-  const getDatesWithWorkouts = useHistoryStore((s) => s.getDatesWithWorkouts);
+  const logs = useHistoryStore((s) => s.logs);
 
-  const workoutDates = useMemo(
-    () => getDatesWithWorkouts(currentMonth.getFullYear(), currentMonth.getMonth()),
-    [currentMonth, getDatesWithWorkouts]
-  );
+  const workoutDates = useMemo(() => {
+    const dates = new Set<string>();
+    logs.forEach((log) => {
+      const logDate = new Date(log.startedAt);
+      if (
+        logDate.getFullYear() === currentMonth.getFullYear() &&
+        logDate.getMonth() === currentMonth.getMonth()
+      ) {
+        dates.add(format(logDate, 'yyyy-MM-dd'));
+      }
+    });
+    return dates;
+  }, [currentMonth, logs]);
 
-  const logsForSelectedDate = useMemo(
-    () => getLogsForDate(selectedDate),
-    [selectedDate, getLogsForDate]
-  );
+  const logsForSelectedDate = useMemo(() => {
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    return logs.filter(
+      (log) => format(new Date(log.startedAt), 'yyyy-MM-dd') === dateStr
+    );
+  }, [selectedDate, logs]);
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
