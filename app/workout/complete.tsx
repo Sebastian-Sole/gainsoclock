@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import { View, ScrollView, Pressable, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CheckCircle, Clock, Dumbbell, Target } from 'lucide-react-native';
+import { CheckCircle, Clock, Dumbbell, Target, Heart } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -20,6 +20,7 @@ export default function WorkoutCompleteScreen() {
   const logs = useHistoryStore((s) => s.logs);
   const lastLog = logs[0];
   const weightUnit = useSettingsStore((s) => s.weightUnit);
+  const healthKitEnabled = useSettingsStore((s) => s.healthKitEnabled);
 
   if (!lastLog) {
     return (
@@ -54,6 +55,12 @@ export default function WorkoutCompleteScreen() {
           <CheckCircle size={64} color={primaryColor} />
           <Text className="mt-4 text-2xl font-bold">Workout Complete!</Text>
           <Text className="mt-1 text-muted-foreground">{lastLog.templateName}</Text>
+          {Platform.OS === 'ios' && healthKitEnabled && (
+            <View className="mt-2 flex-row items-center gap-1">
+              <Heart size={14} color={primaryColor} />
+              <Text className="text-sm text-muted-foreground">Synced to Apple Health</Text>
+            </View>
+          )}
         </Animated.View>
 
         {/* Stats grid */}
