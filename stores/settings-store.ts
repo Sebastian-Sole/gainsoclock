@@ -12,11 +12,13 @@ interface SettingsState {
   distanceUnit: DistanceUnit;
   defaultRestTime: number;
   hapticsEnabled: boolean;
+  healthKitEnabled: boolean;
 
   setWeightUnit: (unit: WeightUnit) => void;
   setDistanceUnit: (unit: DistanceUnit) => void;
   setDefaultRestTime: (seconds: number) => void;
   setHapticsEnabled: (enabled: boolean) => void;
+  setHealthKitEnabled: (enabled: boolean) => void;
   hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean }) => void;
 }
 
@@ -36,6 +38,7 @@ export const useSettingsStore = create<SettingsState>()(
       distanceUnit: 'km',
       defaultRestTime: 90,
       hapticsEnabled: true,
+      healthKitEnabled: false,
 
       setWeightUnit: (unit) => {
         set({ weightUnit: unit });
@@ -55,6 +58,11 @@ export const useSettingsStore = create<SettingsState>()(
       setHapticsEnabled: (enabled) => {
         set({ hapticsEnabled: enabled });
         syncSettings(get());
+      },
+
+      setHealthKitEnabled: (enabled) => {
+        set({ healthKitEnabled: enabled });
+        // Not synced to Convex — Apple Health is a per-device setting
       },
 
       hydrateFromServer: (serverSettings) => {

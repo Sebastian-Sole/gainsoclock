@@ -17,6 +17,7 @@ import { createDefaultSet } from '@/lib/defaults';
 import { generateId } from '@/lib/id';
 import { formatDuration, exerciseTypeLabel } from '@/lib/format';
 import { mediumHaptic, successHaptic } from '@/lib/haptics';
+import { saveWorkoutToHealthKit } from '@/lib/healthkit';
 import type { Exercise, WorkoutLog } from '@/lib/types';
 
 export default function ActiveWorkoutScreen() {
@@ -114,6 +115,7 @@ export default function ActiveWorkoutScreen() {
               durationSeconds: elapsed,
             };
             addLog(log);
+            saveWorkoutToHealthKit(log);
             successHaptic();
             router.replace('/workout/complete');
           }
