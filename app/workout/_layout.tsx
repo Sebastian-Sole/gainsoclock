@@ -8,6 +8,7 @@ export default function WorkoutLayout() {
         options={{ gestureEnabled: false }}
       />
       <Stack.Screen name="complete" />
+      <Stack.Screen name="[id]" />
     </Stack>
   );
 }

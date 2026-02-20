@@ -20,6 +20,7 @@ import { lightHaptic } from '@/lib/haptics';
 import { exerciseTypeLabel } from '@/lib/format';
 import { useTemplateCreateStore } from '@/stores/exercise-draft-store';
 import { useWorkoutStore } from '@/stores/workout-store';
+import { useEditLogStore } from '@/stores/edit-log-store';
 import { useExerciseLibraryStore } from '@/stores/exercise-library-store';
 
 const TOTAL_STEPS = 4;
@@ -114,7 +115,7 @@ export default function CreateExerciseScreen() {
     // Ensure exercise exists in the library
     const exerciseDef = getOrCreate(trimmedName, exerciseType);
 
-    if (isActiveWorkout) {
+    if (isActiveWorkout || source === 'edit-log') {
       const exercise: Exercise = {
         id: generateId(),
         exerciseId: exerciseDef.id,
@@ -123,7 +124,11 @@ export default function CreateExerciseScreen() {
         sets: createDefaultSets(exerciseType, setsCount),
         restTimeSeconds: restTime,
       };
-      useWorkoutStore.getState().addExercise(exercise);
+      if (isActiveWorkout) {
+        useWorkoutStore.getState().addExercise(exercise);
+      } else {
+        useEditLogStore.getState().addExercise(exercise);
+      }
     } else {
       const templateExercise: TemplateExercise = {
         id: generateId(),

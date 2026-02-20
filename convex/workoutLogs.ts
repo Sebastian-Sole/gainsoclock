@@ -194,6 +194,87 @@ export const remove = mutation({
   },
 });
 
+export const update = mutation({
+  args: {
+    clientId: v.string(),
+    templateName: v.optional(v.string()),
+    exercises: v.optional(v.array(exercisePayload)),
+    startedAt: v.optional(v.string()),
+    completedAt: v.optional(v.string()),
+    durationSeconds: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const log = await ctx.db
+      .query("workoutLogs")
+      .withIndex("by_user_clientId", (q) =>
+        q.eq("userId", userId).eq("clientId", args.clientId)
+      )
+      .unique();
+    if (!log) return;
+
+    // Patch metadata fields on the log document
+    const { clientId: _, exercises, ...metadataUpdates } = args;
+    await ctx.db.patch(log._id, metadataUpdates);
+
+    // If exercises are provided, replace all exercises and sets
+    if (exercises) {
+      // Delete old exercises and their sets
+      const oldExercises = await ctx.db
+        .query("workoutLogExercises")
+        .withIndex("by_workout", (q) =>
+          q.eq("userId", userId).eq("workoutLogClientId", args.clientId)
+        )
+        .collect();
+
+      for (const ex of oldExercises) {
+        const oldSets = await ctx.db
+          .query("workoutSets")
+          .withIndex("by_workout_exercise", (q) =>
+            q
+              .eq("userId", userId)
+              .eq("workoutLogExerciseClientId", ex.clientId)
+          )
+          .collect();
+        for (const s of oldSets) {
+          await ctx.db.delete(s._id);
+        }
+        await ctx.db.delete(ex._id);
+      }
+
+      // Insert new exercises and sets
+      for (const ex of exercises) {
+        await ctx.db.insert("workoutLogExercises", {
+          userId,
+          clientId: ex.clientId,
+          workoutLogClientId: args.clientId,
+          exerciseClientId: ex.exerciseClientId,
+          order: ex.order,
+          restTimeSeconds: ex.restTimeSeconds,
+        });
+
+        for (const s of ex.sets) {
+          await ctx.db.insert("workoutSets", {
+            userId,
+            clientId: s.clientId,
+            workoutLogExerciseClientId: ex.clientId,
+            exerciseClientId: ex.exerciseClientId,
+            order: s.order,
+            completed: s.completed,
+            type: s.type,
+            ...(s.reps !== undefined && { reps: s.reps }),
+            ...(s.weight !== undefined && { weight: s.weight }),
+            ...(s.time !== undefined && { time: s.time }),
+            ...(s.distance !== undefined && { distance: s.distance }),
+          });
+        }
+      }
+    }
+  },
+});
+
 export const bulkUpsert = mutation({
   args: {
     logs: v.array(
