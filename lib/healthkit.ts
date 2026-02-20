@@ -119,6 +119,8 @@ export async function getLatestBodyWeight(): Promise<{
   }
 }
 
+// Rough estimate: strength training burns ~5-10 kcal/min depending on intensity.
+// More exercises in a session suggests higher intensity, so we scale linearly and cap at 10.
 function estimateCaloriesBurned(log: WorkoutLog): number {
   const minutes = log.durationSeconds / 60;
   const exerciseCount = log.exercises.length;
