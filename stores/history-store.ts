@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
 import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
-import type { WorkoutLog, WorkoutSet } from '@/lib/types';
+import type { WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
 import { format } from 'date-fns';
 
 function flattenSet(s: WorkoutSet) {
@@ -34,6 +34,23 @@ interface HistoryState {
     startedAt: string;
     completedAt: string;
     durationSeconds: number;
+    exercises: Array<{
+      clientId: string;
+      exerciseClientId: string;
+      name: string;
+      type: string;
+      order: number;
+      restTimeSeconds: number;
+      sets: Array<{
+        clientId: string;
+        completed: boolean;
+        type: string;
+        reps?: number;
+        weight?: number;
+        time?: number;
+        distance?: number;
+      }>;
+    }>;
   }>) => void;
 }
 
@@ -124,19 +141,35 @@ export const useHistoryStore = create<HistoryState>()(
         const merged: WorkoutLog[] = [];
         const seenIds = new Set<string>();
 
-        // For each server log, prefer local version if it exists (has full exercise/set data)
+        // For each server log, prefer local version if it exists (may have unsaved changes)
         for (const sl of serverLogs) {
           seenIds.add(sl.clientId);
           const local = localById.get(sl.clientId);
           if (local) {
             merged.push(local);
           } else {
-            // Server-only: create with empty exercises (metadata only)
+            // Server-only: map full exercise/set data from server
             merged.push({
               id: sl.clientId,
               templateId: sl.templateId,
               templateName: sl.templateName,
-              exercises: [],
+              exercises: sl.exercises.map((e) => ({
+                id: e.clientId,
+                exerciseId: e.exerciseClientId,
+                name: e.name,
+                type: e.type as WorkoutLogExercise['type'],
+                order: e.order,
+                restTimeSeconds: e.restTimeSeconds,
+                sets: e.sets.map((s) => ({
+                  id: s.clientId,
+                  completed: s.completed,
+                  type: s.type,
+                  ...('reps' in s && s.reps !== undefined && { reps: s.reps }),
+                  ...('weight' in s && s.weight !== undefined && { weight: s.weight }),
+                  ...('time' in s && s.time !== undefined && { time: s.time }),
+                  ...('distance' in s && s.distance !== undefined && { distance: s.distance }),
+                })) as WorkoutSet[],
+              })),
               startedAt: sl.startedAt,
               completedAt: sl.completedAt,
               durationSeconds: sl.durationSeconds,

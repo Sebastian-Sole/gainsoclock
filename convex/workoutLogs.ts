@@ -27,6 +27,86 @@ export const listMeta = query({
   },
 });
 
+// Full list with exercises and sets joined in.
+// Used for hydration when local data is missing (e.g. after migration or new device).
+export const listFull = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const logs = await ctx.db
+      .query("workoutLogs")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    // Build exercise name/type lookup
+    const exerciseDefs = await ctx.db
+      .query("exercises")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const exerciseMap = new Map(
+      exerciseDefs.map((e) => [e.clientId, { name: e.name, type: e.type }])
+    );
+
+    return await Promise.all(
+      logs.map(async (log) => {
+        const exercises = await ctx.db
+          .query("workoutLogExercises")
+          .withIndex("by_workout", (q) =>
+            q.eq("userId", userId).eq("workoutLogClientId", log.clientId)
+          )
+          .collect();
+
+        const exercisesWithSets = await Promise.all(
+          exercises.map(async (ex) => {
+            const sets = await ctx.db
+              .query("workoutSets")
+              .withIndex("by_workout_exercise", (q) =>
+                q
+                  .eq("userId", userId)
+                  .eq("workoutLogExerciseClientId", ex.clientId)
+              )
+              .collect();
+
+            const def = exerciseMap.get(ex.exerciseClientId);
+
+            return {
+              clientId: ex.clientId,
+              exerciseClientId: ex.exerciseClientId,
+              name: def?.name ?? "Unknown",
+              type: def?.type ?? ("reps_weight" as const),
+              order: ex.order,
+              restTimeSeconds: ex.restTimeSeconds,
+              sets: sets
+                .sort((a, b) => a.order - b.order)
+                .map((s) => ({
+                  clientId: s.clientId,
+                  completed: s.completed,
+                  type: s.type,
+                  ...(s.reps !== undefined && { reps: s.reps }),
+                  ...(s.weight !== undefined && { weight: s.weight }),
+                  ...(s.time !== undefined && { time: s.time }),
+                  ...(s.distance !== undefined && { distance: s.distance }),
+                })),
+            };
+          })
+        );
+
+        return {
+          clientId: log.clientId,
+          templateId: log.templateId,
+          templateName: log.templateName,
+          startedAt: log.startedAt,
+          completedAt: log.completedAt,
+          durationSeconds: log.durationSeconds,
+          exercises: exercisesWithSets.sort((a, b) => a.order - b.order),
+        };
+      })
+    );
+  },
+});
+
 export const create = mutation({
   args: {
     clientId: v.string(),

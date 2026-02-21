@@ -32,7 +32,7 @@ export function ConvexSyncProvider({
 function SyncEngine() {
   const exercises = useQuery(api.exercises.list);
   const templates = useQuery(api.templates.listWithExercises);
-  const logs = useQuery(api.workoutLogs.listMeta);
+  const logs = useQuery(api.workoutLogs.listFull);
   const settings = useQuery(api.settings.get);
 
   // Run one-time migration of local data to Convex
