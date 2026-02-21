@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { View, ScrollView } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChartNoAxesCombined } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
+import { isToday, isSameMonth } from 'date-fns';
 
 import { Colors } from '@/constants/theme';
 import { useStats } from '@/hooks/use-stats';
@@ -26,6 +27,20 @@ export default function StatsScreen() {
   const [dateFilter, setDateFilter] = useState<DateRangeFilter>(DEFAULT_FILTER);
   const [activeTab, setActiveTab] = useState('history');
 
+  // History tab date state (lifted up so header "Today" button can control it)
+  const [historyMonth, setHistoryMonth] = useState(new Date());
+  const [historySelectedDate, setHistorySelectedDate] = useState(new Date());
+
+  const showTodayButton =
+    activeTab === 'history' &&
+    !(isToday(historySelectedDate) && isSameMonth(historyMonth, new Date()));
+
+  const goToToday = useCallback(() => {
+    const now = new Date();
+    setHistoryMonth(now);
+    setHistorySelectedDate(now);
+  }, []);
+
   // Stabilize the filter object for useMemo dependency
   const stableFilter = useMemo(() => dateFilter, [dateFilter.preset, dateFilter.from?.getTime(), dateFilter.to?.getTime()]);
 
@@ -38,8 +53,13 @@ export default function StatsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <View className="px-4 pb-2 pt-2">
+      <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
         <Text className="text-3xl font-bold">Stats</Text>
+        {showTodayButton && (
+          <Pressable onPress={goToToday} className="rounded-full px-3 py-1" style={{ backgroundColor: primaryColor }}>
+            <Text className="text-sm font-semibold text-white">Today</Text>
+          </Pressable>
+        )}
       </View>
 
       {isEmpty ? (
@@ -86,7 +106,12 @@ export default function StatsScreen() {
             <TabsContent value="history" className="flex-1">
               <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
                 <View className="pb-8">
-                  <HistoryTab />
+                  <HistoryTab
+                    currentMonth={historyMonth}
+                    selectedDate={historySelectedDate}
+                    onMonthChange={setHistoryMonth}
+                    onSelectDate={setHistorySelectedDate}
+                  />
                 </View>
               </ScrollView>
             </TabsContent>

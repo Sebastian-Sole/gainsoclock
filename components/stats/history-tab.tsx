@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { CalendarDays } from 'lucide-react-native';
@@ -10,12 +10,16 @@ import { WorkoutLogCard } from '@/components/history/workout-log-card';
 import { useHistoryStore } from '@/stores/history-store';
 import { Colors } from '@/constants/theme';
 
-export function HistoryTab() {
+interface HistoryTabProps {
+  currentMonth: Date;
+  selectedDate: Date;
+  onMonthChange: (month: Date) => void;
+  onSelectDate: (date: Date) => void;
+}
+
+export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelectDate }: HistoryTabProps) {
   const { colorScheme } = useColorScheme();
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const logs = useHistoryStore((s) => s.logs);
 
@@ -46,9 +50,9 @@ export function HistoryTab() {
         currentMonth={currentMonth}
         selectedDate={selectedDate}
         workoutDates={workoutDates}
-        onSelectDate={setSelectedDate}
-        onPrevMonth={() => setCurrentMonth(subMonths(currentMonth, 1))}
-        onNextMonth={() => setCurrentMonth(addMonths(currentMonth, 1))}
+        onSelectDate={onSelectDate}
+        onPrevMonth={() => onMonthChange(subMonths(currentMonth, 1))}
+        onNextMonth={() => onMonthChange(addMonths(currentMonth, 1))}
       />
 
       <Text className="mb-3 mt-6 text-sm font-medium text-muted-foreground">

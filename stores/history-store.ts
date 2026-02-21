@@ -34,7 +34,7 @@ interface HistoryState {
     startedAt: string;
     completedAt: string;
     durationSeconds: number;
-    exercises: Array<{
+    exercises?: Array<{
       clientId: string;
       exerciseClientId: string;
       name: string;
@@ -148,12 +148,12 @@ export const useHistoryStore = create<HistoryState>()(
           if (local) {
             merged.push(local);
           } else {
-            // Server-only: map full exercise/set data from server
+            // Server-only: map exercise/set data if available, otherwise empty
             merged.push({
               id: sl.clientId,
               templateId: sl.templateId,
               templateName: sl.templateName,
-              exercises: sl.exercises.map((e) => ({
+              exercises: (sl.exercises ?? []).map((e) => ({
                 id: e.clientId,
                 exerciseId: e.exerciseClientId,
                 name: e.name,
