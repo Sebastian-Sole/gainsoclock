@@ -14,7 +14,7 @@ function calculate1RM(weight: number, reps: number): { epley: number; brzycki: n
 
   return {
     epley: Math.round(weight * (1 + reps / 30)),
-    brzycki: Math.round(weight * (36 / (37 - reps))),
+    brzycki: reps >= 37 ? 0 : Math.round(weight * (36 / (37 - reps))),
     lombardi: Math.round(weight * Math.pow(reps, 0.1)),
   };
 }
