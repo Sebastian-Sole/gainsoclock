@@ -11,78 +11,19 @@ const exercisePayload = v.object({
   sets: v.array(flatSetValidator),
 });
 
-export const listWithExercises = query({
+// Lightweight list: only workout metadata, no exercise/set joins.
+// Full exercise/set data lives in the local Zustand store (synced via create mutation).
+// This keeps the query fast and well within Convex read limits for any data size.
+export const listMeta = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
-    const logs = await ctx.db
+    return await ctx.db
       .query("workoutLogs")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-
-    // Fetch all exercises for lookups
-    const allExercises = await ctx.db
-      .query("exercises")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    const exerciseMap = new Map(
-      allExercises.map((e) => [e.clientId, e])
-    );
-
-    const result = [];
-    for (const log of logs) {
-      const logExercises = await ctx.db
-        .query("workoutLogExercises")
-        .withIndex("by_workout", (q) =>
-          q.eq("userId", userId).eq("workoutLogClientId", log.clientId)
-        )
-        .collect();
-
-      logExercises.sort((a, b) => a.order - b.order);
-
-      const exercisesWithSets = [];
-      for (const le of logExercises) {
-        const sets = await ctx.db
-          .query("workoutSets")
-          .withIndex("by_workout_exercise", (q) =>
-            q
-              .eq("userId", userId)
-              .eq("workoutLogExerciseClientId", le.clientId)
-          )
-          .collect();
-
-        sets.sort((a, b) => a.order - b.order);
-
-        const exercise = exerciseMap.get(le.exerciseClientId);
-
-        exercisesWithSets.push({
-          id: le.clientId,
-          exerciseId: le.exerciseClientId,
-          name: exercise?.name ?? "Unknown",
-          type: exercise?.type ?? ("reps_weight" as const),
-          order: le.order,
-          restTimeSeconds: le.restTimeSeconds,
-          sets: sets.map((s) => ({
-            id: s.clientId,
-            completed: s.completed,
-            type: s.type,
-            ...(s.reps !== undefined && { reps: s.reps }),
-            ...(s.weight !== undefined && { weight: s.weight }),
-            ...(s.time !== undefined && { time: s.time }),
-            ...(s.distance !== undefined && { distance: s.distance }),
-          })),
-        });
-      }
-
-      result.push({
-        ...log,
-        exercises: exercisesWithSets,
-      });
-    }
-
-    return result;
   },
 });
 

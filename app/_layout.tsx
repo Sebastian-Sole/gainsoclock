@@ -66,6 +66,10 @@ function RootNavigator() {
             name="exercise"
             options={{ headerShown: false, presentation: "modal" }}
           />
+          <Stack.Screen
+            name="import"
+            options={{ headerShown: false, presentation: "modal" }}
+          />
         </Stack>
         <PortalHost />
         <StatusBar style="auto" />

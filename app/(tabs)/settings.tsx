@@ -4,9 +4,10 @@ import { Text } from '@/components/ui/text';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Weight, Ruler, Timer, Vibrate, LogOut, Heart } from 'lucide-react-native';
+import { Weight, Ruler, Timer, Vibrate, LogOut, Heart, Download, ChevronRight } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useAuthActions } from '@convex-dev/auth/react';
+import { useRouter } from 'expo-router';
 
 import { useSettingsStore } from '@/stores/settings-store';
 import { useHealthKit } from '@/hooks/use-healthkit';
@@ -18,6 +19,7 @@ export default function SettingsScreen() {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const iconColor = isDark ? '#fb923c' : '#f97316';
+  const router = useRouter();
   const { signOut } = useAuthActions();
 
   const handleSignOut = () => {
@@ -212,6 +214,22 @@ export default function SettingsScreen() {
             </View>
           </>
         )}
+
+        {/* Data Section */}
+        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">DATA</Text>
+        <View className="rounded-xl bg-card">
+          <Pressable
+            onPress={() => router.push('/import')}
+            className="flex-row items-center gap-3 px-4 py-4"
+          >
+            <Download size={20} color={iconColor} />
+            <View className="flex-1">
+              <Text className="font-medium">Import Data</Text>
+              <Text className="text-sm text-muted-foreground">Import workouts from other apps</Text>
+            </View>
+            <ChevronRight size={20} className="text-muted-foreground" />
+          </Pressable>
+        </View>
 
         {/* Account Section */}
         <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">ACCOUNT</Text>
