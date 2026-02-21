@@ -12,21 +12,23 @@ import { format } from 'date-fns';
 import { SetRow } from '@/components/workout/set-row';
 import { useEditLogStore } from '@/stores/edit-log-store';
 import { useHistoryStore } from '@/stores/history-store';
-import { createDefaultSet } from '@/lib/defaults';
+import { createDefaultSet, createEmptyLog } from '@/lib/defaults';
 import { exerciseTypeLabel } from '@/lib/format';
 import { lightHaptic, mediumHaptic, successHaptic } from '@/lib/haptics';
 import type { WorkoutLogExercise } from '@/lib/types';
 
 export default function EditLogScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, date } = useLocalSearchParams<{ id: string; date?: string }>();
   const router = useRouter();
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const iconColor = isDark ? '#f2f2f2' : '#1c1008';
 
+  const isNewLog = id === 'new';
   const logs = useHistoryStore((s) => s.logs);
   const updateLog = useHistoryStore((s) => s.updateLog);
-  const originalLog = logs.find((l) => l.id === id);
+  const addLog = useHistoryStore((s) => s.addLog);
+  const originalLog = isNewLog ? undefined : logs.find((l) => l.id === id);
 
   const editingLog = useEditLogStore((s) => s.editingLog);
   const loadLog = useEditLogStore((s) => s.loadLog);
@@ -48,9 +50,14 @@ export default function EditLogScreen() {
   const [completedPickerMode, setCompletedPickerMode] = useState<'date' | 'time'>('date');
 
   useEffect(() => {
-    if (originalLog) loadLog(originalLog);
+    if (isNewLog) {
+      const targetDate = date ? new Date(date) : new Date();
+      loadLog(createEmptyLog(targetDate));
+    } else if (originalLog) {
+      loadLog(originalLog);
+    }
     return () => clearLog();
-  }, [originalLog?.id]);
+  }, [isNewLog, originalLog?.id]);
 
   const saveLog = () => {
     if (!editingLog) return;
@@ -62,13 +69,19 @@ export default function EditLogScreen() {
           1000
       )
     );
-    updateLog(editingLog.id, {
+    const logData = {
       templateName: editingLog.templateName.trim(),
       exercises: editingLog.exercises.map((e, i) => ({ ...e, order: i })),
       startedAt: editingLog.startedAt,
       completedAt: editingLog.completedAt,
       durationSeconds: duration,
-    });
+    };
+
+    if (isNewLog) {
+      addLog({ ...editingLog, ...logData });
+    } else {
+      updateLog(editingLog.id, logData);
+    }
     successHaptic();
     router.back();
   };
@@ -157,13 +170,15 @@ export default function EditLogScreen() {
     }
   };
 
-  if (!editingLog) {
+  if (!editingLog && !isNewLog) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-background">
         <Text className="text-muted-foreground">Workout not found</Text>
       </SafeAreaView>
     );
   }
+
+  if (!editingLog) return null;
 
   const totalSets = editingLog.exercises.reduce((t, e) => t + e.sets.length, 0);
   const completedSets = editingLog.exercises.reduce(
@@ -176,7 +191,25 @@ export default function EditLogScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: 'Edit Workout',
+          title: isNewLog ? 'Log Workout' : 'Edit Workout',
+          headerLeft: isNewLog
+            ? () => (
+                <Pressable
+                  onPress={() => {
+                    Alert.alert('Discard Workout?', 'This workout has not been saved yet.', [
+                      { text: 'Keep Editing', style: 'cancel' },
+                      {
+                        text: 'Discard',
+                        style: 'destructive',
+                        onPress: () => router.back(),
+                      },
+                    ]);
+                  }}
+                >
+                  <Text className="text-base text-primary">Cancel</Text>
+                </Pressable>
+              )
+            : undefined,
           headerRight: () => (
             <Pressable onPress={handleSave}>
               <Text className="text-base font-semibold text-primary">Save</Text>
