@@ -13,12 +13,15 @@ interface SettingsState {
   defaultRestTime: number;
   hapticsEnabled: boolean;
   healthKitEnabled: boolean;
+  customRangeFrom: string | null; // ISO string
+  customRangeTo: string | null;   // ISO string
 
   setWeightUnit: (unit: WeightUnit) => void;
   setDistanceUnit: (unit: DistanceUnit) => void;
   setDefaultRestTime: (seconds: number) => void;
   setHapticsEnabled: (enabled: boolean) => void;
   setHealthKitEnabled: (enabled: boolean) => void;
+  setCustomRange: (from: Date, to: Date | null) => void;
   hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean }) => void;
 }
 
@@ -39,6 +42,8 @@ export const useSettingsStore = create<SettingsState>()(
       defaultRestTime: 90,
       hapticsEnabled: true,
       healthKitEnabled: false,
+      customRangeFrom: null,
+      customRangeTo: null,
 
       setWeightUnit: (unit) => {
         set({ weightUnit: unit });
@@ -63,6 +68,14 @@ export const useSettingsStore = create<SettingsState>()(
       setHealthKitEnabled: (enabled) => {
         set({ healthKitEnabled: enabled });
         // Not synced to Convex — Apple Health is a per-device setting
+      },
+
+      setCustomRange: (from, to) => {
+        set({
+          customRangeFrom: from.toISOString(),
+          customRangeTo: to ? to.toISOString() : null,
+        });
+        // Not synced to Convex — per-device preference
       },
 
       hydrateFromServer: (serverSettings) => {
