@@ -83,6 +83,14 @@ export default function StatsScreen() {
               </View>
             )}
 
+            <TabsContent value="history" className="flex-1">
+              <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
+                <View className="pb-8">
+                  <HistoryTab />
+                </View>
+              </ScrollView>
+            </TabsContent>
+
             <TabsContent value="overview" className="flex-1">
               <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
                 <View className="pb-8">
@@ -111,14 +119,6 @@ export default function StatsScreen() {
               <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
                 <View className="pb-8">
                   <RecordsTab stats={stats} />
-                </View>
-              </ScrollView>
-            </TabsContent>
-
-            <TabsContent value="history" className="flex-1">
-              <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
-                <View className="pb-8">
-                  <HistoryTab />
                 </View>
               </ScrollView>
             </TabsContent>
