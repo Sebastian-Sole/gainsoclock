@@ -5,7 +5,6 @@ import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
 import type { WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
 import { format } from 'date-fns';
-import { generateId } from '@/lib/id';
 
 function flattenSet(s: WorkoutSet) {
   return {
@@ -32,15 +31,18 @@ interface HistoryState {
     clientId: string;
     templateId?: string;
     templateName: string;
+    startedAt: string;
+    completedAt: string;
+    durationSeconds: number;
     exercises: Array<{
-      id: string;
-      exerciseId: string;
+      clientId: string;
+      exerciseClientId: string;
       name: string;
       type: string;
       order: number;
       restTimeSeconds: number;
       sets: Array<{
-        id: string;
+        clientId: string;
         completed: boolean;
         type: string;
         reps?: number;
@@ -49,9 +51,6 @@ interface HistoryState {
         distance?: number;
       }>;
     }>;
-    startedAt: string;
-    completedAt: string;
-    durationSeconds: number;
   }>) => void;
 }
 
@@ -136,37 +135,60 @@ export const useHistoryStore = create<HistoryState>()(
       },
 
       hydrateFromServer: (serverLogs) => {
-        const mapped: WorkoutLog[] = serverLogs.map((l) => ({
-          id: l.clientId,
-          templateId: l.templateId,
-          templateName: l.templateName,
-          exercises: l.exercises.map((e) => ({
-            id: e.id,
-            exerciseId: e.exerciseId,
-            name: e.name,
-            type: e.type as WorkoutLogExercise['type'],
-            order: e.order,
-            restTimeSeconds: e.restTimeSeconds,
-            sets: e.sets.map((s) => ({
-              id: s.id,
-              completed: s.completed,
-              type: s.type,
-              ...('reps' in s && s.reps !== undefined && { reps: s.reps }),
-              ...('weight' in s && s.weight !== undefined && { weight: s.weight }),
-              ...('time' in s && s.time !== undefined && { time: s.time }),
-              ...('distance' in s && s.distance !== undefined && { distance: s.distance }),
-            })) as WorkoutSet[],
-          })),
-          startedAt: l.startedAt,
-          completedAt: l.completedAt,
-          durationSeconds: l.durationSeconds,
-        }));
-        // Keep newest first
-        mapped.sort(
+        const localLogs = get().logs;
+        const localById = new Map(localLogs.map((l) => [l.id, l]));
+
+        const merged: WorkoutLog[] = [];
+        const seenIds = new Set<string>();
+
+        // For each server log, prefer local version if it exists (may have unsaved changes)
+        for (const sl of serverLogs) {
+          seenIds.add(sl.clientId);
+          const local = localById.get(sl.clientId);
+          if (local) {
+            merged.push(local);
+          } else {
+            // Server-only: map full exercise/set data from server
+            merged.push({
+              id: sl.clientId,
+              templateId: sl.templateId,
+              templateName: sl.templateName,
+              exercises: sl.exercises.map((e) => ({
+                id: e.clientId,
+                exerciseId: e.exerciseClientId,
+                name: e.name,
+                type: e.type as WorkoutLogExercise['type'],
+                order: e.order,
+                restTimeSeconds: e.restTimeSeconds,
+                sets: e.sets.map((s) => ({
+                  id: s.clientId,
+                  completed: s.completed,
+                  type: s.type,
+                  ...('reps' in s && s.reps !== undefined && { reps: s.reps }),
+                  ...('weight' in s && s.weight !== undefined && { weight: s.weight }),
+                  ...('time' in s && s.time !== undefined && { time: s.time }),
+                  ...('distance' in s && s.distance !== undefined && { distance: s.distance }),
+                })) as WorkoutSet[],
+              })),
+              startedAt: sl.startedAt,
+              completedAt: sl.completedAt,
+              durationSeconds: sl.durationSeconds,
+            });
+          }
+        }
+
+        // Preserve local-only logs
+        for (const l of localLogs) {
+          if (!seenIds.has(l.id)) {
+            merged.push(l);
+          }
+        }
+
+        merged.sort(
           (a, b) =>
             new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
         );
-        set({ logs: mapped });
+        set({ logs: merged });
       },
     }),
     {

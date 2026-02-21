@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { View, Pressable } from 'react-native';
+import { View, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Clock, ChevronDown, ChevronUp, Pencil } from 'lucide-react-native';
+import { Clock, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useRouter } from 'expo-router';
 import type { WorkoutLog } from '@/lib/types';
 import { formatDuration, exerciseTypeLabel } from '@/lib/format';
 import { format } from 'date-fns';
+import { useHistoryStore } from '@/stores/history-store';
 
 interface WorkoutLogCardProps {
   log: WorkoutLog;
@@ -17,6 +18,22 @@ export function WorkoutLogCard({ log }: WorkoutLogCardProps) {
   const isDark = colorScheme === 'dark';
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
+  const deleteLog = useHistoryStore((s) => s.deleteLog);
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Workout',
+      'This workout will be permanently deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteLog(log.id),
+        },
+      ]
+    );
+  };
 
   const completedSets = log.exercises.reduce(
     (t, e) => t + e.sets.filter((s) => s.completed).length,
@@ -78,13 +95,22 @@ export function WorkoutLogCard({ log }: WorkoutLogCardProps) {
               </View>
             );
           })}
-          <Pressable
-            onPress={() => router.push(`/workout/${log.id}`)}
-            className="mt-3 flex-row items-center justify-center gap-2 rounded-lg bg-primary/10 py-2.5"
-          >
-            <Pencil size={14} color={isDark ? '#fb923c' : '#f97316'} />
-            <Text className="text-sm font-medium text-primary">Edit Workout</Text>
-          </Pressable>
+          <View className="mt-3 flex-row gap-2">
+            <Pressable
+              onPress={() => router.push(`/workout/${log.id}`)}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-primary/10 py-2.5"
+            >
+              <Pencil size={14} color={isDark ? '#fb923c' : '#f97316'} />
+              <Text className="text-sm font-medium text-primary">Edit</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleDelete}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-destructive/10 py-2.5"
+            >
+              <Trash2 size={14} color="#ef4444" />
+              <Text className="text-sm font-medium text-destructive">Delete</Text>
+            </Pressable>
+          </View>
         </View>
       )}
     </Pressable>

@@ -67,6 +67,10 @@ function RootNavigator() {
             options={{ headerShown: false, presentation: "modal" }}
           />
           <Stack.Screen
+            name="import"
+            options={{ headerShown: false, presentation: "modal" }}
+          />
+          <Stack.Screen
             name="calculator"
             options={{ headerShown: false, presentation: "modal" }}
           />

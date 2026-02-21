@@ -13,6 +13,7 @@ import type * as exercises from "../exercises.js";
 import type * as http from "../http.js";
 import type * as settings from "../settings.js";
 import type * as templates from "../templates.js";
+import type * as user from "../user.js";
 import type * as validators from "../validators.js";
 import type * as workoutLogs from "../workoutLogs.js";
 
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   settings: typeof settings;
   templates: typeof templates;
+  user: typeof user;
   validators: typeof validators;
   workoutLogs: typeof workoutLogs;
 }>;
