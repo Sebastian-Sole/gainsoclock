@@ -14,6 +14,7 @@ import { DateRangePicker } from '@/components/stats/date-range-picker';
 import { OverviewTab } from '@/components/stats/overview-tab';
 import { ExercisesTab } from '@/components/stats/exercises-tab';
 import { RecordsTab } from '@/components/stats/records-tab';
+import { HistoryTab } from '@/components/stats/history-tab';
 import type { DateRangeFilter } from '@/lib/stats';
 
 const DEFAULT_FILTER: DateRangeFilter = { preset: 'all', from: null, to: null };
@@ -23,7 +24,7 @@ export default function StatsScreen() {
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
 
   const [dateFilter, setDateFilter] = useState<DateRangeFilter>(DEFAULT_FILTER);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('history');
 
   // Stabilize the filter object for useMemo dependency
   const stableFilter = useMemo(() => dateFilter, [dateFilter.preset, dateFilter.from?.getTime(), dateFilter.to?.getTime()]);
@@ -60,6 +61,9 @@ export default function StatsScreen() {
           >
             <View className="px-4 pb-3">
               <TabsList className="w-full">
+                <TabsTrigger value="history" className="flex-1">
+                  <Text>History</Text>
+                </TabsTrigger>
                 <TabsTrigger value="overview" className="flex-1">
                   <Text>Overview</Text>
                 </TabsTrigger>
@@ -72,10 +76,12 @@ export default function StatsScreen() {
               </TabsList>
             </View>
 
-            {/* Date range picker — below tabs */}
-            <View className="px-4 pb-3">
-              <DateRangePicker value={dateFilter} onChange={setDateFilter} />
-            </View>
+            {/* Date range picker — below tabs, hidden on history tab */}
+            {activeTab !== 'history' && (
+              <View className="px-4 pb-3">
+                <DateRangePicker value={dateFilter} onChange={setDateFilter} />
+              </View>
+            )}
 
             <TabsContent value="overview" className="flex-1">
               <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
@@ -105,6 +111,14 @@ export default function StatsScreen() {
               <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
                 <View className="pb-8">
                   <RecordsTab stats={stats} />
+                </View>
+              </ScrollView>
+            </TabsContent>
+
+            <TabsContent value="history" className="flex-1">
+              <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
+                <View className="pb-8">
+                  <HistoryTab />
                 </View>
               </ScrollView>
             </TabsContent>
