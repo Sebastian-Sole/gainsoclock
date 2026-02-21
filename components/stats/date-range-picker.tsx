@@ -3,7 +3,7 @@ import { View, Pressable, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useColorScheme } from 'nativewind';
-import { format, isSameDay, subDays } from 'date-fns';
+import { format, isSameDay, startOfDay, subDays } from 'date-fns';
 import { Calendar } from 'lucide-react-native';
 
 import { Colors } from '@/constants/theme';
@@ -23,9 +23,6 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
   const savedFrom = useSettingsStore((s) => s.customRangeFrom);
   const savedTo = useSettingsStore((s) => s.customRangeTo);
   const setCustomRange = useSettingsStore((s) => s.setCustomRange);
-  // savedTo === null means "today" (rolling), savedFrom === null means no saved range
-  const hasSavedRange = savedFrom !== null;
-
   const [isCustomOpen, setIsCustomOpen] = useState(false);
   const [draftFrom, setDraftFrom] = useState<Date>(() => {
     if (savedFrom) return new Date(savedFrom);
@@ -60,7 +57,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
       }
 
       // Not currently on custom — apply saved range and open editor
-      if (hasSavedRange) {
+      if (savedFrom !== null) {
         const from = new Date(savedFrom);
         const to = savedTo ? new Date(savedTo) : null;
         setDraftFrom(from);
@@ -101,10 +98,13 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
     setShowFromPicker(false);
     setShowToPicker(false);
     setIsCustomOpen(false);
+    // Normalize from to start of day so early workouts aren't excluded
+    const normalizedFrom = startOfDay(draftFrom);
     // If the end date is today, store null so it always means "current date"
     const toIsToday = isSameDay(draftTo, new Date());
-    setCustomRange(draftFrom, toIsToday ? null : draftTo);
-    onChange({ preset: 'custom', from: draftFrom, to: toIsToday ? null : draftTo });
+    const normalizedTo = toIsToday ? null : draftTo;
+    setCustomRange(normalizedFrom, normalizedTo);
+    onChange({ preset: 'custom', from: normalizedFrom, to: normalizedTo });
   };
 
   // Show "Custom" chip as selected if either the picker is open or custom is already applied
