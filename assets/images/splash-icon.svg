@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="1024" height="1024">
+  <!-- Arm wraps around the RIGHT side of the clock (fist → elbow → shoulder) -->
+  <path d="M 200,62 C 280,115 340,170 370,215 C 400,260 395,310 365,350 C 335,390 310,430 295,465"
+        stroke="#F97316" stroke-width="64" fill="none" stroke-linecap="round"/>
+
+  <!-- Fist -->
+  <circle cx="196" cy="58" r="40" fill="#F97316"/>
+
+  <!-- Clock face = the bicep (main focal point, on top) -->
+  <circle cx="240" cy="265" r="115" fill="white" stroke="#F97316" stroke-width="15"/>
+
+  <!-- Tick marks at 12, 3, 6, 9 -->
+  <line x1="240" y1="166" x2="240" y2="190" stroke="#F97316" stroke-width="8" stroke-linecap="round"/>
+  <line x1="339" y1="265" x2="315" y2="265" stroke="#F97316" stroke-width="8" stroke-linecap="round"/>
+  <line x1="240" y1="364" x2="240" y2="340" stroke="#F97316" stroke-width="8" stroke-linecap="round"/>
+  <line x1="141" y1="265" x2="165" y2="265" stroke="#F97316" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Hour hand (~2 o'clock) -->
+  <line x1="240" y1="265" x2="305" y2="218" stroke="#F97316" stroke-width="10" stroke-linecap="round"/>
+  <!-- Minute hand (~12) -->
+  <line x1="240" y1="265" x2="240" y2="188" stroke="#F97316" stroke-width="8" stroke-linecap="round"/>
+  <!-- Center dot -->
+  <circle cx="240" cy="265" r="8" fill="#F97316"/>
+</svg>

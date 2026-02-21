@@ -1,19 +1,22 @@
 import "../global.css";
 
+import { useEffect, useRef } from "react";
 import { ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useColorScheme } from "nativewind";
 import { PortalHost } from "@rn-primitives/portal";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
-import { ActivityIndicator, View } from "react-native";
 
 import { NAV_THEME } from "@/lib/theme";
 import secureStorage from "@/lib/secure-storage";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { ConvexSyncProvider } from "@/providers/convex-sync-provider";
+
+SplashScreen.preventAutoHideAsync();
 
 if (!process.env.EXPO_PUBLIC_CONVEX_URL) {
   throw new Error(
@@ -32,13 +35,17 @@ export const unstable_settings = {
 function RootNavigator() {
   const { colorScheme } = useColorScheme();
   const { isLoading } = useAuthGuard();
+  const hasHiddenSplash = useRef(false);
+
+  useEffect(() => {
+    if (!isLoading && !hasHiddenSplash.current) {
+      hasHiddenSplash.current = true;
+      SplashScreen.hideAsync();
+    }
+  }, [isLoading]);
 
   if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return null;
   }
 
   return (
