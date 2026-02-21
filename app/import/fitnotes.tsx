@@ -72,7 +72,7 @@ export default function FitNotesImportScreen() {
   const iconColor = isDark ? '#fb923c' : '#f97316';
 
   const addLog = useHistoryStore((s) => s.addLog);
-  const deleteLog = useHistoryStore((s) => s.deleteLog);
+  const updateLog = useHistoryStore((s) => s.updateLog);
   const existingLogs = useHistoryStore((s) => s.logs);
   const getOrCreate = useExerciseLibraryStore((s) => s.getOrCreate);
 
@@ -212,11 +212,18 @@ export default function FitNotesImportScreen() {
           setSkippedCount(skipped);
           continue;
         }
-        // Replace: delete existing first
-        deleteLog(existingId);
+        // Replace: update existing in place (avoids race with server hydration)
+        updateLog(existingId, {
+          templateName: log.templateName,
+          exercises: log.exercises,
+          startedAt: log.startedAt,
+          completedAt: log.completedAt,
+          durationSeconds: log.durationSeconds,
+        });
+      } else {
+        addLog(log);
       }
 
-      addLog(log);
       imported++;
       setImportedCount(imported);
 
@@ -233,7 +240,7 @@ export default function FitNotesImportScreen() {
     options,
     getOrCreate,
     addLog,
-    deleteLog,
+    updateLog,
     existingLogs,
     duplicateHandling,
   ]);
