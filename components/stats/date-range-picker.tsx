@@ -3,11 +3,12 @@ import { View, Pressable, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useColorScheme } from 'nativewind';
-import { format, subDays } from 'date-fns';
+import { format, isSameDay, startOfDay, subDays } from 'date-fns';
 import { Calendar } from 'lucide-react-native';
 
 import { Colors } from '@/constants/theme';
 import { PRESET_OPTIONS, type PresetKey, type DateRangeFilter } from '@/lib/stats';
+import { useSettingsStore } from '@/stores/settings-store';
 
 interface DateRangePickerProps {
   value: DateRangeFilter;
@@ -19,23 +20,52 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
   const isDark = colorScheme === 'dark';
   const mutedColor = Colors[isDark ? 'dark' : 'light'].icon;
 
+  const savedFrom = useSettingsStore((s) => s.customRangeFrom);
+  const savedTo = useSettingsStore((s) => s.customRangeTo);
+  const setCustomRange = useSettingsStore((s) => s.setCustomRange);
   const [isCustomOpen, setIsCustomOpen] = useState(false);
   const [draftFrom, setDraftFrom] = useState<Date>(() => {
+    if (savedFrom) return new Date(savedFrom);
     const d = new Date();
     d.setDate(d.getDate() - 30);
     return d;
   });
-  const [draftTo, setDraftTo] = useState<Date>(() => new Date());
+  const [draftTo, setDraftTo] = useState<Date>(() => {
+    if (savedTo) return new Date(savedTo);
+    return new Date();
+  });
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showToPicker, setShowToPicker] = useState(false);
 
   const handlePresetPress = (key: PresetKey) => {
     if (key === 'custom') {
-      // Open the custom picker UI without applying yet
-      if (value.preset === 'custom' && value.from && value.to) {
-        setDraftFrom(value.from);
-        setDraftTo(value.to);
+      if (value.preset === 'custom') {
+        // Already on custom — toggle the editor open/closed
+        if (isCustomOpen) {
+          setIsCustomOpen(false);
+          setShowFromPicker(false);
+          setShowToPicker(false);
+        } else {
+          // Pre-fill draft from current custom values
+          if (value.from) {
+            setDraftFrom(value.from);
+            setDraftTo(value.to ?? new Date());
+          }
+          setIsCustomOpen(true);
+        }
+        return;
       }
+
+      // Not currently on custom — apply saved range and open editor
+      if (savedFrom !== null) {
+        const from = new Date(savedFrom);
+        const to = savedTo ? new Date(savedTo) : null;
+        setDraftFrom(from);
+        setDraftTo(to ?? new Date());
+        onChange({ preset: 'custom', from, to });
+      }
+
+      // Open the picker (whether or not there's a saved range)
       setIsCustomOpen(true);
       return;
     }
@@ -68,7 +98,13 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
     setShowFromPicker(false);
     setShowToPicker(false);
     setIsCustomOpen(false);
-    onChange({ preset: 'custom', from: draftFrom, to: draftTo });
+    // Normalize from to start of day so early workouts aren't excluded
+    const normalizedFrom = startOfDay(draftFrom);
+    // If the end date is today, store null so it always means "current date"
+    const toIsToday = isSameDay(draftTo, new Date());
+    const normalizedTo = toIsToday ? null : draftTo;
+    setCustomRange(normalizedFrom, normalizedTo);
+    onChange({ preset: 'custom', from: normalizedFrom, to: normalizedTo });
   };
 
   // Show "Custom" chip as selected if either the picker is open or custom is already applied
