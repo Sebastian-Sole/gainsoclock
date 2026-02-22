@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Alert } from 'react-native';
+import { View, ScrollView, Pressable, Alert, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'expo-router';
@@ -61,6 +61,7 @@ export default function ActiveWorkoutScreen() {
   }
 
   const handleToggleSet = (exerciseId: string, setId: string, exercise: Exercise) => {
+    Keyboard.dismiss();
     const set = exercise.sets.find((s) => s.id === setId);
     const wasCompleted = set?.completed ?? false;
 
@@ -75,11 +76,13 @@ export default function ActiveWorkoutScreen() {
   };
 
   const handleAddSet = (exercise: Exercise) => {
+    Keyboard.dismiss();
     const newSet = createDefaultSet(exercise.type);
     addSet(exercise.id, newSet);
   };
 
   const handleMoveExercise = (index: number, direction: 'up' | 'down') => {
+    Keyboard.dismiss();
     if (!activeWorkout) return;
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= activeWorkout.exercises.length) return;
@@ -90,10 +93,12 @@ export default function ActiveWorkoutScreen() {
   };
 
   const handleAddExercise = () => {
+    Keyboard.dismiss();
     router.push('/exercise/create?source=active');
   };
 
   const handleEndWorkout = () => {
+    Keyboard.dismiss();
     Alert.alert('End Workout', 'What would you like to do?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -185,7 +190,7 @@ export default function ActiveWorkoutScreen() {
       )}
 
       {/* Body */}
-      <ScrollView className="flex-1" contentContainerClassName="px-4 pb-32">
+      <ScrollView className="flex-1" contentContainerClassName="px-4 pb-32" keyboardShouldPersistTaps="handled">
         {activeWorkout.exercises.map((exercise, exerciseIndex) => (
           <View key={exercise.id} className="mt-6">
             {/* Exercise Header */}
@@ -220,6 +225,7 @@ export default function ActiveWorkoutScreen() {
                 </Pressable>
                 <Pressable
                   onPress={() => {
+                    Keyboard.dismiss();
                     Alert.alert('Remove Exercise', `Remove ${exercise.name}?`, [
                       { text: 'Cancel', style: 'cancel' },
                       {

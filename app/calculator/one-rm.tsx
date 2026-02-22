@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TextInput } from 'react-native';
+import { View, ScrollView, TextInput, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,6 +37,7 @@ export default function OneRMCalculator() {
   const [result, setResult] = useState<ReturnType<typeof calculate1RM> | null>(null);
 
   const handleCalculate = () => {
+    Keyboard.dismiss();
     const w = parseFloat(weight);
     const r = parseInt(reps, 10);
     if (!isNaN(w) && !isNaN(r) && w > 0 && r > 0) {
@@ -48,7 +49,7 @@ export default function OneRMCalculator() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['bottom']}>
-      <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View className="gap-4 pt-4">
           <View>
             <Text className="mb-2 text-sm font-medium text-muted-foreground">

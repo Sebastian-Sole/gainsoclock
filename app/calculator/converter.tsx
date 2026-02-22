@@ -51,7 +51,7 @@ export default function UnitConverter() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['bottom']}>
-      <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View className="gap-4 pt-4">
           {/* Lbs input */}
           <View>

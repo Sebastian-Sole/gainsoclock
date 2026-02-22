@@ -3,6 +3,8 @@ import {
   View,
   TextInput,
   KeyboardAvoidingView,
+  ScrollView,
+  Keyboard,
   Platform,
   Pressable,
   ActivityIndicator,
@@ -45,6 +47,7 @@ export default function SignUpScreen() {
   };
 
   const handleSignUp = async () => {
+    Keyboard.dismiss();
     const validationError = validate();
     if (validationError) {
       setError(validationError);
@@ -76,7 +79,7 @@ export default function SignUpScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
       >
-        <View className="flex-1 justify-center px-6">
+        <ScrollView contentContainerClassName="flex-1 justify-center px-6" keyboardShouldPersistTaps="handled">
           <Text className="mb-2 text-center text-3xl font-bold">
             Create Account
           </Text>
@@ -168,7 +171,7 @@ export default function SignUpScreen() {
               <Text className="font-semibold text-primary">Sign In</Text>
             </Pressable>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, TextInput, Pressable, Platform } from 'react-native';
+import { View, ScrollView, TextInput, Pressable, Platform, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -174,7 +174,7 @@ export default function CalorieCalculator() {
               {(['male', 'female'] as Sex[]).map((s) => (
                 <Pressable
                   key={s}
-                  onPress={() => setSex(s)}
+                  onPress={() => { Keyboard.dismiss(); setSex(s); }}
                   className={cn('flex-1 rounded-lg py-2', sex === s && 'bg-primary')}
                 >
                   <Text
@@ -237,7 +237,7 @@ export default function CalorieCalculator() {
             <View className="gap-2">
               {/* App History option */}
               <Pressable
-                onPress={() => setActivitySource('app_history')}
+                onPress={() => { Keyboard.dismiss(); setActivitySource('app_history'); }}
                 className={cn(
                   'flex-row items-center gap-3 rounded-xl px-4 py-3',
                   activitySource === 'app_history'
@@ -258,7 +258,7 @@ export default function CalorieCalculator() {
 
               {/* Manual option */}
               <Pressable
-                onPress={() => setActivitySource('manual')}
+                onPress={() => { Keyboard.dismiss(); setActivitySource('manual'); }}
                 className={cn(
                   'flex-row items-center gap-3 rounded-xl px-4 py-3',
                   activitySource === 'manual'
@@ -277,7 +277,7 @@ export default function CalorieCalculator() {
               {/* Apple Health option (iOS only) */}
               {healthKitAvailable && (
                 <Pressable
-                  onPress={() => setActivitySource('apple_health')}
+                  onPress={() => { Keyboard.dismiss(); setActivitySource('apple_health'); }}
                   className={cn(
                     'flex-row items-center gap-3 rounded-xl px-4 py-3',
                     activitySource === 'apple_health'
@@ -306,7 +306,7 @@ export default function CalorieCalculator() {
                   {WORKOUTS_PER_WEEK_OPTIONS.map((n) => (
                     <Pressable
                       key={n}
-                      onPress={() => setWorkoutsPerWeek(n)}
+                      onPress={() => { Keyboard.dismiss(); setWorkoutsPerWeek(n); }}
                       className={cn(
                         'h-10 w-10 items-center justify-center rounded-lg',
                         workoutsPerWeek === n ? 'bg-primary' : 'border border-border'
@@ -331,7 +331,7 @@ export default function CalorieCalculator() {
                   {INTENSITY_OPTIONS.map((opt) => (
                     <Pressable
                       key={opt.key}
-                      onPress={() => setIntensityKey(opt.key)}
+                      onPress={() => { Keyboard.dismiss(); setIntensityKey(opt.key); }}
                       className={cn(
                         'rounded-lg px-3 py-2',
                         intensityKey === opt.key ? 'bg-primary' : 'border border-border'
@@ -398,6 +398,7 @@ export default function CalorieCalculator() {
                 <Pressable
                   key={key}
                   onPress={() => {
+                    Keyboard.dismiss();
                     setGoalDirection(key);
                     setGoalKgPerWeek(GOAL_AMOUNTS[key][0].kgPerWeek);
                   }}
@@ -426,7 +427,7 @@ export default function CalorieCalculator() {
                 {GOAL_AMOUNTS[goalDirection].map((opt) => (
                   <Pressable
                     key={opt.kgPerWeek}
-                    onPress={() => setGoalKgPerWeek(opt.kgPerWeek)}
+                    onPress={() => { Keyboard.dismiss(); setGoalKgPerWeek(opt.kgPerWeek); }}
                     className={cn(
                       'flex-row items-center justify-between rounded-lg px-4 py-3',
                       goalKgPerWeek === opt.kgPerWeek

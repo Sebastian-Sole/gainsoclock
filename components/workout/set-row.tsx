@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable } from 'react-native';
+import { View, Pressable, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Check, X } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
@@ -28,6 +28,7 @@ export function SetRow({ set, index, onUpdate, onToggleComplete, onRemove, edita
   }));
 
   const handleToggle = () => {
+    Keyboard.dismiss();
     scale.value = withSequence(
       withSpring(1.05, { duration: 150 }),
       withSpring(1, { duration: 150 })
@@ -129,7 +130,7 @@ export function SetRow({ set, index, onUpdate, onToggleComplete, onRemove, edita
           >
             <Check size={16} color={set.completed ? 'white' : isDark ? '#666' : '#999'} />
           </Pressable>
-          <Pressable onPress={onRemove} className="h-8 w-8 items-center justify-center">
+          <Pressable onPress={() => { Keyboard.dismiss(); onRemove(); }} className="h-8 w-8 items-center justify-center">
             <X size={14} color={isDark ? '#666' : '#999'} />
           </Pressable>
         </View>

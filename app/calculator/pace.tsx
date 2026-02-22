@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TextInput, Pressable } from 'react-native';
+import { View, ScrollView, TextInput, Pressable, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,6 +35,7 @@ export default function PaceCalculator() {
   } | null>(null);
 
   const handleCalculate = () => {
+    Keyboard.dismiss();
     const d = parseFloat(distance);
     const h = parseInt(hours || '0', 10);
     const m = parseInt(minutes || '0', 10);
@@ -72,7 +73,7 @@ export default function PaceCalculator() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['bottom']}>
-      <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View className="gap-4 pt-4">
           {/* Unit toggle */}
           <View>
@@ -81,7 +82,7 @@ export default function PaceCalculator() {
               {(['km', 'mi'] as DistanceUnit[]).map((u) => (
                 <Pressable
                   key={u}
-                  onPress={() => setUnit(u)}
+                  onPress={() => { Keyboard.dismiss(); setUnit(u); }}
                   className={cn('flex-1 rounded-lg py-2', unit === u && 'bg-primary')}
                 >
                   <Text
@@ -118,7 +119,7 @@ export default function PaceCalculator() {
             {commonDistances.map((d) => (
               <Pressable
                 key={d.label}
-                onPress={() => setDistance(String(unit === 'km' ? d.km : d.mi))}
+                onPress={() => { Keyboard.dismiss(); setDistance(String(unit === 'km' ? d.km : d.mi)); }}
                 className="rounded-lg border border-border px-3 py-2 active:opacity-70"
               >
                 <Text className="text-sm font-medium">{d.label}</Text>

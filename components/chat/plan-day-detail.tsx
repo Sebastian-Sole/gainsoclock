@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, ScrollView, Pressable, Modal } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, ScrollView, Pressable, Modal, Animated, Dimensions, StyleSheet } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { X, Play, Dumbbell, Check } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
@@ -42,16 +42,43 @@ export function PlanDayDetail({
     templateClientId ? s.getTemplate(templateClientId) : undefined
   );
 
+  const screenHeight = Dimensions.get('window').height;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const sheetTranslateY = useRef(new Animated.Value(screenHeight)).current;
+  const [modalVisible, setModalVisible] = React.useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setModalVisible(true);
+      Animated.parallel([
+        Animated.timing(overlayOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(sheetTranslateY, { toValue: 0, damping: 20, stiffness: 200, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(sheetTranslateY, { toValue: screenHeight, duration: 200, useNativeDriver: true }),
+      ]).start(() => setModalVisible(false));
+    }
+  }, [visible]);
+
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <Pressable
-        onPress={onClose}
-        className="flex-1 justify-end bg-black/50"
-      >
-        <Pressable
-          onPress={(e) => e.stopPropagation()}
+    <Modal visible={modalVisible} transparent animationType="none">
+      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+        {/* Overlay – fades independently */}
+        <Animated.View
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            opacity: overlayOpacity,
+          }}
+        />
+        {/* Tap-to-dismiss area */}
+        <Pressable onPress={onClose} style={{ flex: 1 }} />
+        {/* Sheet – slides independently */}
+        <Animated.View
+          style={{ maxHeight: '80%', transform: [{ translateY: sheetTranslateY }] }}
           className="rounded-t-3xl bg-background"
-          style={{ maxHeight: '80%' }}
         >
           {/* Header */}
           <View className="flex-row items-center justify-between px-6 pb-2 pt-6">
@@ -104,7 +131,7 @@ export function PlanDayDetail({
           {template && (
             <ScrollView className="px-6" style={{ maxHeight: 300 }}>
               <Text className="mb-2 text-sm font-medium text-muted-foreground">Exercises</Text>
-              {template.exercises.map((exercise, index) => (
+              {template.exercises.map((exercise) => (
                 <View
                   key={exercise.id}
                   className="mb-2 flex-row items-center gap-3 rounded-xl border border-border bg-card p-3"
@@ -161,8 +188,8 @@ export function PlanDayDetail({
               </Text>
             </View>
           )}
-        </Pressable>
-      </Pressable>
+        </Animated.View>
+      </View>
     </Modal>
   );
 }

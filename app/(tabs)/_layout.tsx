@@ -1,10 +1,16 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { useColorScheme } from 'nativewind';
-import { Dumbbell, ChartNoAxesCombined, Compass, MessageCircle, Settings2 } from 'lucide-react-native';
+import { Tabs } from "expo-router";
+import {
+  ChartNoAxesCombined,
+  Compass,
+  Dumbbell,
+  MessageCircle,
+  Settings2,
+} from "lucide-react-native";
+import { useColorScheme } from "nativewind";
+import React from "react";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { Colors } from '@/constants/theme';
+import { HapticTab } from "@/components/haptic-tab";
+import { Colors } from "@/constants/theme";
 
 export default function TabLayout() {
   const { colorScheme } = useColorScheme();
@@ -12,7 +18,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
         headerShown: false,
         tabBarButton: HapticTab,
       }}
@@ -20,7 +26,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Workouts',
+          title: "Workouts",
           tabBarIcon: ({ color, size }) => (
             <Dumbbell size={size} color={color} />
           ),
@@ -35,7 +41,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="stats"
         options={{
-          title: 'Stats',
+          title: "Stats",
           tabBarIcon: ({ color, size }) => (
             <ChartNoAxesCombined size={size} color={color} />
           ),
@@ -44,7 +50,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
+          title: "Explore",
           tabBarIcon: ({ color, size }) => (
             <Compass size={size} color={color} />
           ),
@@ -53,7 +59,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="chat"
         options={{
-          title: 'Chat',
+          title: "Chat",
           tabBarIcon: ({ color, size }) => (
             <MessageCircle size={size} color={color} />
           ),
@@ -62,7 +68,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: "Settings",
           tabBarIcon: ({ color, size }) => (
             <Settings2 size={size} color={color} />
           ),

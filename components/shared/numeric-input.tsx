@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, TextInput } from 'react-native';
+import { View, Pressable, TextInput, Keyboard } from 'react-native';
 import { Minus, Plus } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { cn } from '@/lib/utils';
@@ -26,11 +26,13 @@ export function NumericInput({
   const isDark = colorScheme === 'dark';
 
   const decrement = () => {
+    Keyboard.dismiss();
     const newVal = Math.max(min, value - step);
     onValueChange(newVal);
   };
 
   const increment = () => {
+    Keyboard.dismiss();
     const newVal = Math.min(max, value + step);
     onValueChange(newVal);
   };

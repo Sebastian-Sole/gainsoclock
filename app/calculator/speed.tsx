@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TextInput, Pressable } from 'react-native';
+import { View, ScrollView, TextInput, Pressable, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,6 +38,7 @@ export default function SpeedCalculator() {
   const [result, setResult] = useState<{ primary: SpeedResult; secondary: SpeedResult } | null>(null);
 
   const handleCalculate = () => {
+    Keyboard.dismiss();
     const m = parseInt(paceMin || '0', 10);
     const s = parseInt(paceSec || '0', 10);
     const totalMinutes = m + s / 60;
@@ -85,7 +86,7 @@ export default function SpeedCalculator() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['bottom']}>
-      <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View className="gap-4 pt-4">
           {/* Unit toggle */}
           <View>
@@ -94,7 +95,7 @@ export default function SpeedCalculator() {
               {(['km', 'mi'] as DistanceUnit[]).map((u) => (
                 <Pressable
                   key={u}
-                  onPress={() => setUnit(u)}
+                  onPress={() => { Keyboard.dismiss(); setUnit(u); }}
                   className={cn('flex-1 rounded-lg py-2', unit === u && 'bg-primary')}
                 >
                   <Text
@@ -148,6 +149,7 @@ export default function SpeedCalculator() {
               <Pressable
                 key={p.label}
                 onPress={() => {
+                  Keyboard.dismiss();
                   setPaceMin(String(p.min));
                   setPaceSec(String(p.sec));
                 }}

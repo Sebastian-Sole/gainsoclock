@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, TextInput, Pressable } from 'react-native';
+import { View, ScrollView, TextInput, Pressable, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Separator } from '@/components/ui/separator';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -144,7 +144,7 @@ export default function PlateCalculator() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['bottom']}>
-      <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View className="gap-4 pt-4">
           {/* Input unit toggle */}
           <View>
@@ -153,7 +153,7 @@ export default function PlateCalculator() {
               {(['lbs', 'kg'] as PlateUnit[]).map((u) => (
                 <Pressable
                   key={u}
-                  onPress={() => setInputUnit(u)}
+                  onPress={() => { Keyboard.dismiss(); setInputUnit(u); }}
                   className={cn('flex-1 rounded-lg py-2', inputUnit === u && 'bg-primary')}
                 >
                   <Text

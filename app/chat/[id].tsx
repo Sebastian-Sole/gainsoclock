@@ -51,6 +51,7 @@ export default function ChatConversationScreen() {
         ref={flatListRef}
         data={messages}
         keyExtractor={(item) => item._id}
+        keyboardShouldPersistTaps="handled"
         contentContainerClassName="px-4 py-4 gap-3"
         renderItem={({ item }) => (
           <View>

@@ -3,6 +3,8 @@ import {
   View,
   TextInput,
   KeyboardAvoidingView,
+  ScrollView,
+  Keyboard,
   Platform,
   Pressable,
   ActivityIndicator,
@@ -48,6 +50,7 @@ export default function SignInScreen() {
   };
 
   const handleSignIn = async () => {
+    Keyboard.dismiss();
     const validationError = validate();
     if (validationError) {
       setError(validationError);
@@ -70,6 +73,7 @@ export default function SignInScreen() {
   };
 
   const handleOAuth = async (provider: "google" | "apple") => {
+    Keyboard.dismiss();
     setError("");
     setIsLoading(true);
     try {
@@ -89,7 +93,7 @@ export default function SignInScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
       >
-        <View className="flex-1 justify-center px-6">
+        <ScrollView contentContainerClassName="flex-1 justify-center px-6" keyboardShouldPersistTaps="handled">
           <Text className="mb-2 text-center text-3xl font-bold">
             Welcome Back
           </Text>
@@ -188,7 +192,7 @@ export default function SignInScreen() {
               <Text className="font-semibold text-primary">Sign Up</Text>
             </Pressable>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
