@@ -6,7 +6,7 @@ import { createDefaultSets } from '@/lib/defaults';
 interface WorkoutState {
   activeWorkout: ActiveWorkout | null;
 
-  startWorkout: (templateName: string, exercises: TemplateExercise[], templateId?: string) => void;
+  startWorkout: (templateName: string, exercises: TemplateExercise[], templateId?: string, planDayId?: string) => void;
   startEmptyWorkout: () => void;
   endWorkout: () => ActiveWorkout | null;
   discardWorkout: () => void;
@@ -31,13 +31,18 @@ interface WorkoutState {
 export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
   activeWorkout: null,
 
-  startWorkout: (templateName, templateExercises, templateId) => {
+  startWorkout: (templateName, templateExercises, templateId, planDayId) => {
     const exercises: Exercise[] = templateExercises.map((te) => ({
       id: generateId(),
       exerciseId: te.exerciseId,
       name: te.name,
       type: te.type,
-      sets: createDefaultSets(te.type, te.defaultSetsCount),
+      sets: createDefaultSets(te.type, te.defaultSetsCount, {
+        suggestedReps: te.suggestedReps,
+        suggestedWeight: te.suggestedWeight,
+        suggestedTime: te.suggestedTime,
+        suggestedDistance: te.suggestedDistance,
+      }),
       restTimeSeconds: te.restTimeSeconds,
     }));
 
@@ -49,6 +54,7 @@ export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
       startedAt: new Date().toISOString(),
       isRestTimerActive: false,
       restTimeRemaining: 0,
+      planDayId,
     };
     set({ activeWorkout: workout });
   },

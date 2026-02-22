@@ -1,7 +1,18 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
-import { exerciseTypeValidator } from "./validators";
+import {
+  exerciseTypeValidator,
+  chatMessageRoleValidator,
+  chatMessageStatusValidator,
+  pendingApprovalValidator,
+  toolCallValidator,
+  planStatusValidator,
+  planDayStatusValidator,
+  ingredientValidator,
+  macrosValidator,
+  weekStartDayValidator,
+} from "./validators";
 
 export default defineSchema({
   ...authTables,
@@ -23,6 +34,7 @@ export default defineSchema({
     userId: v.id("users"),
     clientId: v.string(),
     name: v.string(),
+    notes: v.optional(v.string()),
     createdAt: v.string(),
     updatedAt: v.string(),
   })
@@ -38,6 +50,10 @@ export default defineSchema({
     order: v.number(),
     restTimeSeconds: v.number(),
     defaultSetsCount: v.number(),
+    suggestedReps: v.optional(v.number()),
+    suggestedWeight: v.optional(v.number()),
+    suggestedTime: v.optional(v.number()),
+    suggestedDistance: v.optional(v.number()),
   })
     .index("by_template", ["userId", "templateClientId"])
     .index("by_exercise", ["userId", "exerciseClientId"]),
@@ -91,5 +107,81 @@ export default defineSchema({
     distanceUnit: v.union(v.literal("km"), v.literal("mi")),
     defaultRestTime: v.number(),
     hapticsEnabled: v.boolean(),
+    weekStartDay: v.optional(weekStartDayValidator),
   }).index("by_user", ["userId"]),
+
+  // Chat conversations
+  chatConversations: defineTable({
+    userId: v.id("users"),
+    clientId: v.string(),
+    title: v.string(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_clientId", ["userId", "clientId"]),
+
+  // Chat messages
+  chatMessages: defineTable({
+    userId: v.id("users"),
+    conversationClientId: v.string(),
+    role: chatMessageRoleValidator,
+    content: v.string(),
+    status: chatMessageStatusValidator,
+    toolCalls: v.optional(v.array(toolCallValidator)),
+    pendingApproval: v.optional(pendingApprovalValidator),
+    createdAt: v.string(),
+  }).index("by_conversation", ["userId", "conversationClientId"]),
+
+  // Workout plans
+  workoutPlans: defineTable({
+    userId: v.id("users"),
+    clientId: v.string(),
+    name: v.string(),
+    description: v.string(),
+    goal: v.optional(v.string()),
+    durationWeeks: v.number(),
+    startDate: v.string(),
+    status: planStatusValidator,
+    sourceConversationClientId: v.optional(v.string()),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_clientId", ["userId", "clientId"]),
+
+  // Plan days (individual days within a plan)
+  planDays: defineTable({
+    userId: v.id("users"),
+    planClientId: v.string(),
+    week: v.number(),
+    dayOfWeek: v.number(),
+    templateClientId: v.optional(v.string()),
+    label: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    status: planDayStatusValidator,
+    workoutLogClientId: v.optional(v.string()),
+  })
+    .index("by_plan", ["userId", "planClientId"])
+    .index("by_plan_week", ["userId", "planClientId", "week"]),
+
+  // Recipes
+  recipes: defineTable({
+    userId: v.id("users"),
+    clientId: v.string(),
+    title: v.string(),
+    description: v.string(),
+    ingredients: v.array(ingredientValidator),
+    instructions: v.array(v.string()),
+    prepTimeMinutes: v.optional(v.number()),
+    cookTimeMinutes: v.optional(v.number()),
+    servings: v.optional(v.number()),
+    macros: v.optional(macrosValidator),
+    tags: v.optional(v.array(v.string())),
+    sourceConversationClientId: v.optional(v.string()),
+    saved: v.boolean(),
+    createdAt: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_clientId", ["userId", "clientId"]),
 });

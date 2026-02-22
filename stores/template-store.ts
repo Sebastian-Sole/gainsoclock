@@ -10,13 +10,14 @@ interface TemplateState {
   templates: WorkoutTemplate[];
 
   addTemplate: (name: string, exercises: TemplateExercise[]) => WorkoutTemplate;
-  updateTemplate: (id: string, updates: Partial<Pick<WorkoutTemplate, 'name' | 'exercises'>>) => void;
+  updateTemplate: (id: string, updates: Partial<Pick<WorkoutTemplate, 'name' | 'notes' | 'exercises'>>) => void;
   deleteTemplate: (id: string) => void;
   duplicateTemplate: (id: string) => WorkoutTemplate | null;
   getTemplate: (id: string) => WorkoutTemplate | undefined;
   hydrateFromServer: (serverTemplates: Array<{
     clientId: string;
     name: string;
+    notes?: string;
     exercises: Array<{
       id: string;
       exerciseId: string;
@@ -25,6 +26,10 @@ interface TemplateState {
       order: number;
       restTimeSeconds: number;
       defaultSetsCount: number;
+      suggestedReps?: number;
+      suggestedWeight?: number;
+      suggestedTime?: number;
+      suggestedDistance?: number;
     }>;
     createdAt: string;
     updatedAt: string;
@@ -40,6 +45,10 @@ function toSyncExercises(exercises: TemplateExercise[]) {
     order: e.order,
     restTimeSeconds: e.restTimeSeconds,
     defaultSetsCount: e.defaultSetsCount,
+    suggestedReps: e.suggestedReps,
+    suggestedWeight: e.suggestedWeight,
+    suggestedTime: e.suggestedTime,
+    suggestedDistance: e.suggestedDistance,
   }));
 }
 
@@ -62,6 +71,7 @@ export const useTemplateStore = create<TemplateState>()(
         syncToConvex(api.templates.create, {
           clientId: template.id,
           name: template.name,
+          notes: template.notes,
           exercises: toSyncExercises(template.exercises),
           createdAt: template.createdAt,
           updatedAt: template.updatedAt,
@@ -82,6 +92,7 @@ export const useTemplateStore = create<TemplateState>()(
 
         const syncArgs: Record<string, unknown> = { clientId: id, updatedAt: now };
         if (updates.name !== undefined) syncArgs.name = updates.name;
+        if (updates.notes !== undefined) syncArgs.notes = updates.notes;
         if (updates.exercises !== undefined) {
           syncArgs.exercises = toSyncExercises(updates.exercises);
         }
@@ -116,6 +127,7 @@ export const useTemplateStore = create<TemplateState>()(
         syncToConvex(api.templates.create, {
           clientId: duplicate.id,
           name: duplicate.name,
+          notes: duplicate.notes,
           exercises: toSyncExercises(duplicate.exercises),
           createdAt: duplicate.createdAt,
           updatedAt: duplicate.updatedAt,
@@ -130,6 +142,7 @@ export const useTemplateStore = create<TemplateState>()(
         const mapped: WorkoutTemplate[] = serverTemplates.map((t) => ({
           id: t.clientId,
           name: t.name,
+          notes: t.notes,
           exercises: t.exercises.map((e) => ({
             id: e.id,
             exerciseId: e.exerciseId,
@@ -138,6 +151,10 @@ export const useTemplateStore = create<TemplateState>()(
             order: e.order,
             restTimeSeconds: e.restTimeSeconds,
             defaultSetsCount: e.defaultSetsCount,
+            suggestedReps: e.suggestedReps,
+            suggestedWeight: e.suggestedWeight,
+            suggestedTime: e.suggestedTime,
+            suggestedDistance: e.suggestedDistance,
           })),
           createdAt: t.createdAt,
           updatedAt: t.updatedAt,

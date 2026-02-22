@@ -11,6 +11,10 @@ const exercisePayload = v.object({
   order: v.number(),
   restTimeSeconds: v.number(),
   defaultSetsCount: v.number(),
+  suggestedReps: v.optional(v.number()),
+  suggestedWeight: v.optional(v.number()),
+  suggestedTime: v.optional(v.number()),
+  suggestedDistance: v.optional(v.number()),
 });
 
 export const listWithExercises = query({
@@ -56,6 +60,10 @@ export const listWithExercises = query({
             order: te.order,
             restTimeSeconds: te.restTimeSeconds,
             defaultSetsCount: te.defaultSetsCount,
+            suggestedReps: te.suggestedReps,
+            suggestedWeight: te.suggestedWeight,
+            suggestedTime: te.suggestedTime,
+            suggestedDistance: te.suggestedDistance,
           };
         }),
       });
@@ -69,6 +77,7 @@ export const create = mutation({
   args: {
     clientId: v.string(),
     name: v.string(),
+    notes: v.optional(v.string()),
     createdAt: v.string(),
     updatedAt: v.string(),
     exercises: v.array(exercisePayload),
@@ -110,6 +119,7 @@ export const create = mutation({
       userId,
       clientId: args.clientId,
       name: args.name,
+      notes: args.notes,
       createdAt: args.createdAt,
       updatedAt: args.updatedAt,
     });
@@ -124,6 +134,10 @@ export const create = mutation({
         order: ex.order,
         restTimeSeconds: ex.restTimeSeconds,
         defaultSetsCount: ex.defaultSetsCount,
+        suggestedReps: ex.suggestedReps,
+        suggestedWeight: ex.suggestedWeight,
+        suggestedTime: ex.suggestedTime,
+        suggestedDistance: ex.suggestedDistance,
       });
     }
 
@@ -135,6 +149,7 @@ export const updateByClientId = mutation({
   args: {
     clientId: v.string(),
     name: v.optional(v.string()),
+    notes: v.optional(v.string()),
     updatedAt: v.string(),
     exercises: v.optional(v.array(exercisePayload)),
   },
@@ -153,6 +168,7 @@ export const updateByClientId = mutation({
     // Update template fields
     const updates: Record<string, unknown> = { updatedAt: args.updatedAt };
     if (args.name !== undefined) updates.name = args.name;
+    if (args.notes !== undefined) updates.notes = args.notes;
     await ctx.db.patch(template._id, updates);
 
     // Replace templateExercises if provided
@@ -194,6 +210,10 @@ export const updateByClientId = mutation({
           order: ex.order,
           restTimeSeconds: ex.restTimeSeconds,
           defaultSetsCount: ex.defaultSetsCount,
+          suggestedReps: ex.suggestedReps,
+          suggestedWeight: ex.suggestedWeight,
+          suggestedTime: ex.suggestedTime,
+          suggestedDistance: ex.suggestedDistance,
         });
       }
     }
@@ -236,6 +256,7 @@ export const bulkUpsert = mutation({
       v.object({
         clientId: v.string(),
         name: v.string(),
+        notes: v.optional(v.string()),
         createdAt: v.string(),
         updatedAt: v.string(),
         exercises: v.array(exercisePayload),
@@ -278,6 +299,7 @@ export const bulkUpsert = mutation({
           userId,
           clientId: t.clientId,
           name: t.name,
+          notes: t.notes,
           createdAt: t.createdAt,
           updatedAt: t.updatedAt,
         });
@@ -292,6 +314,10 @@ export const bulkUpsert = mutation({
             order: ex.order,
             restTimeSeconds: ex.restTimeSeconds,
             defaultSetsCount: ex.defaultSetsCount,
+            suggestedReps: ex.suggestedReps,
+            suggestedWeight: ex.suggestedWeight,
+            suggestedTime: ex.suggestedTime,
+            suggestedDistance: ex.suggestedDistance,
           });
         }
       }

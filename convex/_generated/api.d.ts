@@ -8,9 +8,15 @@
  * @module
  */
 
+import type * as aiTools from "../aiTools.js";
 import type * as auth from "../auth.js";
+import type * as chat from "../chat.js";
+import type * as chatActions from "../chatActions.js";
+import type * as chatInternal from "../chatInternal.js";
 import type * as exercises from "../exercises.js";
 import type * as http from "../http.js";
+import type * as plans from "../plans.js";
+import type * as recipes from "../recipes.js";
 import type * as settings from "../settings.js";
 import type * as templates from "../templates.js";
 import type * as user from "../user.js";
@@ -24,9 +30,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  aiTools: typeof aiTools;
   auth: typeof auth;
+  chat: typeof chat;
+  chatActions: typeof chatActions;
+  chatInternal: typeof chatInternal;
   exercises: typeof exercises;
   http: typeof http;
+  plans: typeof plans;
+  recipes: typeof recipes;
   settings: typeof settings;
   templates: typeof templates;
   user: typeof user;
