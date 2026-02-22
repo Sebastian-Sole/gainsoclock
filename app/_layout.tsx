@@ -1,5 +1,15 @@
 import "../global.css";
 
+import {
+  configureReanimatedLogger,
+  ReanimatedLogLevel,
+} from "react-native-reanimated";
+
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false,
+});
+
 import { useEffect, useRef } from "react";
 import { ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";

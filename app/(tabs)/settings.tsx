@@ -1,46 +1,65 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Alert, Platform, Modal, TextInput } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Weight, Ruler, Timer, Vibrate, LogOut, Heart, Download, ChevronRight, Trash2 } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
-import { useAuthActions } from '@convex-dev/auth/react';
-import { useRouter } from 'expo-router';
-import { useMutation } from 'convex/react';
-import { api } from '@/convex/_generated/api';
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Text } from "@/components/ui/text";
+import { api } from "@/convex/_generated/api";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useMutation } from "convex/react";
+import { useRouter } from "expo-router";
+import {
+  ChevronRight,
+  Download,
+  Heart,
+  LogOut,
+  Ruler,
+  Timer,
+  Trash2,
+  Vibrate,
+  Weight,
+} from "lucide-react-native";
+import { useColorScheme } from "nativewind";
+import React, { useState } from "react";
+import {
+  Alert,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useSettingsStore } from '@/stores/settings-store';
-import { useHistoryStore } from '@/stores/history-store';
-import { useTemplateStore } from '@/stores/template-store';
-import { useExerciseLibraryStore } from '@/stores/exercise-library-store';
-import { useHealthKit } from '@/hooks/use-healthkit';
-import { REST_TIME_PRESETS } from '@/lib/constants';
-import { formatTime } from '@/lib/format';
-import { cn } from '@/lib/utils';
+import { useHealthKit } from "@/hooks/use-healthkit";
+import { REST_TIME_PRESETS } from "@/lib/constants";
+import { formatTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { useExerciseLibraryStore } from "@/stores/exercise-library-store";
+import { useHistoryStore } from "@/stores/history-store";
+import { useSettingsStore } from "@/stores/settings-store";
+import { useTemplateStore } from "@/stores/template-store";
 
 export default function SettingsScreen() {
   const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const iconColor = isDark ? '#fb923c' : '#f97316';
+  const isDark = colorScheme === "dark";
+  const iconColor = isDark ? "#fb923c" : "#f97316";
   const router = useRouter();
   const { signOut } = useAuthActions();
 
   const deleteAllData = useMutation(api.user.deleteAllData);
   const [resetModalVisible, setResetModalVisible] = useState(false);
-  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [resetConfirmText, setResetConfirmText] = useState("");
 
   const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign Out", style: "destructive", onPress: () => signOut() },
     ]);
   };
 
   const handleResetData = async () => {
     setResetModalVisible(false);
-    setResetConfirmText('');
+    setResetConfirmText("");
 
     // Clear local stores
     useHistoryStore.setState({ logs: [] });
@@ -54,7 +73,7 @@ export default function SettingsScreen() {
       // Server cleanup is best-effort
     }
 
-    Alert.alert('Data Reset', 'All your data has been deleted.');
+    Alert.alert("Data Reset", "All your data has been deleted.");
   };
 
   const weightUnit = useSettingsStore((s) => s.weightUnit);
@@ -65,17 +84,29 @@ export default function SettingsScreen() {
   const setDistanceUnit = useSettingsStore((s) => s.setDistanceUnit);
   const setDefaultRestTime = useSettingsStore((s) => s.setDefaultRestTime);
   const setHapticsEnabled = useSettingsStore((s) => s.setHapticsEnabled);
-  const { isAvailable: healthKitAvailable, isEnabled: healthKitEnabled, isRequesting: healthKitRequesting, enable: enableHealthKit, disable: disableHealthKit } = useHealthKit();
+  const {
+    isAvailable: healthKitAvailable,
+    isEnabled: healthKitEnabled,
+    isRequesting: healthKitRequesting,
+    enable: enableHealthKit,
+    disable: disableHealthKit,
+  } = useHealthKit();
+
+  const openWebsite = () => {
+    Linking.openURL("https://example.com");
+  };
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <View className="px-4 pb-2 pt-2">
         <Text className="text-3xl font-bold">Settings</Text>
       </View>
 
       <ScrollView className="flex-1 px-4">
         {/* Units Section */}
-        <Text className="mb-3 mt-4 text-sm font-medium text-muted-foreground">UNITS</Text>
+        <Text className="mb-3 mt-4 text-sm font-medium text-muted-foreground">
+          UNITS
+        </Text>
         <View className="rounded-xl bg-card">
           {/* Weight Unit */}
           <View className="flex-row items-center gap-3 px-4 py-4">
@@ -85,32 +116,36 @@ export default function SettingsScreen() {
             </View>
             <View className="flex-row rounded-lg bg-secondary">
               <Pressable
-                onPress={() => setWeightUnit('kg')}
+                onPress={() => setWeightUnit("kg")}
                 className={cn(
-                  'rounded-lg px-4 py-2',
-                  weightUnit === 'kg' && 'bg-primary'
+                  "rounded-lg px-4 py-2",
+                  weightUnit === "kg" && "bg-primary",
                 )}
               >
                 <Text
                   className={cn(
-                    'text-sm font-medium',
-                    weightUnit === 'kg' ? 'text-primary-foreground' : 'text-secondary-foreground'
+                    "text-sm font-medium",
+                    weightUnit === "kg"
+                      ? "text-primary-foreground"
+                      : "text-secondary-foreground",
                   )}
                 >
                   kg
                 </Text>
               </Pressable>
               <Pressable
-                onPress={() => setWeightUnit('lbs')}
+                onPress={() => setWeightUnit("lbs")}
                 className={cn(
-                  'rounded-lg px-4 py-2',
-                  weightUnit === 'lbs' && 'bg-primary'
+                  "rounded-lg px-4 py-2",
+                  weightUnit === "lbs" && "bg-primary",
                 )}
               >
                 <Text
                   className={cn(
-                    'text-sm font-medium',
-                    weightUnit === 'lbs' ? 'text-primary-foreground' : 'text-secondary-foreground'
+                    "text-sm font-medium",
+                    weightUnit === "lbs"
+                      ? "text-primary-foreground"
+                      : "text-secondary-foreground",
                   )}
                 >
                   lbs
@@ -129,32 +164,36 @@ export default function SettingsScreen() {
             </View>
             <View className="flex-row rounded-lg bg-secondary">
               <Pressable
-                onPress={() => setDistanceUnit('km')}
+                onPress={() => setDistanceUnit("km")}
                 className={cn(
-                  'rounded-lg px-4 py-2',
-                  distanceUnit === 'km' && 'bg-primary'
+                  "rounded-lg px-4 py-2",
+                  distanceUnit === "km" && "bg-primary",
                 )}
               >
                 <Text
                   className={cn(
-                    'text-sm font-medium',
-                    distanceUnit === 'km' ? 'text-primary-foreground' : 'text-secondary-foreground'
+                    "text-sm font-medium",
+                    distanceUnit === "km"
+                      ? "text-primary-foreground"
+                      : "text-secondary-foreground",
                   )}
                 >
                   km
                 </Text>
               </Pressable>
               <Pressable
-                onPress={() => setDistanceUnit('mi')}
+                onPress={() => setDistanceUnit("mi")}
                 className={cn(
-                  'rounded-lg px-4 py-2',
-                  distanceUnit === 'mi' && 'bg-primary'
+                  "rounded-lg px-4 py-2",
+                  distanceUnit === "mi" && "bg-primary",
                 )}
               >
                 <Text
                   className={cn(
-                    'text-sm font-medium',
-                    distanceUnit === 'mi' ? 'text-primary-foreground' : 'text-secondary-foreground'
+                    "text-sm font-medium",
+                    distanceUnit === "mi"
+                      ? "text-primary-foreground"
+                      : "text-secondary-foreground",
                   )}
                 >
                   mi
@@ -165,7 +204,9 @@ export default function SettingsScreen() {
         </View>
 
         {/* Rest Timer Section */}
-        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">DEFAULT REST TIMER</Text>
+        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+          DEFAULT REST TIMER
+        </Text>
         <View className="rounded-xl bg-card px-4 py-4">
           <View className="flex-row items-center gap-3">
             <Timer size={20} color={iconColor} />
@@ -177,16 +218,18 @@ export default function SettingsScreen() {
                 key={seconds}
                 onPress={() => setDefaultRestTime(seconds)}
                 className={cn(
-                  'rounded-lg px-4 py-2',
+                  "rounded-lg px-4 py-2",
                   defaultRestTime === seconds
-                    ? 'bg-primary'
-                    : 'border border-border'
+                    ? "bg-primary"
+                    : "border border-border",
                 )}
               >
                 <Text
                   className={cn(
-                    'text-sm font-medium',
-                    defaultRestTime === seconds ? 'text-primary-foreground' : 'text-foreground'
+                    "text-sm font-medium",
+                    defaultRestTime === seconds
+                      ? "text-primary-foreground"
+                      : "text-foreground",
                   )}
                 >
                   {formatTime(seconds)}
@@ -197,13 +240,17 @@ export default function SettingsScreen() {
         </View>
 
         {/* Preferences Section */}
-        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">PREFERENCES</Text>
+        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+          PREFERENCES
+        </Text>
         <View className="rounded-xl bg-card">
           <View className="flex-row items-center gap-3 px-4 py-4">
             <Vibrate size={20} color={iconColor} />
             <View className="flex-1">
               <Text className="font-medium">Haptic Feedback</Text>
-              <Text className="text-sm text-muted-foreground">Vibrations on interactions</Text>
+              <Text className="text-sm text-muted-foreground">
+                Vibrations on interactions
+              </Text>
             </View>
             <Switch
               checked={hapticsEnabled}
@@ -213,9 +260,11 @@ export default function SettingsScreen() {
         </View>
 
         {/* Apple Health Section - iOS only */}
-        {Platform.OS === 'ios' && healthKitAvailable && (
+        {Platform.OS === "ios" && healthKitAvailable && (
           <>
-            <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">APPLE HEALTH</Text>
+            <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+              APPLE HEALTH
+            </Text>
             <View className="rounded-xl bg-card">
               <View className="flex-row items-center gap-3 px-4 py-4">
                 <Heart size={20} color={iconColor} />
@@ -223,8 +272,8 @@ export default function SettingsScreen() {
                   <Text className="font-medium">Sync with Apple Health</Text>
                   <Text className="text-sm text-muted-foreground">
                     {healthKitEnabled
-                      ? 'Workouts are synced to Health'
-                      : 'Save completed workouts to Apple Health'}
+                      ? "Workouts are synced to Health"
+                      : "Save completed workouts to Apple Health"}
                   </Text>
                 </View>
                 <Switch
@@ -244,16 +293,20 @@ export default function SettingsScreen() {
         )}
 
         {/* Data Section */}
-        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">DATA</Text>
+        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+          DATA
+        </Text>
         <View className="rounded-xl bg-card">
           <Pressable
-            onPress={() => router.push('/import')}
+            onPress={() => router.push("/import")}
             className="flex-row items-center gap-3 px-4 py-4"
           >
             <Download size={20} color={iconColor} />
             <View className="flex-1">
               <Text className="font-medium">Import Data</Text>
-              <Text className="text-sm text-muted-foreground">Import workouts from other apps</Text>
+              <Text className="text-sm text-muted-foreground">
+                Import workouts from other apps
+              </Text>
             </View>
             <ChevronRight size={20} className="text-muted-foreground" />
           </Pressable>
@@ -265,26 +318,44 @@ export default function SettingsScreen() {
             <Trash2 size={20} color="#ef4444" />
             <View className="flex-1">
               <Text className="font-medium text-destructive">Reset Data</Text>
-              <Text className="text-sm text-muted-foreground">Delete all workout data</Text>
+              <Text className="text-sm text-muted-foreground">
+                Delete all workout data
+              </Text>
             </View>
           </Pressable>
         </View>
 
         {/* Account Section */}
-        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">ACCOUNT</Text>
+        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+          ACCOUNT
+        </Text>
         <View className="rounded-xl bg-card">
           <Pressable
             onPress={handleSignOut}
             className="flex-row items-center gap-3 px-4 py-4"
           >
             <LogOut size={20} color="#ef4444" />
-            <Text className="flex-1 font-medium text-destructive">Sign Out</Text>
+            <Text className="flex-1 font-medium text-destructive">
+              Sign Out
+            </Text>
           </Pressable>
         </View>
 
         {/* App info */}
         <View className="mt-8 items-center pb-8">
-          <Text className="text-sm text-muted-foreground">Gainsoclock v1.0.0</Text>
+          <Text className="text-sm text-muted-foreground">
+            Gainsoclock v1.0.0
+          </Text>
+
+          <Text className="text-sm text-muted-foreground">
+            Powered by{" "}
+            <Text
+              className="text-sm underline text-blue-500"
+              onPress={() => Linking.openURL("https://soleinnovations.com")}
+            >
+              Sole Innovations
+            </Text>
+          </Text>
         </View>
       </ScrollView>
 
@@ -295,13 +366,13 @@ export default function SettingsScreen() {
         animationType="fade"
         onRequestClose={() => {
           setResetModalVisible(false);
-          setResetConfirmText('');
+          setResetConfirmText("");
         }}
       >
         <Pressable
           onPress={() => {
             setResetModalVisible(false);
-            setResetConfirmText('');
+            setResetConfirmText("");
           }}
           className="flex-1 items-center justify-center bg-black/50 px-6"
         >
@@ -309,9 +380,12 @@ export default function SettingsScreen() {
             onPress={() => {}}
             className="w-full rounded-2xl bg-card p-6"
           >
-            <Text className="text-lg font-bold text-destructive">Reset Data</Text>
+            <Text className="text-lg font-bold text-destructive">
+              Reset Data
+            </Text>
             <Text className="mt-3 leading-5 text-muted-foreground">
-              This will permanently delete all your workout history, templates, and exercises. This action cannot be undone.
+              This will permanently delete all your workout history, templates,
+              and exercises. This action cannot be undone.
             </Text>
             <Text className="mt-4 text-sm font-medium text-foreground">
               Type <Text className="font-bold">delete my data</Text> to confirm
@@ -320,7 +394,7 @@ export default function SettingsScreen() {
               value={resetConfirmText}
               onChangeText={setResetConfirmText}
               placeholder="delete my data"
-              placeholderTextColor={isDark ? '#555' : '#aaa'}
+              placeholderTextColor={isDark ? "#555" : "#aaa"}
               autoCapitalize="none"
               autoCorrect={false}
               className="mt-2 rounded-lg border border-border bg-background px-4 py-3 text-foreground"
@@ -329,7 +403,7 @@ export default function SettingsScreen() {
               <Pressable
                 onPress={() => {
                   setResetModalVisible(false);
-                  setResetConfirmText('');
+                  setResetConfirmText("");
                 }}
                 className="flex-1 items-center rounded-lg border border-border py-3"
               >
@@ -337,20 +411,22 @@ export default function SettingsScreen() {
               </Pressable>
               <Pressable
                 onPress={handleResetData}
-                disabled={resetConfirmText.toLowerCase().trim() !== 'delete my data'}
+                disabled={
+                  resetConfirmText.toLowerCase().trim() !== "delete my data"
+                }
                 className={cn(
-                  'flex-1 items-center rounded-lg py-3',
-                  resetConfirmText.toLowerCase().trim() === 'delete my data'
-                    ? 'bg-destructive'
-                    : 'bg-destructive/30'
+                  "flex-1 items-center rounded-lg py-3",
+                  resetConfirmText.toLowerCase().trim() === "delete my data"
+                    ? "bg-destructive"
+                    : "bg-destructive/30",
                 )}
               >
                 <Text
                   className={cn(
-                    'font-medium',
-                    resetConfirmText.toLowerCase().trim() === 'delete my data'
-                      ? 'text-white'
-                      : 'text-white/50'
+                    "font-medium",
+                    resetConfirmText.toLowerCase().trim() === "delete my data"
+                      ? "text-white"
+                      : "text-white/50",
                   )}
                 >
                   Delete All Data
