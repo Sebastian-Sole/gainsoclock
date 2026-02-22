@@ -64,6 +64,10 @@ export interface TemplateExercise {
   order: number;
   restTimeSeconds: number;
   defaultSetsCount: number;
+  suggestedReps?: number;
+  suggestedWeight?: number;
+  suggestedTime?: number;
+  suggestedDistance?: number;
 }
 
 // Exercise during an active workout (mutable sets)
@@ -91,6 +95,7 @@ export interface WorkoutLogExercise {
 export interface WorkoutTemplate {
   id: string;
   name: string;
+  notes?: string;
   exercises: TemplateExercise[];
   createdAt: string;
   updatedAt: string;
@@ -105,6 +110,7 @@ export interface ActiveWorkout {
   startedAt: string;
   isRestTimerActive: boolean;
   restTimeRemaining: number;
+  planDayId?: string; // If started from a workout plan day
 }
 
 // Workout Log (completed workout)
@@ -117,3 +123,100 @@ export interface WorkoutLog {
   completedAt: string;
   durationSeconds: number;
 }
+
+// Chat types
+export interface ChatConversation {
+  id: string; // clientId
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: string; // JSON string
+}
+
+export type ApprovalType = 'create_template' | 'create_plan' | 'update_plan' | 'create_recipe';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export interface PendingApproval {
+  type: ApprovalType;
+  payload: string; // JSON string of proposed data
+  status: ApprovalStatus;
+}
+
+export type ChatMessageRole = 'user' | 'assistant' | 'system';
+export type ChatMessageStatus = 'complete' | 'streaming' | 'error';
+
+export interface ChatMessage {
+  _id: string; // Convex document ID (server-side only, no clientId)
+  conversationClientId: string;
+  role: ChatMessageRole;
+  content: string;
+  status: ChatMessageStatus;
+  toolCalls?: ToolCall[];
+  pendingApproval?: PendingApproval;
+  createdAt: string;
+}
+
+// Workout Plan types
+export type PlanStatus = 'active' | 'completed' | 'paused';
+export type PlanDayStatus = 'pending' | 'completed' | 'skipped' | 'rest';
+
+export interface WorkoutPlan {
+  id: string; // clientId
+  name: string;
+  description: string;
+  goal?: string;
+  durationWeeks: number;
+  startDate: string;
+  status: PlanStatus;
+  sourceConversationClientId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanDay {
+  planClientId: string;
+  week: number;
+  dayOfWeek: number; // 0=Sun..6=Sat
+  templateClientId?: string;
+  label?: string;
+  notes?: string;
+  status: PlanDayStatus;
+  workoutLogClientId?: string;
+}
+
+// Recipe types
+export interface Ingredient {
+  name: string;
+  amount: string;
+  unit?: string;
+}
+
+export interface Macros {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface Recipe {
+  id: string; // clientId
+  title: string;
+  description: string;
+  ingredients: Ingredient[];
+  instructions: string[];
+  prepTimeMinutes?: number;
+  cookTimeMinutes?: number;
+  servings?: number;
+  macros?: Macros;
+  tags?: string[];
+  sourceConversationClientId?: string;
+  saved: boolean;
+  createdAt: string;
+}
+
+export type WeekStartDay = 'monday' | 'sunday';

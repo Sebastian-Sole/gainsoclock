@@ -12,8 +12,8 @@ import { format } from 'date-fns';
 import { SetRow } from '@/components/workout/set-row';
 import { useEditLogStore } from '@/stores/edit-log-store';
 import { useHistoryStore } from '@/stores/history-store';
+import { useSettingsStore } from '@/stores/settings-store';
 import { createDefaultSet, createEmptyLog } from '@/lib/defaults';
-import { exerciseTypeLabel } from '@/lib/format';
 import { lightHaptic, mediumHaptic, successHaptic } from '@/lib/haptics';
 import type { WorkoutLogExercise } from '@/lib/types';
 
@@ -23,6 +23,8 @@ export default function EditLogScreen() {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const iconColor = isDark ? '#f2f2f2' : '#1c1008';
+  const weightUnit = useSettingsStore((s) => s.weightUnit);
+  const distanceUnit = useSettingsStore((s) => s.distanceUnit);
 
   const isNewLog = id === 'new';
   const logs = useHistoryStore((s) => s.logs);
@@ -336,12 +338,7 @@ export default function EditLogScreen() {
                     <ChevronDown size={14} color={iconColor} />
                   </Pressable>
                 </View>
-                <View className="flex-1 flex-row items-center gap-2">
-                  <Text className="text-base font-semibold">{exercise.name}</Text>
-                  <Badge variant="outline">
-                    <Text className="text-xs">{exerciseTypeLabel(exercise.type)}</Text>
-                  </Badge>
-                </View>
+                <Text className="flex-1 text-base font-semibold" numberOfLines={1}>{exercise.name}</Text>
               </View>
               <View className="flex-row items-center gap-1">
                 <Pressable
@@ -366,6 +363,38 @@ export default function EditLogScreen() {
                   <X size={14} color="#ef4444" />
                 </Pressable>
               </View>
+            </View>
+
+            {/* Column headers */}
+            <View className="flex-row items-center gap-2 px-3 py-1">
+              <Text className="w-8 text-center text-xs text-muted-foreground">Set</Text>
+              <View className="flex-1 flex-row items-center gap-2">
+                {exercise.type === 'reps_weight' && (
+                  <>
+                    <Text className="flex-1 text-center text-xs text-muted-foreground">{weightUnit}</Text>
+                    <Text className="flex-1 text-center text-xs text-muted-foreground">Reps</Text>
+                  </>
+                )}
+                {exercise.type === 'reps_time' && (
+                  <>
+                    <Text className="flex-[2] text-center text-xs text-muted-foreground">Time</Text>
+                    <Text className="flex-1 text-center text-xs text-muted-foreground">Reps</Text>
+                  </>
+                )}
+                {exercise.type === 'time_only' && (
+                  <Text className="flex-1 text-center text-xs text-muted-foreground">Time</Text>
+                )}
+                {exercise.type === 'time_distance' && (
+                  <>
+                    <Text className="flex-[2] text-center text-xs text-muted-foreground">Time</Text>
+                    <Text className="flex-1 text-center text-xs text-muted-foreground">{distanceUnit}</Text>
+                  </>
+                )}
+                {exercise.type === 'reps_only' && (
+                  <Text className="flex-1 text-center text-xs text-muted-foreground">Reps</Text>
+                )}
+              </View>
+              <View className="w-[68px]" />
             </View>
 
             {/* Set rows */}

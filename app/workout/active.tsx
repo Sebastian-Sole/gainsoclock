@@ -15,10 +15,14 @@ import { useWorkoutTimer } from '@/hooks/use-workout-timer';
 import { useRestTimer } from '@/hooks/use-rest-timer';
 import { createDefaultSet } from '@/lib/defaults';
 import { generateId } from '@/lib/id';
-import { formatDuration, exerciseTypeLabel } from '@/lib/format';
+import { formatDuration } from '@/lib/format';
 import { mediumHaptic, successHaptic } from '@/lib/haptics';
 import { saveWorkoutToHealthKit } from '@/lib/healthkit';
+import { syncToConvex } from '@/lib/convex-sync';
+import { api } from '@/convex/_generated/api';
 import type { Exercise, WorkoutLog, WorkoutLogExercise } from '@/lib/types';
+import { useSettingsStore } from '@/stores/settings-store';
+import { useTemplateStore } from '@/stores/template-store';
 
 export default function ActiveWorkoutScreen() {
   const router = useRouter();
@@ -38,6 +42,11 @@ export default function ActiveWorkoutScreen() {
   const discardWorkout = useWorkoutStore((s) => s.discardWorkout);
   const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
   const addLog = useHistoryStore((s) => s.addLog);
+  const weightUnit = useSettingsStore((s) => s.weightUnit);
+  const distanceUnit = useSettingsStore((s) => s.distanceUnit);
+  const templateNotes = useTemplateStore((s) =>
+    activeWorkout?.templateId ? s.templates.find((t) => t.id === activeWorkout.templateId)?.notes : undefined
+  );
 
   const elapsed = useWorkoutTimer(activeWorkout?.startedAt ?? null);
   const { isActive: isRestActive, remaining: restRemaining, stop: stopRest } = useRestTimer();
@@ -126,6 +135,19 @@ export default function ActiveWorkoutScreen() {
             };
             addLog(log);
             saveWorkoutToHealthKit(log);
+
+            // Update plan day status if workout was started from a plan
+            if (workout.planDayId) {
+              const [planClientId, weekStr, dayStr] = workout.planDayId.split(':');
+              syncToConvex(api.plans.updatePlanDayStatus, {
+                planClientId,
+                week: Number(weekStr),
+                dayOfWeek: Number(dayStr),
+                status: 'completed' as const,
+                workoutLogClientId: log.id,
+              });
+            }
+
             successHaptic();
             router.replace('/workout/complete');
           }
@@ -155,6 +177,13 @@ export default function ActiveWorkoutScreen() {
         </View>
       </View>
 
+      {/* Template notes */}
+      {templateNotes && (
+        <View className="border-b border-border bg-muted/30 px-4 py-2">
+          <Text className="text-xs text-muted-foreground italic">{templateNotes}</Text>
+        </View>
+      )}
+
       {/* Body */}
       <ScrollView className="flex-1" contentContainerClassName="px-4 pb-32">
         {activeWorkout.exercises.map((exercise, exerciseIndex) => (
@@ -180,12 +209,7 @@ export default function ActiveWorkoutScreen() {
                     <ChevronDown size={14} color={iconColor} />
                   </Pressable>
                 </View>
-                <View className="flex-1 flex-row items-center gap-2">
-                  <Text className="text-base font-semibold">{exercise.name}</Text>
-                  <Badge variant="outline">
-                    <Text className="text-xs">{exerciseTypeLabel(exercise.type)}</Text>
-                  </Badge>
-                </View>
+                <Text className="flex-1 text-base font-semibold" numberOfLines={1}>{exercise.name}</Text>
               </View>
               <View className="flex-row items-center gap-1">
                 <Pressable
@@ -210,6 +234,38 @@ export default function ActiveWorkoutScreen() {
                   <X size={14} color="#ef4444" />
                 </Pressable>
               </View>
+            </View>
+
+            {/* Column headers */}
+            <View className="flex-row items-center gap-2 px-3 py-1">
+              <Text className="w-8 text-center text-xs text-muted-foreground">Set</Text>
+              <View className="flex-1 flex-row items-center gap-2">
+                {exercise.type === 'reps_weight' && (
+                  <>
+                    <Text className="flex-1 text-center text-xs text-muted-foreground">{weightUnit}</Text>
+                    <Text className="flex-1 text-center text-xs text-muted-foreground">Reps</Text>
+                  </>
+                )}
+                {exercise.type === 'reps_time' && (
+                  <>
+                    <Text className="flex-[2] text-center text-xs text-muted-foreground">Time</Text>
+                    <Text className="flex-1 text-center text-xs text-muted-foreground">Reps</Text>
+                  </>
+                )}
+                {exercise.type === 'time_only' && (
+                  <Text className="flex-1 text-center text-xs text-muted-foreground">Time</Text>
+                )}
+                {exercise.type === 'time_distance' && (
+                  <>
+                    <Text className="flex-[2] text-center text-xs text-muted-foreground">Time</Text>
+                    <Text className="flex-1 text-center text-xs text-muted-foreground">{distanceUnit}</Text>
+                  </>
+                )}
+                {exercise.type === 'reps_only' && (
+                  <Text className="flex-1 text-center text-xs text-muted-foreground">Reps</Text>
+                )}
+              </View>
+              <View className="w-[68px]" />
             </View>
 
             {/* Set rows */}

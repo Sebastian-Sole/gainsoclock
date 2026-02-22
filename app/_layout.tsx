@@ -74,6 +74,18 @@ function RootNavigator() {
             name="calculator"
             options={{ headerShown: false, presentation: "modal" }}
           />
+          <Stack.Screen
+            name="chat"
+            options={{ headerShown: false, presentation: "modal" }}
+          />
+          <Stack.Screen
+            name="plan"
+            options={{ headerShown: false, presentation: "modal" }}
+          />
+          <Stack.Screen
+            name="recipe"
+            options={{ headerShown: false, presentation: "modal" }}
+          />
         </Stack>
         <PortalHost />
         <StatusBar style="auto" />

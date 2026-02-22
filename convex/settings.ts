@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { weekStartDayValidator } from "./validators";
 
 export const get = query({
   args: {},
@@ -20,6 +21,7 @@ export const upsert = mutation({
     distanceUnit: v.union(v.literal("km"), v.literal("mi")),
     defaultRestTime: v.number(),
     hapticsEnabled: v.boolean(),
+    weekStartDay: v.optional(weekStartDayValidator),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);

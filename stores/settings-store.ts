@@ -4,6 +4,8 @@ import { zustandStorage } from '@/lib/storage';
 import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
 
+import type { WeekStartDay } from '@/lib/types';
+
 export type WeightUnit = 'kg' | 'lbs';
 export type DistanceUnit = 'km' | 'mi';
 
@@ -13,6 +15,7 @@ interface SettingsState {
   defaultRestTime: number;
   hapticsEnabled: boolean;
   healthKitEnabled: boolean;
+  weekStartDay: WeekStartDay;
   customRangeFrom: string | null; // ISO string
   customRangeTo: string | null;   // ISO string
 
@@ -21,8 +24,9 @@ interface SettingsState {
   setDefaultRestTime: (seconds: number) => void;
   setHapticsEnabled: (enabled: boolean) => void;
   setHealthKitEnabled: (enabled: boolean) => void;
+  setWeekStartDay: (day: WeekStartDay) => void;
   setCustomRange: (from: Date, to: Date | null) => void;
-  hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean }) => void;
+  hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string }) => void;
 }
 
 function syncSettings(state: SettingsState) {
@@ -31,6 +35,7 @@ function syncSettings(state: SettingsState) {
     distanceUnit: state.distanceUnit,
     defaultRestTime: state.defaultRestTime,
     hapticsEnabled: state.hapticsEnabled,
+    weekStartDay: state.weekStartDay,
   });
 }
 
@@ -42,6 +47,7 @@ export const useSettingsStore = create<SettingsState>()(
       defaultRestTime: 90,
       hapticsEnabled: true,
       healthKitEnabled: false,
+      weekStartDay: 'monday' as WeekStartDay,
       customRangeFrom: null,
       customRangeTo: null,
 
@@ -70,6 +76,11 @@ export const useSettingsStore = create<SettingsState>()(
         // Not synced to Convex — Apple Health is a per-device setting
       },
 
+      setWeekStartDay: (day) => {
+        set({ weekStartDay: day });
+        syncSettings(get());
+      },
+
       setCustomRange: (from, to) => {
         set({
           customRangeFrom: from.toISOString(),
@@ -84,6 +95,7 @@ export const useSettingsStore = create<SettingsState>()(
           distanceUnit: serverSettings.distanceUnit as DistanceUnit,
           defaultRestTime: serverSettings.defaultRestTime,
           hapticsEnabled: serverSettings.hapticsEnabled,
+          weekStartDay: (serverSettings.weekStartDay as WeekStartDay) ?? 'monday',
         });
       },
     }),

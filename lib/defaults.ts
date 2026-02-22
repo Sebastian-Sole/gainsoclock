@@ -4,25 +4,32 @@ import { generateId } from './id';
 export const DEFAULT_REST_TIME = 90; // seconds
 export const DEFAULT_SETS_COUNT = 3;
 
-export function createDefaultSet(type: ExerciseType): WorkoutSet {
+interface SuggestedValues {
+  suggestedReps?: number;
+  suggestedWeight?: number;
+  suggestedTime?: number;
+  suggestedDistance?: number;
+}
+
+export function createDefaultSet(type: ExerciseType, suggested?: SuggestedValues): WorkoutSet {
   const base = { id: generateId(), completed: false };
 
   switch (type) {
     case 'reps_weight':
-      return { ...base, type: 'reps_weight', reps: 10, weight: 0 };
+      return { ...base, type: 'reps_weight', reps: suggested?.suggestedReps ?? 10, weight: suggested?.suggestedWeight ?? 0 };
     case 'reps_time':
-      return { ...base, type: 'reps_time', reps: 10, time: 30 };
+      return { ...base, type: 'reps_time', reps: suggested?.suggestedReps ?? 10, time: suggested?.suggestedTime ?? 30 };
     case 'time_only':
-      return { ...base, type: 'time_only', time: 60 };
+      return { ...base, type: 'time_only', time: suggested?.suggestedTime ?? 60 };
     case 'time_distance':
-      return { ...base, type: 'time_distance', time: 0, distance: 0 };
+      return { ...base, type: 'time_distance', time: suggested?.suggestedTime ?? 0, distance: suggested?.suggestedDistance ?? 0 };
     case 'reps_only':
-      return { ...base, type: 'reps_only', reps: 10 };
+      return { ...base, type: 'reps_only', reps: suggested?.suggestedReps ?? 10 };
   }
 }
 
-export function createDefaultSets(type: ExerciseType, count = DEFAULT_SETS_COUNT): WorkoutSet[] {
-  return Array.from({ length: count }, () => createDefaultSet(type));
+export function createDefaultSets(type: ExerciseType, count = DEFAULT_SETS_COUNT, suggested?: SuggestedValues): WorkoutSet[] {
+  return Array.from({ length: count }, () => createDefaultSet(type, suggested));
 }
 
 export function createEmptyLog(date: Date): WorkoutLog {

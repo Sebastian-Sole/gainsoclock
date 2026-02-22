@@ -44,11 +44,13 @@ export function SetRow({ set, index, onUpdate, onToggleComplete, onRemove, edita
               value={set.weight}
               onValueChange={(weight) => onUpdate({ weight } as Partial<WorkoutSet>)}
               placeholder="0"
+              className="flex-1"
             />
             <SetInput
               value={set.reps}
               onValueChange={(reps) => onUpdate({ reps } as Partial<WorkoutSet>)}
               placeholder="0"
+              className="flex-1"
             />
           </>
         );
@@ -58,11 +60,13 @@ export function SetRow({ set, index, onUpdate, onToggleComplete, onRemove, edita
             <TimeInput
               value={set.time}
               onValueChange={(time) => onUpdate({ time } as Partial<WorkoutSet>)}
+              className="flex-[2]"
             />
             <SetInput
               value={set.reps}
               onValueChange={(reps) => onUpdate({ reps } as Partial<WorkoutSet>)}
               placeholder="0"
+              className="flex-1"
             />
           </>
         );
@@ -71,6 +75,7 @@ export function SetRow({ set, index, onUpdate, onToggleComplete, onRemove, edita
           <TimeInput
             value={set.time}
             onValueChange={(time) => onUpdate({ time } as Partial<WorkoutSet>)}
+            className="flex-1"
           />
         );
       case 'time_distance':
@@ -79,11 +84,13 @@ export function SetRow({ set, index, onUpdate, onToggleComplete, onRemove, edita
             <TimeInput
               value={set.time}
               onValueChange={(time) => onUpdate({ time } as Partial<WorkoutSet>)}
+              className="flex-[2]"
             />
             <SetInput
               value={set.distance}
               onValueChange={(distance) => onUpdate({ distance } as Partial<WorkoutSet>)}
               placeholder="0"
+              className="flex-1"
             />
           </>
         );
@@ -93,6 +100,7 @@ export function SetRow({ set, index, onUpdate, onToggleComplete, onRemove, edita
             value={set.reps}
             onValueChange={(reps) => onUpdate({ reps } as Partial<WorkoutSet>)}
             placeholder="0"
+            className="flex-1"
           />
         );
     }
