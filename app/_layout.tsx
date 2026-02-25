@@ -96,6 +96,14 @@ function RootNavigator() {
             name="recipe"
             options={{ headerShown: false, presentation: "modal" }}
           />
+          <Stack.Screen
+            name="rc-paywall"
+            options={{ headerShown: false, presentation: "modal" }}
+          />
+          <Stack.Screen
+            name="purchase-success"
+            options={{ headerShown: false, presentation: "fullScreenModal" }}
+          />
         </Stack>
         <PortalHost />
         <StatusBar style="auto" />

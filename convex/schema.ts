@@ -100,6 +100,20 @@ export default defineSchema({
     .index("by_workout_exercise", ["userId", "workoutLogExerciseClientId"])
     .index("by_exercise", ["userId", "exerciseClientId"]),
 
+  // Subscription status (synced from RevenueCat via webhook)
+  userSubscriptions: defineTable({
+    userId: v.id("users"),
+    revenuecatAppUserId: v.string(),
+    entitlement: v.string(),
+    isActive: v.boolean(),
+    productId: v.optional(v.string()),
+    store: v.optional(v.string()),
+    expiresAt: v.optional(v.string()),
+    updatedAt: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_revenuecat_id", ["revenuecatAppUserId"]),
+
   // User preferences
   userSettings: defineTable({
     userId: v.id("users"),

@@ -15,8 +15,20 @@ import { ChatBubble, StreamingDots } from '@/components/chat/chat-bubble';
 import { ChatInput } from '@/components/chat/chat-input';
 import { ApprovalCard } from '@/components/chat/approval-card';
 import { ChatSidebar } from '@/components/chat/chat-sidebar';
+import { useSubscriptionStore } from '@/stores/subscription-store';
+import { Paywall } from '@/components/paywall';
 
 export default function ChatScreen() {
+  const isPro = useSubscriptionStore((s) => s.isPro);
+
+  if (!isPro) {
+    return <Paywall />;
+  }
+
+  return <ChatScreenContent />;
+}
+
+function ChatScreenContent() {
   const { colorScheme } = useColorScheme();
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const iconColor = colorScheme === 'dark' ? '#fff' : '#000';
