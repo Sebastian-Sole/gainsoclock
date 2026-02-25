@@ -15,7 +15,11 @@ http.route({
     const authHeader = request.headers.get("Authorization");
     const expectedToken = process.env.REVENUECAT_WEBHOOK_AUTH_TOKEN;
 
-    if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
+    const isAuthorized =
+      !!expectedToken &&
+      authHeader !== null &&
+      (authHeader === expectedToken || authHeader === `Bearer ${expectedToken}`);
+    if (!isAuthorized) {
       return new Response("Unauthorized", { status: 401 });
     }
 
@@ -27,40 +31,58 @@ http.route({
         return new Response("No event", { status: 400 });
       }
 
-      const appUserId: string = event.app_user_id;
+      const appUserId: string | undefined = event.app_user_id;
       const productId: string | undefined = event.product_id;
       const store: string | undefined = event.store;
 
-      const activeEvents = [
-        "INITIAL_PURCHASE",
-        "RENEWAL",
-        "PRODUCT_CHANGE",
-        "UNCANCELLATION",
-      ];
-
-      const inactiveEvents = [
-        "CANCELLATION",
-        "EXPIRATION",
-        "BILLING_ISSUE",
-        "SUBSCRIPTION_PAUSED",
-      ];
-
       let isActive: boolean | null = null;
-
-      if (activeEvents.includes(event.type)) {
+      if (
+        event.type === "INITIAL_PURCHASE" ||
+        event.type === "RENEWAL" ||
+        event.type === "PRODUCT_CHANGE" ||
+        event.type === "UNCANCELLATION" ||
+        event.type === "NON_RENEWING_PURCHASE"
+      ) {
         isActive = true;
-      } else if (inactiveEvents.includes(event.type)) {
+      } else if (event.type === "EXPIRATION") {
         isActive = false;
       }
 
-      if (isActive !== null) {
+      // Certain events don't imply immediate entitlement revocation.
+      const shouldProcess = isActive !== null && !!appUserId;
+      if (shouldProcess) {
+        const expirationAtMsRaw = event.expiration_at_ms;
+        const expirationAtMs =
+          typeof expirationAtMsRaw === "number"
+            ? expirationAtMsRaw
+            : typeof expirationAtMsRaw === "string"
+              ? Number(expirationAtMsRaw)
+              : NaN;
+        const eventTimestampRaw = event.event_timestamp_ms;
+        const eventTimestampMs =
+          typeof eventTimestampRaw === "number"
+            ? eventTimestampRaw
+            : typeof eventTimestampRaw === "string"
+              ? Number(eventTimestampRaw)
+              : NaN;
+
         await ctx.runMutation(internal.subscriptions.updateFromWebhook, {
           revenuecatAppUserId: appUserId,
-          isActive,
+          isActive: isActive === true,
           productId,
           store,
-          expiresAt: event.expiration_at_ms
-            ? new Date(event.expiration_at_ms).toISOString()
+          expiresAt:
+            Number.isFinite(expirationAtMs) && expirationAtMs > 0
+              ? new Date(expirationAtMs).toISOString()
+              : undefined,
+          eventId:
+            typeof event.id === "string"
+              ? event.id
+              : typeof event.event_id === "string"
+                ? event.event_id
+                : undefined,
+          eventTimestampMs: Number.isFinite(eventTimestampMs)
+            ? eventTimestampMs
             : undefined,
         });
       }

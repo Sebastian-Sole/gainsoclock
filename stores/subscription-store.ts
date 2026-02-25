@@ -17,6 +17,7 @@ interface SubscriptionState {
     productId?: string | null;
     expiresAt?: string | null;
   }) => void;
+  reset: () => void;
 }
 
 export const useSubscriptionStore = create<SubscriptionState>()(
@@ -39,6 +40,14 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           isPro: serverData.isActive,
           productId: serverData.productId ?? null,
           expiresAt: serverData.expiresAt ?? null,
+        });
+      },
+
+      reset: () => {
+        set({
+          isPro: false,
+          productId: null,
+          expiresAt: null,
         });
       },
     }),

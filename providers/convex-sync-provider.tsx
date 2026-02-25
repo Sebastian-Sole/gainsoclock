@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { Platform } from "react-native";
-import { useQuery, useConvexAuth, useConvex } from "convex/react";
+import { useQuery, useConvexAuth, useConvex, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useTemplateStore } from "@/stores/template-store";
 import { useHistoryStore } from "@/stores/history-store";
@@ -14,6 +14,7 @@ import { configurePurchases } from "@/hooks/use-purchases";
 // Lazy-load Purchases to avoid crash when native module isn't linked
 let Purchases: any = null;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   Purchases = require("react-native-purchases").default;
 } catch {
   // Native module not available
@@ -47,6 +48,7 @@ function SyncEngine() {
   const settings = useQuery(api.settings.get);
   const subscription = useQuery(api.subscriptions.getStatus);
   const userId = useQuery(api.user.me);
+  const registerCurrentUser = useMutation(api.subscriptions.registerCurrentUser);
 
   // Run one-time migration of local data to Convex
   useDataMigration();
@@ -60,8 +62,19 @@ function SyncEngine() {
   // Identify RevenueCat user with Convex userId
   useEffect(() => {
     if (!userId || Platform.OS === "web" || !Purchases) return;
-    Purchases.logIn(userId).catch((err: unknown) =>
-      console.warn("[Purchases] logIn failed:", err)
+    Purchases.logIn(userId)
+      .then(() => registerCurrentUser())
+      .catch((err: unknown) => console.warn("[Purchases] logIn failed:", err));
+  }, [registerCurrentUser, userId]);
+
+  // Clear subscription state on sign-out and reset native Purchases user.
+  useEffect(() => {
+    if (userId === undefined || userId) return;
+
+    useSubscriptionStore.getState().reset();
+    if (Platform.OS === "web" || !Purchases) return;
+    Purchases.logOut().catch((err: unknown) =>
+      console.warn("[Purchases] logOut failed:", err)
     );
   }, [userId]);
 

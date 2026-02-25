@@ -54,13 +54,6 @@ export default function SettingsScreen() {
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
 
-  const handleSignOut = () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign Out", style: "destructive", onPress: () => signOut() },
-    ]);
-  };
-
   const handleResetData = async () => {
     setResetModalVisible(false);
     setResetConfirmText("");
@@ -98,12 +91,27 @@ export default function SettingsScreen() {
 
   const isPro = useSubscriptionStore((s) => s.isPro);
   const expiresAt = useSubscriptionStore((s) => s.expiresAt);
+  const resetSubscription = useSubscriptionStore((s) => s.reset);
   const {
     restore,
     presentPaywall,
     presentCustomerCenter,
     isLoading: isRestoring,
   } = usePurchases();
+
+  const handleSignOut = () => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: () => {
+          resetSubscription();
+          void signOut();
+        },
+      },
+    ]);
+  };
 
   const handleUpgradeToPro = async () => {
     const result = await presentPaywall();

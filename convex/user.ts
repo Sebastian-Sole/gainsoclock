@@ -19,9 +19,15 @@ export const getOnboardingStatus = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
 
+    const nowMs = Date.now();
+    const userDoc = await ctx.db.get(userId);
+    const userCreationMs = userDoc?._creationTime ?? nowMs;
+    const isLikelyNewUser = nowMs - userCreationMs < 5 * 60 * 1000;
+
     // Legacy users without a row are treated as already onboarded.
+    // Newly created users are routed through onboarding immediately.
     if (!onboarding) {
-      return { hasCompletedOnboarding: true };
+      return { hasCompletedOnboarding: !isLikelyNewUser };
     }
 
     return { hasCompletedOnboarding: onboarding.hasCompletedOnboarding };

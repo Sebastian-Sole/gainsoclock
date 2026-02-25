@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Menu, Plus, MessageCircle } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { Colors } from '@/constants/theme';
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import {
   useChat,
   useChatConversations,
@@ -15,13 +17,16 @@ import { ChatBubble, StreamingDots } from '@/components/chat/chat-bubble';
 import { ChatInput } from '@/components/chat/chat-input';
 import { ApprovalCard } from '@/components/chat/approval-card';
 import { ChatSidebar } from '@/components/chat/chat-sidebar';
-import { useSubscriptionStore } from '@/stores/subscription-store';
 import { Paywall } from '@/components/paywall';
 
 export default function ChatScreen() {
-  const isPro = useSubscriptionStore((s) => s.isPro);
+  const subscription = useQuery(api.subscriptions.getStatus);
 
-  if (!isPro) {
+  if (subscription === undefined) {
+    return <SafeAreaView className="flex-1 bg-background" edges={['top']} />;
+  }
+
+  if (!subscription.isActive) {
     return <Paywall />;
   }
 
@@ -133,6 +138,7 @@ function ActiveChatView({
   } | null>;
 }) {
   const { messages, sendMessage, isSending, isStreaming } = useChat(conversationId);
+  const lastMessageContent = messages[messages.length - 1]?.content;
 
   // Handle pending message from empty-state send
   useEffect(() => {
@@ -141,7 +147,7 @@ function ActiveChatView({
       pendingMessageRef.current = null;
       sendMessage(pending.content);
     }
-  }, [conversationId]);
+  }, [conversationId, pendingMessageRef, sendMessage]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -150,7 +156,7 @@ function ActiveChatView({
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages.length, messages[messages.length - 1]?.content]);
+  }, [flatListRef, lastMessageContent, messages.length]);
 
   return (
     <>

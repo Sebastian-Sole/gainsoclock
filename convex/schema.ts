@@ -110,6 +110,8 @@ export default defineSchema({
     store: v.optional(v.string()),
     expiresAt: v.optional(v.string()),
     updatedAt: v.string(),
+    lastEventId: v.optional(v.string()),
+    lastEventTimestampMs: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_revenuecat_id", ["revenuecatAppUserId"]),

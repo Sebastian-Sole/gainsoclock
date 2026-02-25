@@ -11,14 +11,18 @@ let PAYWALL_RESULT: any = {};
 let LOG_LEVEL: any = {};
 
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   Purchases = require("react-native-purchases").default;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   LOG_LEVEL = require("react-native-purchases").LOG_LEVEL;
 } catch (e) {
   console.warn("[Purchases] react-native-purchases not available:", e);
 }
 
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   RevenueCatUI = require("react-native-purchases-ui").default;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   PAYWALL_RESULT = require("react-native-purchases-ui").PAYWALL_RESULT;
 } catch (e) {
   console.warn("[Purchases] react-native-purchases-ui not available:", e);
@@ -37,12 +41,11 @@ const ENTITLEMENT_ID =
 function getActiveEntitlement(customerInfo: CustomerInfo) {
   const activeEntitlements = customerInfo?.entitlements?.active ?? {};
   const configuredEntitlement = activeEntitlements[ENTITLEMENT_ID];
-  const configuredEntitlementId = configuredEntitlement ? ENTITLEMENT_ID : null;
 
   if (configuredEntitlement) {
     return {
       activeEntitlement: configuredEntitlement,
-      entitlementId: configuredEntitlementId,
+      entitlementId: ENTITLEMENT_ID,
       isActive: true,
     };
   }
@@ -51,11 +54,18 @@ function getActiveEntitlement(customerInfo: CustomerInfo) {
   const firstActiveEntitlement = firstActiveEntitlementId
     ? activeEntitlements[firstActiveEntitlementId]
     : undefined;
+  if (firstActiveEntitlement) {
+    return {
+      activeEntitlement: firstActiveEntitlement,
+      entitlementId: firstActiveEntitlementId,
+      isActive: true,
+    };
+  }
 
   return {
-    activeEntitlement: firstActiveEntitlement,
-    entitlementId: firstActiveEntitlementId,
-    isActive: firstActiveEntitlement !== undefined,
+    activeEntitlement: undefined,
+    entitlementId: null,
+    isActive: false,
   };
 }
 
@@ -94,6 +104,22 @@ export function usePurchases() {
   const [isLoading, setIsLoading] = useState(false);
   const syncToServer = useMutation(api.subscriptions.syncFromClient);
 
+  const fetchCustomerInfoWithRetry = useCallback(async () => {
+    if (!Purchases) return null;
+
+    let customerInfo = await Purchases.getCustomerInfo();
+    let { isActive } = getActiveEntitlement(customerInfo);
+
+    // RevenueCat entitlement state can lag briefly after checkout/restore.
+    for (let attempt = 0; attempt < 3 && !isActive; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      customerInfo = await Purchases.getCustomerInfo();
+      ({ isActive } = getActiveEntitlement(customerInfo));
+    }
+
+    return customerInfo;
+  }, []);
+
   const syncCustomerInfo = useCallback(
     async (customerInfo: CustomerInfo) => {
       const { isActive, activeEntitlement, entitlementId } =
@@ -107,19 +133,25 @@ export function usePurchases() {
 
       try {
         await syncToServer({
-          revenuecatAppUserId: customerInfo.originalAppUserId,
           isActive,
-          productId: activeEntitlement?.productIdentifier,
+          productId: activeEntitlement?.productIdentifier ?? undefined,
+          store: activeEntitlement?.store ?? undefined,
           expiresAt: activeEntitlement?.expirationDate ?? undefined,
         });
-        if (__DEV__ && !entitlementId && isActive) {
+      } catch (error) {
+        console.warn("[Purchases] Failed to sync subscription to server:", error);
+      }
+
+      if (__DEV__ && !entitlementId) {
+        const activeIds = Object.keys(customerInfo?.entitlements?.active ?? {});
+        if (activeIds.length > 0) {
           console.warn(
-            `[Purchases] Active entitlement found but not under configured ID "${ENTITLEMENT_ID}".`
+            `[Purchases] Active entitlements (${activeIds.join(", ")}) do not match configured ID "${ENTITLEMENT_ID}".`
           );
         }
-      } catch (error) {
-        console.warn("[Purchases] Failed to sync to server:", error);
       }
+
+      return isActive;
     },
     [syncToServer]
   );
@@ -136,10 +168,15 @@ export function usePurchases() {
         switch (result) {
           case PAYWALL_RESULT.PURCHASED:
           case PAYWALL_RESULT.RESTORED: {
+            // Prompt RevenueCat to refresh backend receipt processing.
+            if (typeof Purchases.syncPurchasesForResult === "function") {
+              await Purchases.syncPurchasesForResult();
+            }
             // Sync updated customer info after purchase/restore
-            const customerInfo = await Purchases.getCustomerInfo();
-            await syncCustomerInfo(customerInfo);
-            return "purchased";
+            const customerInfo = await fetchCustomerInfoWithRetry();
+            if (!customerInfo) return "error";
+            const isActive = await syncCustomerInfo(customerInfo);
+            return isActive ? "purchased" : "error";
           }
           case PAYWALL_RESULT.ERROR:
             return "error";
@@ -153,7 +190,7 @@ export function usePurchases() {
         return "error";
       }
     },
-    [syncCustomerInfo]
+    [fetchCustomerInfoWithRetry, syncCustomerInfo]
   );
 
   // Present RevenueCat's Customer Center for subscription management
@@ -185,7 +222,8 @@ export function usePurchases() {
 
         await RevenueCatUI.presentCustomerCenter();
         // Re-sync after customer center (user may have cancelled/changed plan)
-        const customerInfo = await Purchases.getCustomerInfo();
+        const customerInfo = await fetchCustomerInfoWithRetry();
+        if (!customerInfo) return "error" as const;
         await syncCustomerInfo(customerInfo);
         return "opened" as const;
       } catch (error) {
@@ -194,7 +232,7 @@ export function usePurchases() {
         return opened ? ("fallback_url" as const) : ("error" as const);
       }
     },
-    [openManagementUrl, syncCustomerInfo]
+    [fetchCustomerInfoWithRetry, openManagementUrl, syncCustomerInfo]
   );
 
   const restore = useCallback(async () => {
@@ -202,26 +240,29 @@ export function usePurchases() {
     setIsLoading(true);
     try {
       const customerInfo = await Purchases.restorePurchases();
-      await syncCustomerInfo(customerInfo);
-      const { isActive } = getActiveEntitlement(customerInfo);
-      return isActive;
+      if (typeof Purchases.syncPurchasesForResult === "function") {
+        await Purchases.syncPurchasesForResult();
+      }
+      const latestCustomerInfo = (await fetchCustomerInfoWithRetry()) ?? customerInfo;
+      return await syncCustomerInfo(latestCustomerInfo);
     } catch (error) {
       console.error("[Purchases] Restore failed:", error);
       return false;
     } finally {
       setIsLoading(false);
     }
-  }, [syncCustomerInfo]);
+  }, [fetchCustomerInfoWithRetry, syncCustomerInfo]);
 
   const checkStatus = useCallback(async () => {
     if (!Purchases) return;
     try {
-      const customerInfo = await Purchases.getCustomerInfo();
+      const customerInfo = await fetchCustomerInfoWithRetry();
+      if (!customerInfo) return;
       await syncCustomerInfo(customerInfo);
     } catch (error) {
       console.warn("[Purchases] Failed to check status:", error);
     }
-  }, [syncCustomerInfo]);
+  }, [fetchCustomerInfoWithRetry, syncCustomerInfo]);
 
   return {
     presentPaywall,
