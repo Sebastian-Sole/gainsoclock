@@ -186,7 +186,7 @@ export default function SignInScreen() {
           {/* Sign Up Link */}
           <View className="flex-row items-center justify-center gap-1">
             <Text className="text-muted-foreground">
-              Don't have an account?
+              Don&apos;t have an account?
             </Text>
             <Pressable onPress={() => router.push("/(auth)/sign-up" as never)}>
               <Text className="font-semibold text-primary">Sign Up</Text>

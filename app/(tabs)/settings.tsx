@@ -121,6 +121,21 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleManageSubscription = async () => {
+    const result = await presentCustomerCenter();
+
+    if (result === "unavailable" || result === "error") {
+      const manualPath =
+        Platform.OS === "ios"
+          ? "iOS Settings > Apple ID > Subscriptions."
+          : "Google Play > Payments & subscriptions > Subscriptions.";
+      Alert.alert(
+        "Manage Subscription",
+        `We couldn't open subscription management. You can also manage from ${manualPath}`
+      );
+    }
+  };
+
   const handleRestore = async () => {
     const restored = await restore();
     if (restored) {
@@ -131,10 +146,6 @@ export default function SettingsScreen() {
         "We couldn't find an active subscription for your account."
       );
     }
-  };
-
-  const openWebsite = () => {
-    Linking.openURL("https://example.com");
   };
 
   return (
@@ -307,16 +318,16 @@ export default function SettingsScreen() {
         <View className="rounded-xl bg-card">
           {isPro ? (
             <Pressable
-              onPress={presentCustomerCenter}
+              onPress={handleManageSubscription}
               className="flex-row items-center gap-3 px-4 py-4"
             >
               <Crown size={20} color={iconColor} />
               <View className="flex-1">
-                <Text className="font-medium">Pro Subscription</Text>
+                <Text className="font-medium">Manage Subscription</Text>
                 <Text className="text-sm text-muted-foreground">
                   {expiresAt
-                    ? `Renews ${new Date(expiresAt).toLocaleDateString()}`
-                    : "Active"}
+                    ? `Renews ${new Date(expiresAt).toLocaleDateString()} • Change or cancel`
+                    : "Change or cancel your plan"}
                 </Text>
               </View>
               <ChevronRight size={20} className="text-muted-foreground" />

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSubscriptionStore } from "@/stores/subscription-store";
@@ -24,8 +24,12 @@ try {
   console.warn("[Purchases] react-native-purchases-ui not available:", e);
 }
 
-type PurchasesPackage = any;
 type CustomerInfo = any;
+export type CustomerCenterResult =
+  | "opened"
+  | "fallback_url"
+  | "unavailable"
+  | "error";
 
 const ENTITLEMENT_ID =
   process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ?? "Gainsoclock Pro";
@@ -87,7 +91,6 @@ export function configurePurchases() {
 }
 
 export function usePurchases() {
-  const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const syncToServer = useMutation(api.subscriptions.syncFromClient);
 
@@ -119,38 +122,6 @@ export function usePurchases() {
       }
     },
     [syncToServer]
-  );
-
-  const loadOfferings = useCallback(async () => {
-    if (!Purchases) return;
-    try {
-      const offerings = await Purchases.getOfferings();
-      if (offerings.current?.availablePackages) {
-        setPackages(offerings.current.availablePackages);
-      }
-    } catch (error) {
-      console.warn("[Purchases] Failed to load offerings:", error);
-    }
-  }, []);
-
-  const purchase = useCallback(
-    async (pkg: PurchasesPackage) => {
-      if (!Purchases) return false;
-      setIsLoading(true);
-      try {
-        const { customerInfo } = await Purchases.purchasePackage(pkg);
-        await syncCustomerInfo(customerInfo);
-        return true;
-      } catch (error: any) {
-        if (!error.userCancelled) {
-          console.error("[Purchases] Purchase failed:", error);
-        }
-        return false;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [syncCustomerInfo]
   );
 
   // Present RevenueCat's native paywall UI
@@ -185,41 +156,46 @@ export function usePurchases() {
     [syncCustomerInfo]
   );
 
-  // Present paywall only if the user doesn't have the entitlement
-  const presentPaywallIfNeeded = useCallback(async (): Promise<boolean> => {
-    if (!RevenueCatUI || !Purchases) return false;
+  // Present RevenueCat's Customer Center for subscription management
+  const openManagementUrl = useCallback(async (): Promise<boolean> => {
+    if (!Purchases) return false;
     try {
-      const result = await RevenueCatUI.presentPaywallIfNeeded({
-        requiredEntitlementIdentifier: ENTITLEMENT_ID,
-      });
-      switch (result) {
-        case PAYWALL_RESULT.PURCHASED:
-        case PAYWALL_RESULT.RESTORED: {
-          const customerInfo = await Purchases.getCustomerInfo();
-          await syncCustomerInfo(customerInfo);
-          return true;
-        }
-        default:
-          return false;
-      }
+      const customerInfo = await Purchases.getCustomerInfo();
+      const managementUrl: string | undefined =
+        customerInfo?.managementURL ?? customerInfo?.managementUrl;
+      if (!managementUrl) return false;
+      const canOpen = await Linking.canOpenURL(managementUrl);
+      if (!canOpen) return false;
+      await Linking.openURL(managementUrl);
+      return true;
     } catch (error) {
-      console.error("[Purchases] Paywall presentation failed:", error);
+      console.error("[Purchases] Failed to open management URL:", error);
       return false;
     }
-  }, [syncCustomerInfo]);
+  }, []);
 
-  // Present RevenueCat's Customer Center for subscription management
-  const presentCustomerCenter = useCallback(async () => {
-    if (!RevenueCatUI || !Purchases) return;
-    try {
-      await RevenueCatUI.presentCustomerCenter();
-      // Re-sync after customer center (user may have cancelled/changed plan)
-      const customerInfo = await Purchases.getCustomerInfo();
-      await syncCustomerInfo(customerInfo);
-    } catch (error) {
-      console.error("[Purchases] Customer Center failed:", error);
-    }
-  }, [syncCustomerInfo]);
+  const presentCustomerCenter = useCallback(
+    async (): Promise<CustomerCenterResult> => {
+      if (!Purchases) return "unavailable" as const;
+      try {
+        if (!RevenueCatUI) {
+          const opened = await openManagementUrl();
+          return opened ? ("fallback_url" as const) : ("unavailable" as const);
+        }
+
+        await RevenueCatUI.presentCustomerCenter();
+        // Re-sync after customer center (user may have cancelled/changed plan)
+        const customerInfo = await Purchases.getCustomerInfo();
+        await syncCustomerInfo(customerInfo);
+        return "opened" as const;
+      } catch (error) {
+        console.error("[Purchases] Customer Center failed:", error);
+        const opened = await openManagementUrl();
+        return opened ? ("fallback_url" as const) : ("error" as const);
+      }
+    },
+    [openManagementUrl, syncCustomerInfo]
+  );
 
   const restore = useCallback(async () => {
     if (!Purchases) return false;
@@ -248,11 +224,7 @@ export function usePurchases() {
   }, [syncCustomerInfo]);
 
   return {
-    packages,
-    loadOfferings,
-    purchase,
     presentPaywall,
-    presentPaywallIfNeeded,
     presentCustomerCenter,
     restore,
     checkStatus,

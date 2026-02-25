@@ -8,6 +8,84 @@ export const me = query({
   },
 });
 
+export const getOnboardingStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const onboarding = await ctx.db
+      .query("userOnboarding")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+
+    // Legacy users without a row are treated as already onboarded.
+    if (!onboarding) {
+      return { hasCompletedOnboarding: true };
+    }
+
+    return { hasCompletedOnboarding: onboarding.hasCompletedOnboarding };
+  },
+});
+
+export const markOnboardingPendingIfUnset = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const existing = await ctx.db
+      .query("userOnboarding")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+
+    if (existing) return;
+
+    const userDoc = await ctx.db.get(userId);
+    const nowMs = Date.now();
+    const userCreationMs = userDoc?._creationTime ?? nowMs;
+    // If this account was created very recently, treat it as a new signup.
+    const isLikelyNewUser = nowMs - userCreationMs < 5 * 60 * 1000;
+
+    const now = new Date(nowMs).toISOString();
+    await ctx.db.insert("userOnboarding", {
+      userId,
+      hasCompletedOnboarding: !isLikelyNewUser,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const completeOnboarding = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const existing = await ctx.db
+      .query("userOnboarding")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+
+    const now = new Date().toISOString();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        hasCompletedOnboarding: true,
+        updatedAt: now,
+      });
+      return;
+    }
+
+    await ctx.db.insert("userOnboarding", {
+      userId,
+      hasCompletedOnboarding: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
 export const deleteAllData = mutation({
   args: {},
   handler: async (ctx) => {
@@ -74,6 +152,15 @@ export const deleteAllData = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     for (const doc of settings) {
+      await ctx.db.delete(doc._id);
+    }
+
+    // Delete onboarding state
+    const onboarding = await ctx.db
+      .query("userOnboarding")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const doc of onboarding) {
       await ctx.db.delete(doc._id);
     }
   },

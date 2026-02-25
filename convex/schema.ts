@@ -124,6 +124,14 @@ export default defineSchema({
     weekStartDay: v.optional(weekStartDayValidator),
   }).index("by_user", ["userId"]),
 
+  // Onboarding status
+  userOnboarding: defineTable({
+    userId: v.id("users"),
+    hasCompletedOnboarding: v.boolean(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  }).index("by_user", ["userId"]),
+
   // Chat conversations
   chatConversations: defineTable({
     userId: v.id("users"),

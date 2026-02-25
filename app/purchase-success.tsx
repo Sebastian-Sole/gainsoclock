@@ -52,7 +52,7 @@ export default function PurchaseSuccessScreen() {
           </View>
           <Text className="text-2xl font-bold">Welcome to Pro!</Text>
           <Text className="mt-2 text-center text-muted-foreground">
-            You've unlocked your AI fitness coach
+            You&apos;ve unlocked your AI fitness coach
           </Text>
         </Animated.View>
 
@@ -76,7 +76,7 @@ export default function PurchaseSuccessScreen() {
         {/* CTA */}
         <Animated.View entering={FadeInDown.delay(400)}>
           <Pressable
-            onPress={() => router.dismissAll()}
+            onPress={() => router.replace("/(tabs)" as never)}
             className="items-center rounded-2xl bg-primary py-4"
           >
             <Text className="text-lg font-bold text-primary-foreground">
