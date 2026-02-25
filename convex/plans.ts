@@ -319,18 +319,16 @@ export const swapPlanDays = mutation({
 
     if (!dayA || !dayB) return;
 
-    // Swap content fields (preserve workoutLogClientId on original day)
+    // Swap scheduled content only (preserve status and workoutLogClientId on original day)
     await ctx.db.patch(dayA._id, {
       templateClientId: dayB.templateClientId,
       label: dayB.label,
       notes: dayB.notes,
-      status: dayB.status,
     });
     await ctx.db.patch(dayB._id, {
       templateClientId: dayA.templateClientId,
       label: dayA.label,
       notes: dayA.notes,
-      status: dayA.status,
     });
 
     const plan = await ctx.db

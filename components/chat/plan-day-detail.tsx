@@ -407,23 +407,21 @@ export function PlanDayDetail({
         </View>
       </KeyboardAvoidingView>
 
-      {/* Template picker — rendered inside the same Modal to stack properly on iOS */}
-      {showTemplatePicker && (
-        <TemplatePicker
-          visible={showTemplatePicker}
-          onClose={() => setShowTemplatePicker(false)}
-          onSelect={(id) => {
-            setEditTemplateId(id);
-            const selected = templates.find((t) => t.id === id);
-            if (selected) {
-              setEditLabel(selected.name);
-              setEditNotes('');
-            }
-            setShowTemplatePicker(false);
-          }}
-          currentTemplateId={editTemplateId}
-        />
-      )}
+      {/* Template picker — always rendered so close animation can play */}
+      <TemplatePicker
+        visible={showTemplatePicker}
+        onClose={() => setShowTemplatePicker(false)}
+        onSelect={(id) => {
+          setEditTemplateId(id);
+          const selected = templates.find((t) => t.id === id);
+          if (selected) {
+            setEditLabel(selected.name);
+            setEditNotes('');
+          }
+          setShowTemplatePicker(false);
+        }}
+        currentTemplateId={editTemplateId}
+      />
     </Modal>
   );
 }
