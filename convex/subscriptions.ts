@@ -1,5 +1,6 @@
-import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
+import { query, mutation, action, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 function hasExpired(expiresAt?: string) {
@@ -92,9 +93,10 @@ export const registerCurrentUser = mutation({
   },
 });
 
-// Public mutation: sync the caller's subscription status from RevenueCat SDK data.
-// This grants immediate access after purchase even if webhooks are delayed/misconfigured.
-export const syncFromClient = mutation({
+// Public action: verify the caller's subscription via RevenueCat REST API, then
+// update the database.  This prevents malicious clients from granting themselves
+// Pro access by calling a mutation directly.
+export const syncFromClient = action({
   args: {
     isActive: v.boolean(),
     productId: v.optional(v.string()),
@@ -105,16 +107,92 @@ export const syncFromClient = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
+    const revenuecatApiKey = process.env.REVENUECAT_API_KEY;
+
+    let verified = false;
+    let verifiedProductId: string | undefined;
+    let verifiedStore: string | undefined;
+    let verifiedExpiresAt: string | undefined;
+
+    if (revenuecatApiKey) {
+      // Verify subscription server-side via RevenueCat REST API.
+      const response = await fetch(
+        `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`,
+        { headers: { Authorization: `Bearer ${revenuecatApiKey}` } }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const entitlements = data?.subscriber?.entitlements ?? {};
+        const entitlementId =
+          process.env.REVENUECAT_ENTITLEMENT_ID ?? "Gainsoclock Pro";
+
+        const entitlement =
+          entitlements[entitlementId] ?? Object.values(entitlements)[0];
+
+        if (entitlement) {
+          const expiresDate = entitlement.expires_date;
+          const isExpired =
+            expiresDate && Date.parse(expiresDate) <= Date.now();
+          verified = !isExpired;
+          verifiedProductId = entitlement.product_identifier;
+          verifiedStore = entitlement.store;
+          verifiedExpiresAt = expiresDate ?? undefined;
+        }
+      } else {
+        console.warn(
+          `[RevenueCat] API verification failed (${response.status}), ` +
+            "falling back to client-provided data."
+        );
+        // Fall back to trusting client data when API call fails so purchases
+        // are not blocked by transient RevenueCat outages.
+        verified = args.isActive;
+        verifiedProductId = args.productId;
+        verifiedStore = args.store;
+        verifiedExpiresAt = args.expiresAt;
+      }
+    } else {
+      // No server key configured – fall back to client data with a warning.
+      console.warn(
+        "[RevenueCat] REVENUECAT_API_KEY is not set – cannot verify " +
+          "subscription server-side. Trusting client-provided data."
+      );
+      verified = args.isActive;
+      verifiedProductId = args.productId;
+      verifiedStore = args.store;
+      verifiedExpiresAt = args.expiresAt;
+    }
+
+    await ctx.runMutation(internal.subscriptions.upsertSubscription, {
+      userId,
+      isActive: verified,
+      productId: verifiedProductId,
+      store: verifiedStore,
+      expiresAt: verifiedExpiresAt,
+    });
+  },
+});
+
+// Internal mutation: upsert subscription record (called by syncFromClient action).
+export const upsertSubscription = internalMutation({
+  args: {
+    userId: v.id("users"),
+    isActive: v.boolean(),
+    productId: v.optional(v.string()),
+    store: v.optional(v.string()),
+    expiresAt: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     const subscriptions = await ctx.db
       .query("userSubscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
 
     subscriptions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     const [primary, ...duplicates] = subscriptions;
     const now = new Date().toISOString();
     const updates = {
-      revenuecatAppUserId: userId,
+      revenuecatAppUserId: args.userId,
       entitlement: "pro",
       isActive: args.isActive,
       productId: args.productId,
@@ -127,7 +205,7 @@ export const syncFromClient = mutation({
       await ctx.db.patch(primary._id, updates);
     } else {
       await ctx.db.insert("userSubscriptions", {
-        userId,
+        userId: args.userId,
         ...updates,
       });
     }

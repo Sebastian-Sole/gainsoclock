@@ -15,6 +15,12 @@ http.route({
     const authHeader = request.headers.get("Authorization");
     const expectedToken = process.env.REVENUECAT_WEBHOOK_AUTH_TOKEN;
 
+    if (!expectedToken) {
+      console.warn(
+        "[RevenueCat] REVENUECAT_WEBHOOK_AUTH_TOKEN is not set – all webhook requests will be rejected."
+      );
+    }
+
     const isAuthorized =
       !!expectedToken &&
       authHeader !== null &&

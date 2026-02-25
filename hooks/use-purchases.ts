@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Linking, Platform } from "react-native";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSubscriptionStore } from "@/stores/subscription-store";
 
@@ -28,7 +28,19 @@ try {
   console.warn("[Purchases] react-native-purchases-ui not available:", e);
 }
 
-type CustomerInfo = any;
+interface EntitlementInfo {
+  productIdentifier?: string;
+  store?: string;
+  expirationDate?: string;
+}
+
+interface CustomerInfo {
+  entitlements?: {
+    active?: Record<string, EntitlementInfo>;
+  };
+  managementURL?: string;
+  managementUrl?: string;
+}
 export type CustomerCenterResult =
   | "opened"
   | "fallback_url"
@@ -102,7 +114,7 @@ export function configurePurchases() {
 
 export function usePurchases() {
   const [isLoading, setIsLoading] = useState(false);
-  const syncToServer = useMutation(api.subscriptions.syncFromClient);
+  const syncToServer = useAction(api.subscriptions.syncFromClient);
 
   const fetchCustomerInfoWithRetry = useCallback(async () => {
     if (!Purchases) return null;

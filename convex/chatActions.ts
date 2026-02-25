@@ -499,7 +499,9 @@ export const sendMessage = action({
       { userId }
     );
     if (!isPro) {
-      throw new Error("Subscription required: AI Coach is a Pro feature");
+      throw new Error(
+        "Subscription required: Your current plan doesn't include AI Coach. Please upgrade to Pro to use this feature."
+      );
     }
 
     // 1. Insert user message

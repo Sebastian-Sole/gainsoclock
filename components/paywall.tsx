@@ -2,40 +2,12 @@ import React from "react";
 import { Alert, View, Pressable, ActivityIndicator } from "react-native";
 import { Text } from "@/components/ui/text";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  MessageCircle,
-  Sparkles,
-  Dumbbell,
-  ChefHat,
-  Crown,
-} from "lucide-react-native";
+import { Crown } from "lucide-react-native";
 import { useColorScheme } from "nativewind";
 import { useRouter } from "expo-router";
 import { Colors } from "@/constants/theme";
+import { PRO_FEATURES } from "@/constants/features";
 import { usePurchases } from "@/hooks/use-purchases";
-
-const FEATURES = [
-  {
-    icon: MessageCircle,
-    title: "AI Fitness Coach",
-    description: "Get personalized workout advice and answers",
-  },
-  {
-    icon: Dumbbell,
-    title: "Custom Workout Plans",
-    description: "AI-generated training programs tailored to your goals",
-  },
-  {
-    icon: ChefHat,
-    title: "Meal Suggestions",
-    description: "Nutrition advice and recipes for your macros",
-  },
-  {
-    icon: Sparkles,
-    title: "Smart Programming",
-    description: "Templates with progressive overload built in",
-  },
-];
 
 export function Paywall() {
   const { colorScheme } = useColorScheme();
@@ -87,7 +59,7 @@ export function Paywall() {
 
         {/* Features */}
         <View className="my-8 gap-4">
-          {FEATURES.map((feature) => (
+          {PRO_FEATURES.map((feature) => (
             <View key={feature.title} className="flex-row items-center gap-4">
               <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
                 <feature.icon size={20} color={primaryColor} />

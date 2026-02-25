@@ -169,5 +169,14 @@ export const deleteAllData = mutation({
     for (const doc of onboarding) {
       await ctx.db.delete(doc._id);
     }
+
+    // Delete subscription records
+    const subscriptions = await ctx.db
+      .query("userSubscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const doc of subscriptions) {
+      await ctx.db.delete(doc._id);
+    }
   },
 });
