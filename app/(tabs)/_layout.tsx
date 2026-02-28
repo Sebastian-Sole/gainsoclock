@@ -1,4 +1,5 @@
 import { Tabs } from "expo-router";
+import { View } from "react-native";
 import {
   ChartNoAxesCombined,
   Compass,
@@ -11,9 +12,15 @@ import React from "react";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { Colors } from "@/constants/theme";
+import { useOnboardingTarget } from "@/hooks/use-onboarding-target";
 
 export default function TabLayout() {
   const { colorScheme } = useColorScheme();
+
+  const workoutsRef = useOnboardingTarget('tab-workouts');
+  const statsRef = useOnboardingTarget('tab-stats');
+  const exploreRef = useOnboardingTarget('tab-explore');
+  const chatRef = useOnboardingTarget('tab-chat');
 
   return (
     <Tabs
@@ -28,7 +35,9 @@ export default function TabLayout() {
         options={{
           title: "Workouts",
           tabBarIcon: ({ color, size }) => (
-            <Dumbbell size={size} color={color} />
+            <View ref={workoutsRef} collapsable={false}>
+              <Dumbbell size={size} color={color} />
+            </View>
           ),
         }}
       />
@@ -43,7 +52,9 @@ export default function TabLayout() {
         options={{
           title: "Stats",
           tabBarIcon: ({ color, size }) => (
-            <ChartNoAxesCombined size={size} color={color} />
+            <View ref={statsRef} collapsable={false}>
+              <ChartNoAxesCombined size={size} color={color} />
+            </View>
           ),
         }}
       />
@@ -52,7 +63,9 @@ export default function TabLayout() {
         options={{
           title: "Explore",
           tabBarIcon: ({ color, size }) => (
-            <Compass size={size} color={color} />
+            <View ref={exploreRef} collapsable={false}>
+              <Compass size={size} color={color} />
+            </View>
           ),
         }}
       />
@@ -61,7 +74,9 @@ export default function TabLayout() {
         options={{
           title: "Chat",
           tabBarIcon: ({ color, size }) => (
-            <MessageCircle size={size} color={color} />
+            <View ref={chatRef} collapsable={false}>
+              <MessageCircle size={size} color={color} />
+            </View>
           ),
         }}
       />
