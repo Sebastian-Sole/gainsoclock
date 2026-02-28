@@ -179,9 +179,36 @@ export default defineSchema({
     macros: v.optional(macrosValidator),
     tags: v.optional(v.array(v.string())),
     sourceConversationClientId: v.optional(v.string()),
+    notes: v.optional(v.string()),
     saved: v.boolean(),
     createdAt: v.string(),
+    updatedAt: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_user_clientId", ["userId", "clientId"]),
+
+  // Meal log entries
+  mealLogs: defineTable({
+    userId: v.id("users"),
+    clientId: v.string(),
+    date: v.string(), // "YYYY-MM-DD"
+    recipeClientId: v.optional(v.string()),
+    title: v.string(),
+    portionMultiplier: v.number(),
+    macros: macrosValidator,
+    notes: v.optional(v.string()),
+    loggedAt: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_date", ["userId", "date"])
+    .index("by_user_clientId", ["userId", "clientId"]),
+
+  // Daily nutrition goals per user
+  nutritionGoals: defineTable({
+    userId: v.id("users"),
+    calories: v.number(),
+    protein: v.number(),
+    carbs: v.number(),
+    fat: v.number(),
+  }).index("by_user", ["userId"]),
 });

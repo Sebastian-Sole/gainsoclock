@@ -5,6 +5,8 @@ import { useTemplateStore } from "@/stores/template-store";
 import { useHistoryStore } from "@/stores/history-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useExerciseLibraryStore } from "@/stores/exercise-library-store";
+import { useRecipeStore } from "@/stores/recipe-store";
+import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { setConvexClient } from "@/lib/convex-sync";
 import { useDataMigration } from "@/hooks/use-data-migration";
 
@@ -34,6 +36,8 @@ function SyncEngine() {
   const templates = useQuery(api.templates.listWithExercises);
   const logs = useQuery(api.workoutLogs.listMeta);
   const settings = useQuery(api.settings.get);
+  const recipes = useQuery(api.recipes.listRecipes);
+  const nutritionGoals = useQuery(api.nutritionGoals.get);
 
   // Run one-time migration of local data to Convex
   useDataMigration();
@@ -61,6 +65,18 @@ function SyncEngine() {
     if (settings === undefined || settings === null) return;
     useSettingsStore.getState().hydrateFromServer(settings);
   }, [settings]);
+
+  // Hydrate recipe store from server
+  useEffect(() => {
+    if (recipes === undefined) return;
+    useRecipeStore.getState().hydrateFromServer(recipes);
+  }, [recipes]);
+
+  // Hydrate nutrition goals from server
+  useEffect(() => {
+    if (nutritionGoals === undefined || nutritionGoals === null) return;
+    useNutritionGoalsStore.getState().hydrateFromServer(nutritionGoals);
+  }, [nutritionGoals]);
 
   return null;
 }

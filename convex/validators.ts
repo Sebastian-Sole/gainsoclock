@@ -135,17 +135,18 @@ export const planDayStatusValidator = v.union(
 );
 
 // Recipe validators
-export const ingredientValidator = v.object({
-  name: v.string(),
-  amount: v.string(),
-  unit: v.optional(v.string()),
-});
-
 export const macrosValidator = v.object({
   calories: v.number(),
   protein: v.number(),
   carbs: v.number(),
   fat: v.number(),
+});
+
+export const ingredientValidator = v.object({
+  name: v.string(),
+  amount: v.string(),
+  unit: v.optional(v.string()),
+  macros: v.optional(macrosValidator),
 });
 
 // Week start day validator

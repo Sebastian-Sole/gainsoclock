@@ -15,6 +15,7 @@ import { ChatBubble, StreamingDots } from '@/components/chat/chat-bubble';
 import { ChatInput } from '@/components/chat/chat-input';
 import { ApprovalCard } from '@/components/chat/approval-card';
 import { ChatSidebar } from '@/components/chat/chat-sidebar';
+import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
 
 export default function ChatScreen() {
   const { colorScheme } = useColorScheme();
@@ -72,9 +73,12 @@ export default function ChatScreen() {
         <Text className="flex-1 text-lg font-bold" numberOfLines={1}>
           {activeConversation?.title ?? 'Chat'}
         </Text>
-        <Pressable onPress={handleNewChat} className="p-1">
-          <Plus size={24} color={iconColor} />
-        </Pressable>
+        <View className="flex-row items-center gap-1">
+          <Pressable onPress={handleNewChat} className="p-1">
+            <Plus size={24} color={iconColor} />
+          </Pressable>
+          <SettingsHeaderButton />
+        </View>
       </View>
 
       {/* Chat content */}

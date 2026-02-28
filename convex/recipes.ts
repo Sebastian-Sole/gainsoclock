@@ -144,3 +144,87 @@ export const deleteRecipe = mutation({
     }
   },
 });
+
+export const createUserRecipe = mutation({
+  args: {
+    clientId: v.string(),
+    title: v.string(),
+    description: v.string(),
+    notes: v.optional(v.string()),
+    ingredients: v.array(ingredientValidator),
+    instructions: v.array(v.string()),
+    prepTimeMinutes: v.optional(v.number()),
+    cookTimeMinutes: v.optional(v.number()),
+    servings: v.optional(v.number()),
+    macros: v.optional(macrosValidator),
+    tags: v.optional(v.array(v.string())),
+    createdAt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    // Dedup by clientId
+    const existing = await ctx.db
+      .query("recipes")
+      .withIndex("by_user_clientId", (q) =>
+        q.eq("userId", userId).eq("clientId", args.clientId)
+      )
+      .unique();
+    if (existing) return existing._id;
+
+    return await ctx.db.insert("recipes", {
+      userId,
+      clientId: args.clientId,
+      title: args.title,
+      description: args.description,
+      notes: args.notes,
+      ingredients: args.ingredients,
+      instructions: args.instructions,
+      prepTimeMinutes: args.prepTimeMinutes,
+      cookTimeMinutes: args.cookTimeMinutes,
+      servings: args.servings,
+      macros: args.macros,
+      tags: args.tags,
+      saved: true,
+      createdAt: args.createdAt,
+      updatedAt: args.createdAt,
+    });
+  },
+});
+
+export const updateRecipe = mutation({
+  args: {
+    clientId: v.string(),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    ingredients: v.optional(v.array(ingredientValidator)),
+    instructions: v.optional(v.array(v.string())),
+    prepTimeMinutes: v.optional(v.number()),
+    cookTimeMinutes: v.optional(v.number()),
+    servings: v.optional(v.number()),
+    macros: v.optional(macrosValidator),
+    tags: v.optional(v.array(v.string())),
+    updatedAt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const recipe = await ctx.db
+      .query("recipes")
+      .withIndex("by_user_clientId", (q) =>
+        q.eq("userId", userId).eq("clientId", args.clientId)
+      )
+      .unique();
+    if (!recipe) throw new Error("Recipe not found");
+
+    const { clientId, ...updates } = args;
+    const patch: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(updates)) {
+      if (val !== undefined) patch[key] = val;
+    }
+    await ctx.db.patch(recipe._id, patch);
+  },
+});

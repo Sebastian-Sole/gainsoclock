@@ -18,6 +18,7 @@ import { Fab } from '@/components/shared/fab';
 import { PlansList } from '@/components/chat/plans-list';
 import { useTemplateStore } from '@/stores/template-store';
 import { useWorkoutStore } from '@/stores/workout-store';
+import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
 import { mediumHaptic, heavyHaptic } from '@/lib/haptics';
 
 export default function WorkoutsScreen() {
@@ -169,8 +170,9 @@ export default function WorkoutsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <View className="px-4 pb-2 pt-2">
+      <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
         <Text className="text-3xl font-bold">Workouts</Text>
+        <SettingsHeaderButton />
       </View>
 
       <Tabs

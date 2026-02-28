@@ -15,6 +15,8 @@ import type * as chatActions from "../chatActions.js";
 import type * as chatInternal from "../chatInternal.js";
 import type * as exercises from "../exercises.js";
 import type * as http from "../http.js";
+import type * as mealLogs from "../mealLogs.js";
+import type * as nutritionGoals from "../nutritionGoals.js";
 import type * as plans from "../plans.js";
 import type * as recipes from "../recipes.js";
 import type * as settings from "../settings.js";
@@ -37,6 +39,8 @@ declare const fullApi: ApiFromModules<{
   chatInternal: typeof chatInternal;
   exercises: typeof exercises;
   http: typeof http;
+  mealLogs: typeof mealLogs;
+  nutritionGoals: typeof nutritionGoals;
   plans: typeof plans;
   recipes: typeof recipes;
   settings: typeof settings;

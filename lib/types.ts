@@ -194,6 +194,7 @@ export interface Ingredient {
   name: string;
   amount: string;
   unit?: string;
+  macros?: Macros;
 }
 
 export interface Macros {
@@ -207,6 +208,7 @@ export interface Recipe {
   id: string; // clientId
   title: string;
   description: string;
+  notes?: string;
   ingredients: Ingredient[];
   instructions: string[];
   prepTimeMinutes?: number;
@@ -217,6 +219,25 @@ export interface Recipe {
   sourceConversationClientId?: string;
   saved: boolean;
   createdAt: string;
+  updatedAt?: string;
+}
+
+export interface MealLog {
+  id: string; // clientId
+  date: string; // YYYY-MM-DD
+  recipeClientId?: string;
+  title: string;
+  portionMultiplier: number;
+  macros: Macros;
+  notes?: string;
+  loggedAt: string;
+}
+
+export interface NutritionGoals {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
 }
 
 export type WeekStartDay = 'monday' | 'sunday';

@@ -69,5 +69,32 @@ export const deleteAllData = mutation({
     for (const doc of settings) {
       await ctx.db.delete(doc._id);
     }
+
+    // Delete recipes
+    const recipes = await ctx.db
+      .query("recipes")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const doc of recipes) {
+      await ctx.db.delete(doc._id);
+    }
+
+    // Delete meal logs
+    const mealLogs = await ctx.db
+      .query("mealLogs")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const doc of mealLogs) {
+      await ctx.db.delete(doc._id);
+    }
+
+    // Delete nutrition goals
+    const nutritionGoals = await ctx.db
+      .query("nutritionGoals")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const doc of nutritionGoals) {
+      await ctx.db.delete(doc._id);
+    }
   },
 });

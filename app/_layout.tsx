@@ -96,6 +96,10 @@ function RootNavigator() {
             name="recipe"
             options={{ headerShown: false, presentation: "modal" }}
           />
+          <Stack.Screen
+            name="settings"
+            options={{ headerShown: false, presentation: "modal" }}
+          />
         </Stack>
         <PortalHost />
         <StatusBar style="auto" />

@@ -16,6 +16,7 @@ import { OverviewTab } from '@/components/stats/overview-tab';
 import { ExercisesTab } from '@/components/stats/exercises-tab';
 import { RecordsTab } from '@/components/stats/records-tab';
 import { HistoryTab } from '@/components/stats/history-tab';
+import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
 import type { DateRangeFilter } from '@/lib/stats';
 
 const DEFAULT_FILTER: DateRangeFilter = { preset: 'all', from: null, to: null };
@@ -27,7 +28,7 @@ export default function StatsScreen() {
   const [dateFilter, setDateFilter] = useState<DateRangeFilter>(DEFAULT_FILTER);
   const [activeTab, setActiveTab] = useState('history');
 
-  // History tab date state (lifted up so header "Today" button can control it)
+  // History tab date state (lifted up so "Today" button can control it)
   const [historyMonth, setHistoryMonth] = useState(new Date());
   const [historySelectedDate, setHistorySelectedDate] = useState(new Date());
 
@@ -55,11 +56,7 @@ export default function StatsScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
         <Text className="text-3xl font-bold">Stats</Text>
-        {showTodayButton && (
-          <Pressable onPress={goToToday} className="rounded-full px-3 py-1" style={{ backgroundColor: primaryColor }}>
-            <Text className="text-sm font-semibold text-white">Today</Text>
-          </Pressable>
-        )}
+        <SettingsHeaderButton />
       </View>
 
       {isEmpty ? (
@@ -95,6 +92,15 @@ export default function StatsScreen() {
                 </TabsTrigger>
               </TabsList>
             </View>
+
+            {/* Today button — below tabs, only on history tab */}
+            {showTodayButton && (
+              <View className="items-end px-4 pb-2">
+                <Pressable onPress={goToToday} className="rounded-full px-3 py-1" style={{ backgroundColor: primaryColor }}>
+                  <Text className="text-sm font-semibold text-white">Today</Text>
+                </Pressable>
+              </View>
+            )}
 
             {/* Date range picker — below tabs, hidden on history tab */}
             {activeTab !== 'history' && (
