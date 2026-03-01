@@ -493,6 +493,17 @@ export const sendMessage = action({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
+    // Check subscription before allowing AI features
+    const isPro = await ctx.runQuery(
+      internal.subscriptions.checkSubscription,
+      { userId }
+    );
+    if (!isPro) {
+      throw new Error(
+        "Subscription required: Your current plan doesn't include AI Coach. Please upgrade to Pro to use this feature."
+      );
+    }
+
     // 1. Insert user message
     await ctx.runMutation(internal.chat.insertMessage, {
       userId,

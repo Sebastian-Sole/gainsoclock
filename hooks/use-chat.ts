@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { Alert } from "react-native";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { generateId } from "@/lib/id";
@@ -25,6 +26,16 @@ export function useChat(conversationClientId: string) {
           conversationClientId,
           content: content.trim(),
         });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("Subscription required")) {
+          Alert.alert(
+            "Pro Required",
+            "AI Coach is a Pro feature. Please upgrade to continue."
+          );
+          return;
+        }
+        Alert.alert("Message Failed", "Could not send your message. Please try again.");
       } finally {
         setIsSending(false);
       }

@@ -7,9 +7,11 @@ import { useMutation } from "convex/react";
 import { useRouter } from "expo-router";
 import {
   ChevronRight,
+  Crown,
   Download,
   Heart,
   LogOut,
+  RotateCcw,
   Ruler,
   Timer,
   Trash2,
@@ -28,6 +30,15 @@ import {
   TextInput,
   View,
 } from "react-native";
+
+// Lazy-load Purchases to avoid crash when native module isn't linked
+let Purchases: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  Purchases = require("react-native-purchases").default;
+} catch {
+  // Native module not available
+}
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useHealthKit } from "@/hooks/use-healthkit";
@@ -38,6 +49,8 @@ import { useExerciseLibraryStore } from "@/stores/exercise-library-store";
 import { useHistoryStore } from "@/stores/history-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTemplateStore } from "@/stores/template-store";
+import { useSubscriptionStore } from "@/stores/subscription-store";
+import { usePurchases } from "@/hooks/use-purchases";
 
 export default function SettingsScreen() {
   const { colorScheme } = useColorScheme();
@@ -49,13 +62,6 @@ export default function SettingsScreen() {
   const deleteAllData = useMutation(api.user.deleteAllData);
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
-
-  const handleSignOut = () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign Out", style: "destructive", onPress: () => signOut() },
-    ]);
-  };
 
   const handleResetData = async () => {
     setResetModalVisible(false);
@@ -92,8 +98,76 @@ export default function SettingsScreen() {
     disable: disableHealthKit,
   } = useHealthKit();
 
-  const openWebsite = () => {
-    Linking.openURL("https://example.com");
+  const isPro = useSubscriptionStore((s) => s.isPro);
+  const expiresAt = useSubscriptionStore((s) => s.expiresAt);
+  const resetSubscription = useSubscriptionStore((s) => s.reset);
+  const {
+    restore,
+    presentPaywall,
+    presentCustomerCenter,
+    isLoading: isRestoring,
+  } = usePurchases();
+
+  const handleSignOut = () => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: () => {
+          resetSubscription();
+          if (Platform.OS !== "web" && Purchases) {
+            Purchases.logOut().catch((err: unknown) =>
+              console.warn("[Purchases] logOut failed:", err)
+            );
+          }
+          void signOut();
+        },
+      },
+    ]);
+  };
+
+  const handleUpgradeToPro = async () => {
+    const result = await presentPaywall();
+
+    if (result === "purchased") {
+      router.push("/purchase-success");
+      return;
+    }
+
+    if (result === "error") {
+      Alert.alert(
+        "Purchase Error",
+        "Something went wrong while opening purchases. Please try again."
+      );
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    const result = await presentCustomerCenter();
+
+    if (result === "unavailable" || result === "error") {
+      const manualPath =
+        Platform.OS === "ios"
+          ? "iOS Settings > Apple ID > Subscriptions."
+          : "Google Play > Payments & subscriptions > Subscriptions.";
+      Alert.alert(
+        "Manage Subscription",
+        `We couldn't open subscription management. You can also manage from ${manualPath}`
+      );
+    }
+  };
+
+  const handleRestore = async () => {
+    const restored = await restore();
+    if (restored) {
+      Alert.alert("Restored", "Your Pro subscription has been restored!");
+    } else {
+      Alert.alert(
+        "No Subscription Found",
+        "We couldn't find an active subscription for your account."
+      );
+    }
   };
 
   return (
@@ -257,6 +331,60 @@ export default function SettingsScreen() {
               onCheckedChange={setHapticsEnabled}
             />
           </View>
+        </View>
+
+        {/* Subscription Section */}
+        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+          SUBSCRIPTION
+        </Text>
+        <View className="rounded-xl bg-card">
+          {isPro ? (
+            <Pressable
+              onPress={handleManageSubscription}
+              className="flex-row items-center gap-3 px-4 py-4"
+            >
+              <Crown size={20} color={iconColor} />
+              <View className="flex-1">
+                <Text className="font-medium">Manage Subscription</Text>
+                <Text className="text-sm text-muted-foreground">
+                  {expiresAt
+                    ? `Renews ${new Date(expiresAt).toLocaleDateString()} • Change or cancel`
+                    : "Change or cancel your plan"}
+                </Text>
+              </View>
+              <ChevronRight size={20} className="text-muted-foreground" />
+            </Pressable>
+          ) : (
+            <>
+              <Pressable
+                onPress={handleUpgradeToPro}
+                className="flex-row items-center gap-3 px-4 py-4"
+              >
+                <Crown size={20} color={iconColor} />
+                <View className="flex-1">
+                  <Text className="font-medium">Upgrade to Pro</Text>
+                  <Text className="text-sm text-muted-foreground">
+                    Unlock AI Coach and more
+                  </Text>
+                </View>
+                <ChevronRight size={20} className="text-muted-foreground" />
+              </Pressable>
+              <Separator />
+              <Pressable
+                onPress={handleRestore}
+                disabled={isRestoring}
+                className="flex-row items-center gap-3 px-4 py-4"
+              >
+                <RotateCcw size={20} color={iconColor} />
+                <View className="flex-1">
+                  <Text className="font-medium">Restore Purchases</Text>
+                  <Text className="text-sm text-muted-foreground">
+                    Recover a previous subscription
+                  </Text>
+                </View>
+              </Pressable>
+            </>
+          )}
         </View>
 
         {/* Apple Health Section - iOS only */}
