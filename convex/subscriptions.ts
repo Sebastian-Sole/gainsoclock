@@ -1,7 +1,13 @@
-import { query, mutation, action, internalMutation, internalQuery } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import {
+  action,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 
 function hasExpired(expiresAt?: string) {
   if (!expiresAt) return false;
@@ -10,10 +16,12 @@ function hasExpired(expiresAt?: string) {
   return expiresAtMs <= Date.now();
 }
 
-function isCurrentlyActive(subscription: {
-  isActive: boolean;
-  expiresAt?: string;
-} | null) {
+function isCurrentlyActive(
+  subscription: {
+    isActive: boolean;
+    expiresAt?: string;
+  } | null,
+) {
   if (!subscription?.isActive) return false;
   return !hasExpired(subscription.expiresAt);
 }
@@ -119,14 +127,14 @@ export const syncFromClient = action({
       // Verify subscription server-side via RevenueCat REST API.
       const response = await fetch(
         `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`,
-        { headers: { Authorization: `Bearer ${revenuecatApiKey}` } }
+        { headers: { Authorization: `Bearer ${revenuecatApiKey}` } },
       );
 
       if (response.ok) {
         const data = await response.json();
         const entitlements = data?.subscriber?.entitlements ?? {};
         const entitlementId =
-          process.env.REVENUECAT_ENTITLEMENT_ID ?? "Gainsoclock Pro";
+          process.env.REVENUECAT_ENTITLEMENT_ID ?? "Gains o'Clock Pro";
 
         const entitlement =
           entitlements[entitlementId] ?? Object.values(entitlements)[0];
@@ -145,7 +153,7 @@ export const syncFromClient = action({
         if (status >= 500 || status === 429 || status === 408) {
           console.warn(
             `[RevenueCat] API verification failed with transient error (${status}), ` +
-              "falling back to client-provided data."
+              "falling back to client-provided data.",
           );
           // Fall back to trusting client data on transient errors so purchases
           // are not blocked by RevenueCat outages.
@@ -156,7 +164,7 @@ export const syncFromClient = action({
         } else {
           console.error(
             `[RevenueCat] API verification failed (${status}); ` +
-              "not trusting client-provided data."
+              "not trusting client-provided data.",
           );
         }
       }
@@ -164,7 +172,7 @@ export const syncFromClient = action({
       // No server key configured – fall back to client data with a warning.
       console.warn(
         "[RevenueCat] REVENUECAT_API_KEY is not set – cannot verify " +
-          "subscription server-side. Trusting client-provided data."
+          "subscription server-side. Trusting client-provided data.",
       );
       verified = args.isActive;
       verifiedProductId = args.productId;
@@ -240,7 +248,7 @@ export const updateFromWebhook = internalMutation({
     const matches = await ctx.db
       .query("userSubscriptions")
       .withIndex("by_revenuecat_id", (q) =>
-        q.eq("revenuecatAppUserId", args.revenuecatAppUserId)
+        q.eq("revenuecatAppUserId", args.revenuecatAppUserId),
       )
       .collect();
 
@@ -278,7 +286,10 @@ export const updateFromWebhook = internalMutation({
       return;
     }
 
-    const normalizedUserId = ctx.db.normalizeId("users", args.revenuecatAppUserId);
+    const normalizedUserId = ctx.db.normalizeId(
+      "users",
+      args.revenuecatAppUserId,
+    );
     if (!normalizedUserId) {
       // We can only upsert when app_user_id maps to our userId format.
       return;

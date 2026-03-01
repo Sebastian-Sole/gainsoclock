@@ -1,8 +1,8 @@
-import { useCallback, useState } from "react";
-import { Linking, Platform } from "react-native";
-import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSubscriptionStore } from "@/stores/subscription-store";
+import { useAction } from "convex/react";
+import { useCallback, useState } from "react";
+import { Linking, Platform } from "react-native";
 
 // Lazy-load native modules to avoid crashes when not linked
 let Purchases: any = null;
@@ -48,7 +48,7 @@ export type CustomerCenterResult =
   | "error";
 
 const ENTITLEMENT_ID =
-  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ?? "Gainsoclock Pro";
+  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ?? "Gains o'Clock Pro";
 
 function getActiveEntitlement(customerInfo: CustomerInfo) {
   const activeEntitlements = customerInfo?.entitlements?.active ?? {};
@@ -151,59 +151,61 @@ export function usePurchases() {
           expiresAt: activeEntitlement?.expirationDate ?? undefined,
         });
       } catch (error) {
-        console.warn("[Purchases] Failed to sync subscription to server:", error);
+        console.warn(
+          "[Purchases] Failed to sync subscription to server:",
+          error,
+        );
       }
 
       if (__DEV__ && !entitlementId) {
         const activeIds = Object.keys(customerInfo?.entitlements?.active ?? {});
         if (activeIds.length > 0) {
           console.warn(
-            `[Purchases] Active entitlements (${activeIds.join(", ")}) do not match configured ID "${ENTITLEMENT_ID}".`
+            `[Purchases] Active entitlements (${activeIds.join(", ")}) do not match configured ID "${ENTITLEMENT_ID}".`,
           );
         }
       }
 
       return isActive;
     },
-    [syncToServer]
+    [syncToServer],
   );
 
   // Present RevenueCat's native paywall UI
-  const presentPaywall = useCallback(
-    async (): Promise<"purchased" | "cancelled" | "error"> => {
-      if (!RevenueCatUI || !Purchases) return "error";
-      try {
-        const result = await RevenueCatUI.presentPaywall();
-        if (__DEV__) {
-          console.log("[Purchases] presentPaywall result:", result);
-        }
-        switch (result) {
-          case PAYWALL_RESULT.PURCHASED:
-          case PAYWALL_RESULT.RESTORED: {
-            // Prompt RevenueCat to refresh backend receipt processing.
-            if (typeof Purchases.syncPurchasesForResult === "function") {
-              await Purchases.syncPurchasesForResult();
-            }
-            // Sync updated customer info after purchase/restore
-            const customerInfo = await fetchCustomerInfoWithRetry();
-            if (!customerInfo) return "error";
-            const isActive = await syncCustomerInfo(customerInfo);
-            return isActive ? "purchased" : "error";
-          }
-          case PAYWALL_RESULT.ERROR:
-            return "error";
-          case PAYWALL_RESULT.NOT_PRESENTED:
-          case PAYWALL_RESULT.CANCELLED:
-          default:
-            return "cancelled";
-        }
-      } catch (error) {
-        console.error("[Purchases] Paywall presentation failed:", error);
-        return "error";
+  const presentPaywall = useCallback(async (): Promise<
+    "purchased" | "cancelled" | "error"
+  > => {
+    if (!RevenueCatUI || !Purchases) return "error";
+    try {
+      const result = await RevenueCatUI.presentPaywall();
+      if (__DEV__) {
+        console.log("[Purchases] presentPaywall result:", result);
       }
-    },
-    [fetchCustomerInfoWithRetry, syncCustomerInfo]
-  );
+      switch (result) {
+        case PAYWALL_RESULT.PURCHASED:
+        case PAYWALL_RESULT.RESTORED: {
+          // Prompt RevenueCat to refresh backend receipt processing.
+          if (typeof Purchases.syncPurchasesForResult === "function") {
+            await Purchases.syncPurchasesForResult();
+          }
+          // Sync updated customer info after purchase/restore
+          const customerInfo = await fetchCustomerInfoWithRetry();
+          if (!customerInfo) return "error";
+          const isActive = await syncCustomerInfo(customerInfo);
+          return isActive ? "purchased" : "error";
+        }
+        case PAYWALL_RESULT.ERROR:
+          return "error";
+        case PAYWALL_RESULT.NOT_PRESENTED:
+        case PAYWALL_RESULT.CANCELLED:
+        default:
+          return "cancelled";
+      }
+    } catch (error) {
+      console.error("[Purchases] Paywall presentation failed:", error);
+      return "error";
+    }
+  }, [fetchCustomerInfoWithRetry, syncCustomerInfo]);
 
   // Present RevenueCat's Customer Center for subscription management
   const openManagementUrl = useCallback(async (): Promise<boolean> => {
@@ -223,8 +225,8 @@ export function usePurchases() {
     }
   }, []);
 
-  const presentCustomerCenter = useCallback(
-    async (): Promise<CustomerCenterResult> => {
+  const presentCustomerCenter =
+    useCallback(async (): Promise<CustomerCenterResult> => {
       if (!Purchases) return "unavailable" as const;
       try {
         if (!RevenueCatUI) {
@@ -243,9 +245,7 @@ export function usePurchases() {
         const opened = await openManagementUrl();
         return opened ? ("fallback_url" as const) : ("error" as const);
       }
-    },
-    [fetchCustomerInfoWithRetry, openManagementUrl, syncCustomerInfo]
-  );
+    }, [fetchCustomerInfoWithRetry, openManagementUrl, syncCustomerInfo]);
 
   const restore = useCallback(async () => {
     if (!Purchases) return false;
@@ -255,7 +255,8 @@ export function usePurchases() {
       if (typeof Purchases.syncPurchasesForResult === "function") {
         await Purchases.syncPurchasesForResult();
       }
-      const latestCustomerInfo = (await fetchCustomerInfoWithRetry()) ?? customerInfo;
+      const latestCustomerInfo =
+        (await fetchCustomerInfoWithRetry()) ?? customerInfo;
       return await syncCustomerInfo(latestCustomerInfo);
     } catch (error) {
       console.error("[Purchases] Restore failed:", error);
