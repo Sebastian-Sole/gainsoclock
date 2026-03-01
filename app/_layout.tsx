@@ -4,12 +4,6 @@ import {
   configureReanimatedLogger,
   ReanimatedLogLevel,
 } from "react-native-reanimated";
-
-configureReanimatedLogger({
-  level: ReanimatedLogLevel.warn,
-  strict: false,
-});
-
 import { useEffect, useRef } from "react";
 import { ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
@@ -26,6 +20,11 @@ import secureStorage from "@/lib/secure-storage";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { ConvexSyncProvider } from "@/providers/convex-sync-provider";
 import { OnboardingProvider } from "@/providers/onboarding-provider";
+
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false,
+});
 
 SplashScreen.preventAutoHideAsync();
 
@@ -67,6 +66,10 @@ function RootNavigator() {
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen
+              name="onboarding"
+              options={{ headerShown: false, presentation: "fullScreenModal" }}
+            />
+            <Stack.Screen
               name="workout"
               options={{ headerShown: false, presentation: "fullScreenModal" }}
             />
@@ -97,6 +100,10 @@ function RootNavigator() {
             <Stack.Screen
               name="recipe"
               options={{ headerShown: false, presentation: "modal" }}
+            />
+            <Stack.Screen
+              name="purchase-success"
+              options={{ headerShown: false, presentation: "fullScreenModal" }}
             />
           </Stack>
         </OnboardingProvider>

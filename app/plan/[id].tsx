@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { View, ScrollView, Pressable, Alert } from 'react-native';
+import { View, ScrollView, Pressable, Alert, TextInput } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Trash2, Pause, Play } from 'lucide-react-native';
+import { ChevronLeft, Trash2, Pause, Play, Pencil, Plus, Minus, ArrowRightLeft, Check } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -15,6 +15,7 @@ import { PlanCalendar } from '@/components/chat/plan-calendar';
 import { PlanDayDetail } from '@/components/chat/plan-day-detail';
 import { cn } from '@/lib/utils';
 import { getPlanDayDate, isToday, formatPlanDate } from '@/lib/plan-dates';
+import { lightHaptic, mediumHaptic, heavyHaptic } from '@/lib/haptics';
 
 export default function PlanDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,11 +26,26 @@ export default function PlanDetailScreen() {
   const planData = useQuery(api.plans.getPlanWithDays, { clientId: id });
   const deletePlan = useMutation(api.plans.deletePlan);
   const updatePlanStatus = useMutation(api.plans.updatePlanStatus);
+  const updatePlanName = useMutation(api.plans.updatePlanName);
+  const swapPlanDaysMut = useMutation(api.plans.swapPlanDays);
+  const addPlanWeek = useMutation(api.plans.addPlanWeek);
+  const removePlanWeek = useMutation(api.plans.removePlanWeek);
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
   const getTemplate = useTemplateStore((s) => s.getTemplate);
   const weekStartDay = useSettingsStore((s) => s.weekStartDay);
 
   const [selectedDay, setSelectedDay] = useState<{
+    week: number;
+    dayOfWeek: number;
+  } | null>(null);
+
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState('');
+
+  // swapMode: true = waiting for first tap, swapSource: specific day selected
+  const [swapMode, setSwapMode] = useState(false);
+  const [deleteWeekMode, setDeleteWeekMode] = useState(false);
+  const [swapSource, setSwapSource] = useState<{
     week: number;
     dayOfWeek: number;
   } | null>(null);
@@ -40,8 +56,48 @@ export default function PlanDetailScreen() {
       )
     : null;
 
+  const handleSaveName = useCallback(() => {
+    const trimmed = editName.trim();
+    if (trimmed && trimmed !== planData?.name) {
+      updatePlanName({ clientId: id, name: trimmed });
+      lightHaptic();
+    }
+    setIsEditingName(false);
+  }, [editName, planData?.name, id, updatePlanName]);
+
   const handleDayPress = useCallback((week: number, dayOfWeek: number) => {
-    setSelectedDay({ week, dayOfWeek });
+    if (swapMode && !swapSource) {
+      // First tap in swap mode — pick source
+      lightHaptic();
+      setSwapSource({ week, dayOfWeek });
+    } else if (swapSource) {
+      // Second tap — pick target and execute swap
+      if (swapSource.week === week && swapSource.dayOfWeek === dayOfWeek) {
+        setSwapSource(null);
+        return;
+      }
+      swapPlanDaysMut({
+        planClientId: id,
+        dayA: swapSource,
+        dayB: { week, dayOfWeek },
+      });
+      mediumHaptic();
+      setSwapSource(null);
+    } else {
+      setSelectedDay({ week, dayOfWeek });
+    }
+  }, [swapMode, swapSource, id, swapPlanDaysMut]);
+
+  const handleDayLongPress = useCallback((week: number, dayOfWeek: number) => {
+    heavyHaptic();
+    setSwapMode(true);
+    setSwapSource({ week, dayOfWeek });
+  }, []);
+
+  const handleMoveDay = useCallback((week: number, dayOfWeek: number) => {
+    setSelectedDay(null);
+    setSwapMode(true);
+    setSwapSource({ week, dayOfWeek });
   }, []);
 
   const handleStartWorkout = useCallback(() => {
@@ -61,7 +117,6 @@ export default function PlanDetailScreen() {
       router.push('/workout/active');
     };
 
-    // Check if this is today's workout
     const dayDate = getPlanDayDate(
       planData.startDate, selectedDayData.week, selectedDayData.dayOfWeek, weekStartDay
     );
@@ -100,6 +155,37 @@ export default function PlanDetailScreen() {
     updatePlanStatus({ clientId: id, status: newStatus });
   };
 
+  const handleAddWeek = () => {
+    addPlanWeek({ clientId: id });
+    lightHaptic();
+  };
+
+  const handleRemoveWeek = useCallback((weekNum?: number) => {
+    if (!planData || planData.durationWeeks <= 1) return;
+    const targetWeek = weekNum ?? planData.durationWeeks;
+    const weekDays = planData.days.filter((d) => d.week === targetWeek);
+    const hasCompleted = weekDays.some((d) => d.status === 'completed');
+
+    Alert.alert(
+      'Remove Week',
+      hasCompleted
+        ? `Week ${targetWeek} has completed workouts. Removing it will lose that data.`
+        : `Remove week ${targetWeek}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: hasCompleted ? 'Remove Anyway' : 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            removePlanWeek({ clientId: id, week: targetWeek });
+            setDeleteWeekMode(false);
+            lightHaptic();
+          },
+        },
+      ]
+    );
+  }, [planData, id, removePlanWeek]);
+
   if (!planData) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -116,28 +202,54 @@ export default function PlanDetailScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       {/* Header */}
-      <View className="flex-row items-center gap-2 px-4 pb-2 pt-2">
-        <Pressable onPress={() => router.back()} className="p-1">
+      <View className="flex-row items-center px-4 pb-2 pt-2">
+        <Pressable onPress={() => router.back()} className="p-1 mr-2">
           <ChevronLeft
             size={24}
             color={colorScheme === 'dark' ? '#fff' : '#000'}
           />
         </Pressable>
-        <View className="flex-1">
-          <Text className="text-lg font-bold" numberOfLines={1}>
-            {planData.name}
-          </Text>
-        </View>
-        <Pressable onPress={handleToggleStatus} className="p-2">
-          {planData.status === 'active' ? (
-            <Pause size={20} color="#9ca3af" />
-          ) : (
-            <Play size={20} color="#22c55e" />
-          )}
-        </Pressable>
-        <Pressable onPress={handleDelete} className="p-2">
-          <Trash2 size={20} color="#ef4444" />
-        </Pressable>
+        {isEditingName ? (
+          <View className="flex-1 flex-row items-center">
+            <TextInput
+              value={editName}
+              onChangeText={setEditName}
+              onSubmitEditing={handleSaveName}
+              autoFocus
+              selectTextOnFocus
+              className="flex-1 text-lg font-bold leading-tight rounded-lg border border-input bg-card px-2 py-1.5 text-foreground"
+              textAlignVertical="center"
+            />
+            <Pressable onPress={handleSaveName} className="p-2 ml-1">
+              <Check size={20} color={primaryColor} />
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            <Text className="flex-1 text-lg font-bold" numberOfLines={1}>
+              {planData.name}
+            </Text>
+            <Pressable
+              onPress={() => {
+                setEditName(planData.name);
+                setIsEditingName(true);
+              }}
+              className="p-2"
+            >
+              <Pencil size={16} color="#9ca3af" />
+            </Pressable>
+            <Pressable onPress={handleToggleStatus} className="p-2">
+              {planData.status === 'active' ? (
+                <Pause size={20} color="#9ca3af" />
+              ) : (
+                <Play size={20} color="#22c55e" />
+              )}
+            </Pressable>
+            <Pressable onPress={handleDelete} className="p-2">
+              <Trash2 size={20} color="#ef4444" />
+            </Pressable>
+          </>
+        )}
       </View>
 
       <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
@@ -179,13 +291,87 @@ export default function PlanDetailScreen() {
           </View>
         </View>
 
+        {/* Swap days button / swap mode indicator (always present, no layout shift) */}
+        <Pressable
+          onPress={() => {
+            if (swapMode) {
+              setSwapMode(false);
+              setSwapSource(null);
+            } else {
+              lightHaptic();
+              setSwapMode(true);
+            }
+          }}
+          className={cn(
+            'flex-row items-center justify-between rounded-xl px-4 py-3 mb-3',
+            swapMode
+              ? 'bg-primary/10 border border-primary/20'
+              : 'bg-card border border-border'
+          )}
+        >
+          <View className="flex-row items-center gap-2">
+            <ArrowRightLeft size={16} color={swapMode ? primaryColor : (colorScheme === 'dark' ? '#9ca3af' : '#6b7280')} />
+            <Text className={cn(
+              'text-sm font-medium',
+              swapMode ? 'text-primary' : 'text-muted-foreground'
+            )}>
+              {swapMode
+                ? (swapSource ? 'Now tap the day to swap with' : 'Tap a day to swap')
+                : 'Swap Days'}
+            </Text>
+          </View>
+          {swapMode && (
+            <Text className="text-sm font-medium text-muted-foreground">Done</Text>
+          )}
+        </Pressable>
+
         {/* Calendar grid */}
         <PlanCalendar
           durationWeeks={planData.durationWeeks}
           days={planData.days}
           startDate={planData.startDate}
           onDayPress={handleDayPress}
+          onDayLongPress={handleDayLongPress}
+          onWeekPress={deleteWeekMode ? handleRemoveWeek : undefined}
+          swapSource={swapSource}
+          swapMode={swapMode}
+          deleteWeekMode={deleteWeekMode}
         />
+
+        {/* Add / Remove week buttons */}
+        <View className="flex-row gap-3 mt-4">
+          <Pressable
+            onPress={handleAddWeek}
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-3"
+          >
+            <Plus size={16} color={primaryColor} />
+            <Text className="text-sm font-medium text-primary">Add Week</Text>
+          </Pressable>
+
+          {planData.durationWeeks > 1 && (
+            <Pressable
+              onPress={() => {
+                if (deleteWeekMode) {
+                  setDeleteWeekMode(false);
+                } else {
+                  lightHaptic();
+                  setDeleteWeekMode(true);
+                }
+              }}
+              className={cn(
+                'flex-1 flex-row items-center justify-center gap-2 rounded-xl border py-3',
+                deleteWeekMode
+                  ? 'border-destructive/30 bg-destructive/10'
+                  : 'border-dashed border-destructive/50 bg-accent'
+              )}
+            >
+              <Minus size={16} color="#ef4444" />
+              <Text className="text-sm font-medium text-destructive">
+                {deleteWeekMode ? 'Tap a week' : 'Remove Week'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
 
         <View className="h-8" />
       </ScrollView>
@@ -196,6 +382,8 @@ export default function PlanDetailScreen() {
           visible={true}
           onClose={() => setSelectedDay(null)}
           onStartWorkout={handleStartWorkout}
+          onMoveDay={handleMoveDay}
+          planClientId={planData.clientId}
           week={selectedDay.week}
           dayOfWeek={selectedDay.dayOfWeek}
           label={selectedDayData.label}
