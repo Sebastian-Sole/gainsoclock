@@ -51,7 +51,7 @@ export default function OnboardingScreen() {
     setIsSubmitting(true);
     try {
       await completeOnboarding();
-      router.replace("/(tabs)");
+      router.replace("/(tabs)" as never);
     } catch {
       Alert.alert(
         "Onboarding Error",
@@ -69,7 +69,7 @@ export default function OnboardingScreen() {
 
       if (result === "purchased") {
         await completeOnboarding();
-        router.push("/purchase-success");
+        router.push("/purchase-success" as never);
         return;
       }
 

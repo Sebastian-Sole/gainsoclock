@@ -6,7 +6,8 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 function hasExpired(expiresAt?: string) {
   if (!expiresAt) return false;
   const expiresAtMs = Date.parse(expiresAt);
-  return Number.isFinite(expiresAtMs) && expiresAtMs <= Date.now();
+  if (!Number.isFinite(expiresAtMs)) return true;
+  return expiresAtMs <= Date.now();
 }
 
 function isCurrentlyActive(subscription: {
@@ -140,16 +141,24 @@ export const syncFromClient = action({
           verifiedExpiresAt = expiresDate ?? undefined;
         }
       } else {
-        console.warn(
-          `[RevenueCat] API verification failed (${response.status}), ` +
-            "falling back to client-provided data."
-        );
-        // Fall back to trusting client data when API call fails so purchases
-        // are not blocked by transient RevenueCat outages.
-        verified = args.isActive;
-        verifiedProductId = args.productId;
-        verifiedStore = args.store;
-        verifiedExpiresAt = args.expiresAt;
+        const status = response.status;
+        if (status >= 500 || status === 429 || status === 408) {
+          console.warn(
+            `[RevenueCat] API verification failed with transient error (${status}), ` +
+              "falling back to client-provided data."
+          );
+          // Fall back to trusting client data on transient errors so purchases
+          // are not blocked by RevenueCat outages.
+          verified = args.isActive;
+          verifiedProductId = args.productId;
+          verifiedStore = args.store;
+          verifiedExpiresAt = args.expiresAt;
+        } else {
+          console.error(
+            `[RevenueCat] API verification failed (${status}); ` +
+              "not trusting client-provided data."
+          );
+        }
       }
     } else {
       // No server key configured – fall back to client data with a warning.

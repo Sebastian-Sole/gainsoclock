@@ -30,6 +30,15 @@ import {
   TextInput,
   View,
 } from "react-native";
+
+// Lazy-load Purchases to avoid crash when native module isn't linked
+let Purchases: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  Purchases = require("react-native-purchases").default;
+} catch {
+  // Native module not available
+}
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useHealthKit } from "@/hooks/use-healthkit";
@@ -107,6 +116,11 @@ export default function SettingsScreen() {
         style: "destructive",
         onPress: () => {
           resetSubscription();
+          if (Platform.OS !== "web" && Purchases) {
+            Purchases.logOut().catch((err: unknown) =>
+              console.warn("[Purchases] logOut failed:", err)
+            );
+          }
           void signOut();
         },
       },

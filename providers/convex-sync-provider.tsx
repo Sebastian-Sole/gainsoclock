@@ -67,17 +67,6 @@ function SyncEngine() {
       .catch((err: unknown) => console.warn("[Purchases] logIn failed:", err));
   }, [registerCurrentUser, userId]);
 
-  // Clear subscription state on sign-out and reset native Purchases user.
-  useEffect(() => {
-    if (userId === undefined || userId) return;
-
-    useSubscriptionStore.getState().reset();
-    if (Platform.OS === "web" || !Purchases) return;
-    Purchases.logOut().catch((err: unknown) =>
-      console.warn("[Purchases] logOut failed:", err)
-    );
-  }, [userId]);
-
   // Hydrate exercise library from server
   useEffect(() => {
     if (exercises === undefined) return;
