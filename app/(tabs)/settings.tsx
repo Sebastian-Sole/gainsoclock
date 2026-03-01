@@ -30,6 +30,15 @@ import {
   TextInput,
   View,
 } from "react-native";
+
+// Lazy-load Purchases to avoid crash when native module isn't linked
+let Purchases: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  Purchases = require("react-native-purchases").default;
+} catch {
+  // Native module not available
+}
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useHealthKit } from "@/hooks/use-healthkit";
@@ -42,6 +51,8 @@ import { useHistoryStore } from "@/stores/history-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useSubscriptionStore } from "@/stores/subscription-store";
 import { useTemplateStore } from "@/stores/template-store";
+import { useSubscriptionStore } from "@/stores/subscription-store";
+import { usePurchases } from "@/hooks/use-purchases";
 
 // Lazy-load Purchases to avoid crash when native module isn't linked
 let Purchases: any = null;
