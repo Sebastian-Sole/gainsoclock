@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import { ActivityIndicator, Alert, Pressable, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 import { Text } from "@/components/ui/text";
+import { Colors } from "@/constants/theme";
+import { api } from "@/convex/_generated/api";
+import { usePurchases } from "@/hooks/use-purchases";
+import { useMutation } from "convex/react";
+import { useRouter } from "expo-router";
 import {
   ChefHat,
   Crown,
@@ -11,10 +12,9 @@ import {
   Sparkles,
 } from "lucide-react-native";
 import { useColorScheme } from "nativewind";
-import { Colors } from "@/constants/theme";
-import { usePurchases } from "@/hooks/use-purchases";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import React, { useState } from "react";
+import { ActivityIndicator, Alert, Pressable, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const FEATURES = [
   {
@@ -97,7 +97,7 @@ export default function OnboardingScreen() {
             <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-primary/10">
               <Crown size={40} color={primaryColor} />
             </View>
-            <Text className="text-center text-3xl font-bold">Welcome to Gainsoclock</Text>
+            <Text className="text-center text-3xl font-bold">Welcome to Gains o&apos;Clock</Text>
             <Text className="mt-2 text-center text-muted-foreground">
               Start free now, or unlock Pro to get your full AI coaching setup.
             </Text>

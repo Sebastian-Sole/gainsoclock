@@ -30,6 +30,18 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { useHealthKit } from "@/hooks/use-healthkit";
+import { usePurchases } from "@/hooks/use-purchases";
+import { REST_TIME_PRESETS } from "@/lib/constants";
+import { formatTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { useExerciseLibraryStore } from "@/stores/exercise-library-store";
+import { useHistoryStore } from "@/stores/history-store";
+import { useSettingsStore } from "@/stores/settings-store";
+import { useSubscriptionStore } from "@/stores/subscription-store";
+import { useTemplateStore } from "@/stores/template-store";
 
 // Lazy-load Purchases to avoid crash when native module isn't linked
 let Purchases: any = null;
@@ -39,18 +51,6 @@ try {
 } catch {
   // Native module not available
 }
-import { SafeAreaView } from "react-native-safe-area-context";
-
-import { useHealthKit } from "@/hooks/use-healthkit";
-import { REST_TIME_PRESETS } from "@/lib/constants";
-import { formatTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import { useExerciseLibraryStore } from "@/stores/exercise-library-store";
-import { useHistoryStore } from "@/stores/history-store";
-import { useSettingsStore } from "@/stores/settings-store";
-import { useTemplateStore } from "@/stores/template-store";
-import { useSubscriptionStore } from "@/stores/subscription-store";
-import { usePurchases } from "@/hooks/use-purchases";
 
 export default function SettingsScreen() {
   const { colorScheme } = useColorScheme();
@@ -472,7 +472,7 @@ export default function SettingsScreen() {
         {/* App info */}
         <View className="mt-8 items-center pb-8">
           <Text className="text-sm text-muted-foreground">
-            Gainsoclock v1.0.0
+            Gains o&apos;Clock v1.0.0
           </Text>
 
           <Text className="text-sm text-muted-foreground">
@@ -505,7 +505,7 @@ export default function SettingsScreen() {
           className="flex-1 items-center justify-center bg-black/50 px-6"
         >
           <Pressable
-            onPress={() => {}}
+            onPress={() => { }}
             className="w-full rounded-2xl bg-card p-6"
           >
             <Text className="text-lg font-bold text-destructive">
