@@ -19,10 +19,14 @@ import { PlansList } from '@/components/chat/plans-list';
 import { useTemplateStore } from '@/stores/template-store';
 import { useWorkoutStore } from '@/stores/workout-store';
 import { mediumHaptic, heavyHaptic } from '@/lib/haptics';
+import { useOnboardingTarget } from '@/hooks/use-onboarding-target';
 
 export default function WorkoutsScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('templates');
+
+  const fabRef = useOnboardingTarget('fab-create-template');
+  const startBtnRef = useOnboardingTarget('btn-start-empty');
 
   const templates = useTemplateStore((s) => s.templates);
   const deleteTemplate = useTemplateStore((s) => s.deleteTemplate);
@@ -209,6 +213,8 @@ export default function WorkoutsScreen() {
 
           {/* Start Empty Workout */}
           <Pressable
+            ref={startBtnRef}
+            collapsable={false}
             onPress={handleStartEmpty}
             className="mx-4 mb-4 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
           >
@@ -238,7 +244,13 @@ export default function WorkoutsScreen() {
             />
           )}
 
-          <Fab onPress={() => router.push('/template/create')} />
+          <View
+            ref={fabRef}
+            collapsable={false}
+            className="absolute bottom-6 right-6 h-14 w-14"
+          >
+            <Fab onPress={() => router.push('/template/create')} className="relative bottom-0 right-0" />
+          </View>
         </TabsContent>
 
         <TabsContent value="plans" className="flex-1">

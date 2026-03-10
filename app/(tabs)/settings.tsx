@@ -51,17 +51,7 @@ import { useHistoryStore } from "@/stores/history-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useSubscriptionStore } from "@/stores/subscription-store";
 import { useTemplateStore } from "@/stores/template-store";
-import { useSubscriptionStore } from "@/stores/subscription-store";
-import { usePurchases } from "@/hooks/use-purchases";
-
-// Lazy-load Purchases to avoid crash when native module isn't linked
-let Purchases: any = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  Purchases = require("react-native-purchases").default;
-} catch {
-  // Native module not available
-}
+import { useOnboardingStore } from "@/stores/onboarding-store";
 
 export default function SettingsScreen() {
   const { colorScheme } = useColorScheme();
@@ -461,6 +451,32 @@ export default function SettingsScreen() {
                 Delete all workout data
               </Text>
             </View>
+          </Pressable>
+        </View>
+
+        {/* Help Section */}
+        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+          HELP
+        </Text>
+        <View className="rounded-xl bg-card">
+          <Pressable
+            onPress={() => {
+              useOnboardingStore.getState().resetOnboarding();
+              router.navigate("/(tabs)" as any);
+              setTimeout(() => {
+                useOnboardingStore.getState().startOnboarding();
+              }, 300);
+            }}
+            className="flex-row items-center gap-3 px-4 py-4"
+          >
+            <RotateCcw size={20} color={iconColor} />
+            <View className="flex-1">
+              <Text className="font-medium">Replay Tutorial</Text>
+              <Text className="text-sm text-muted-foreground">
+                Walk through the app tour again
+              </Text>
+            </View>
+            <ChevronRight size={20} className="text-muted-foreground" />
           </Pressable>
         </View>
 
