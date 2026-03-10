@@ -212,15 +212,15 @@ export default function WorkoutsScreen() {
           )}
 
           {/* Start Empty Workout */}
-          <View ref={startBtnRef} collapsable={false}>
-            <Pressable
-              onPress={handleStartEmpty}
-              className="mx-4 mb-4 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
-            >
-              <Play size={18} color="white" fill="white" />
-              <Text className="font-semibold text-primary-foreground">Start Empty Workout</Text>
-            </Pressable>
-          </View>
+          <Pressable
+            ref={startBtnRef}
+            collapsable={false}
+            onPress={handleStartEmpty}
+            className="mx-4 mb-4 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+          >
+            <Play size={18} color="white" fill="white" />
+            <Text className="font-semibold text-primary-foreground">Start Empty Workout</Text>
+          </Pressable>
 
           {templates.length === 0 ? (
             <EmptyState

@@ -1,19 +1,18 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text as RNText, useWindowDimensions, Platform, StyleSheet, Pressable } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import Svg, { Path } from 'react-native-svg';
-import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
 import { router } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
+import Svg, { Path } from 'react-native-svg';
 
+import type { TargetEntry, TargetMeasurement } from '@/hooks/use-onboarding-target';
+import { ONBOARDING_STEPS } from '@/lib/onboarding-steps';
 import { useOnboardingStore } from '@/stores/onboarding-store';
-import { ONBOARDING_STEPS, TOTAL_STEPS } from '@/lib/onboarding-steps';
 import { OnboardingCard } from './onboarding-card';
 import { OnboardingTooltip } from './onboarding-tooltip';
-import { Progress } from '@/components/ui/progress';
-import type { TargetEntry, TargetMeasurement } from '@/hooks/use-onboarding-target';
 
-const SPOTLIGHT_PADDING = 8;
+const SPOTLIGHT_PADDING = 4;
 const SPOTLIGHT_RADIUS = 12;
 
 const FullWindowOverlay = Platform.OS === 'ios' ? RNFullWindowOverlay : React.Fragment;
@@ -96,11 +95,11 @@ export function OnboardingOverlay({ getTarget }: OnboardingOverlayProps) {
     };
   }, [currentStep, step, measureTarget, nextStep]);
 
-  const progressValue = ((currentStep + 1) / TOTAL_STEPS) * 100;
+  const padding = step.spotlightPadding ?? SPOTLIGHT_PADDING;
 
   // Build the SVG spotlight path
   const spotlightPath = targetRect
-    ? buildSpotlightPath(screenW, screenH, targetRect)
+    ? buildSpotlightPath(screenW, screenH, targetRect, padding)
     : null;
 
   return (
@@ -115,20 +114,8 @@ export function OnboardingOverlay({ getTarget }: OnboardingOverlayProps) {
           // Fullscreen card with semi-transparent backdrop
           <Pressable
             style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.75)' }]}
-            onPress={() => {}}
+            onPress={() => { }}
           >
-            {/* Progress bar */}
-            <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 24 }}>
-              <Progress value={progressValue} className="h-1.5" indicatorClassName="bg-primary" />
-              <View className="mt-1.5 items-center">
-                <View className="rounded-full bg-black/40 px-2.5 py-0.5">
-                  <OverlayText style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>
-                    {currentStep + 1} of {TOTAL_STEPS}
-                  </OverlayText>
-                </View>
-              </View>
-            </View>
-
             <OnboardingCard
               step={step}
               stepIndex={currentStep}
@@ -162,28 +149,6 @@ export function OnboardingOverlay({ getTarget }: OnboardingOverlayProps) {
               />
             )}
 
-            {/* Progress bar */}
-            <View
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                paddingTop: insets.top + 8,
-                paddingHorizontal: 24,
-              }}
-              pointerEvents="none"
-            >
-              <Progress value={progressValue} className="h-1.5" indicatorClassName="bg-primary" />
-              <View className="mt-1.5 items-center">
-                <View className="rounded-full bg-black/40 px-2.5 py-0.5">
-                  <OverlayText style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>
-                    {currentStep + 1} of {TOTAL_STEPS}
-                  </OverlayText>
-                </View>
-              </View>
-            </View>
-
             {/* Tooltip */}
             {targetRect && !isNavigating && step.tooltipTitle && (
               <OnboardingTooltip
@@ -207,12 +172,13 @@ export function OnboardingOverlay({ getTarget }: OnboardingOverlayProps) {
 function buildSpotlightPath(
   screenW: number,
   screenH: number,
-  target: TargetMeasurement
+  target: TargetMeasurement,
+  padding: number = SPOTLIGHT_PADDING
 ): string {
-  const x = target.x - SPOTLIGHT_PADDING;
-  const y = target.y - SPOTLIGHT_PADDING;
-  const w = target.width + SPOTLIGHT_PADDING * 2;
-  const h = target.height + SPOTLIGHT_PADDING * 2;
+  const x = target.x - padding;
+  const y = target.y - padding;
+  const w = target.width + padding * 2;
+  const h = target.height + padding * 2;
   const r = SPOTLIGHT_RADIUS;
 
   // Outer rect (clockwise) + inner rounded rect (counter-clockwise) = hole
@@ -231,8 +197,4 @@ function buildSpotlightPath(
     `A ${r} ${r} 0 0 1 ${x + r} ${y}`,
     `Z`,
   ].join(' ');
-}
-
-function OverlayText({ style, children }: { style?: any; children: React.ReactNode }) {
-  return <RNText style={style}>{children}</RNText>;
 }
