@@ -39,7 +39,8 @@ export function OnboardingTooltip({
   const iconColor = colorScheme === 'dark' ? '#fff' : '#000';
 
   const isFirstStep = stepIndex === 0;
-  const isLastStep = stepIndex === TOTAL_STEPS - 1;
+  const LAST_SPOTLIGHT_STEP_INDEX = TOTAL_STEPS - 2;
+  const isLastStep = stepIndex === LAST_SPOTLIGHT_STEP_INDEX;
 
   // Calculate position
   const spaceAbove = targetRect.y - insets.top;

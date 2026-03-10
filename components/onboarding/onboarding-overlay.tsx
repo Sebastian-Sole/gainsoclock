@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
 import Svg, { Path } from 'react-native-svg';
 
@@ -23,8 +22,6 @@ interface OnboardingOverlayProps {
 
 export function OnboardingOverlay({ getTarget }: OnboardingOverlayProps) {
   const { width: screenW, height: screenH } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-
   const currentStep = useOnboardingStore((s) => s.currentStep);
   const nextStep = useOnboardingStore((s) => s.nextStep);
   const prevStep = useOnboardingStore((s) => s.prevStep);
