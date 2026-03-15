@@ -1,9 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, FlatList, Pressable } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { View, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Menu, Plus, MessageCircle } from 'lucide-react-native';
+import { Menu, Plus, MessageCircle, CheckCheck } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import { Colors } from '@/constants/theme';
 import {
   useChat,
@@ -16,6 +18,7 @@ import { ChatInput } from '@/components/chat/chat-input';
 import { ApprovalCard } from '@/components/chat/approval-card';
 import { ChatSidebar } from '@/components/chat/chat-sidebar';
 import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
+import type { Id } from '@/convex/_generated/dataModel';
 
 export default function ChatScreen() {
   const { colorScheme } = useColorScheme();
@@ -124,7 +127,12 @@ function ActiveChatView({
     content: string;
   } | null>;
 }) {
+  const { colorScheme } = useColorScheme();
+  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const { messages, sendMessage, isSending, isStreaming } = useChat(conversationId);
+  const approveAction = useMutation(api.chat.approveAction);
+  const executeApproval = useMutation(api.aiTools.executeApproval);
+  const [isApprovingAll, setIsApprovingAll] = useState(false);
 
   // Handle pending message from empty-state send
   useEffect(() => {
@@ -144,10 +152,37 @@ function ActiveChatView({
     }
   }, [messages.length, messages[messages.length - 1]?.content]);
 
+  // Find all messages with pending approvals
+  const pendingApprovals = useMemo(
+    () =>
+      messages.filter(
+        (m) => m.pendingApproval && m.pendingApproval.status === 'pending'
+      ),
+    [messages]
+  );
+
+  const handleApproveAll = useCallback(async () => {
+    if (pendingApprovals.length === 0) return;
+    setIsApprovingAll(true);
+    try {
+      for (const msg of pendingApprovals) {
+        await approveAction({ messageId: msg._id as Id<"chatMessages"> });
+        await executeApproval({
+          type: msg.pendingApproval!.type,
+          payload: msg.pendingApproval!.payload,
+          conversationClientId: conversationId,
+        });
+      }
+    } finally {
+      setIsApprovingAll(false);
+    }
+  }, [pendingApprovals, approveAction, executeApproval, conversationId]);
+
   return (
-    <>
+    <View className="flex-1">
       <FlatList
         ref={flatListRef}
+        className="flex-1"
         data={messages}
         keyExtractor={(item) => item._id}
         contentContainerClassName="px-4 py-4 gap-3"
@@ -184,8 +219,31 @@ function ActiveChatView({
           ) : null
         }
       />
+
+      {/* Approve All banner */}
+      {pendingApprovals.length >= 1 && (
+        <View className="border-t border-border bg-card px-4 py-2">
+          <Pressable
+            onPress={handleApproveAll}
+            disabled={isApprovingAll}
+            className="flex-row items-center justify-center gap-2 rounded-xl bg-green-600 py-3"
+          >
+            {isApprovingAll ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <CheckCheck size={18} color="#fff" />
+                <Text className="font-semibold text-white">
+                  {pendingApprovals.length === 1 ? 'Approve' : `Approve All (${pendingApprovals.length})`}
+                </Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      )}
+
       <ChatInput onSend={sendMessage} disabled={isSending || isStreaming} />
-    </>
+    </View>
   );
 }
 
