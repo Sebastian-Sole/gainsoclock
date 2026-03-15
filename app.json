@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "gainsoclock",
-    "slug": "gainsoclock",
+    "name": "Gains o'Clock",
+    "slug": "gains-o-clock",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "gainsoclock",
+    "scheme": "gains-o-clock",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.gainsoclock"
+      "bundleIdentifier": "com.soleinnovations.gainsoclock"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.gainsoclock"
+      "package": "com.soleinnovations.gainsoclock"
     },
     "web": {
       "output": "static",
@@ -45,8 +45,8 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "GainSoClock reads your health data to display body measurements and workout history.",
-          "NSHealthUpdateUsageDescription": "GainSoClock saves your completed workouts to Apple Health.",
+          "NSHealthShareUsageDescription": "Gains o'Clock reads your health data to display body measurements and workout history.",
+          "NSHealthUpdateUsageDescription": "Gains o'Clock saves your completed workouts to Apple Health.",
           "background": false
         }
       ]

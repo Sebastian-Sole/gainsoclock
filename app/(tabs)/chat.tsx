@@ -4,7 +4,7 @@ import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Menu, Plus, MessageCircle, CheckCheck } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
-import { useMutation } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Colors } from '@/constants/theme';
 import {
@@ -18,9 +18,24 @@ import { ChatInput } from '@/components/chat/chat-input';
 import { ApprovalCard } from '@/components/chat/approval-card';
 import { ChatSidebar } from '@/components/chat/chat-sidebar';
 import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
+import { Paywall } from '@/components/paywall';
 import type { Id } from '@/convex/_generated/dataModel';
 
 export default function ChatScreen() {
+  const subscription = useQuery(api.subscriptions.getStatus);
+
+  if (subscription === undefined) {
+    return <SafeAreaView className="flex-1 bg-background" edges={['top']} />;
+  }
+
+  if (!subscription.isActive) {
+    return <Paywall />;
+  }
+
+  return <ChatScreenContent />;
+}
+
+function ChatScreenContent() {
   const { colorScheme } = useColorScheme();
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const iconColor = colorScheme === 'dark' ? '#fff' : '#000';
@@ -133,6 +148,7 @@ function ActiveChatView({
   const approveAction = useMutation(api.chat.approveAction);
   const executeApproval = useMutation(api.aiTools.executeApproval);
   const [isApprovingAll, setIsApprovingAll] = useState(false);
+  const lastMessageContent = messages[messages.length - 1]?.content;
 
   // Handle pending message from empty-state send
   useEffect(() => {
@@ -141,7 +157,7 @@ function ActiveChatView({
       pendingMessageRef.current = null;
       sendMessage(pending.content);
     }
-  }, [conversationId]);
+  }, [conversationId, pendingMessageRef, sendMessage]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -150,7 +166,7 @@ function ActiveChatView({
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages.length, messages[messages.length - 1]?.content]);
+  }, [flatListRef, lastMessageContent, messages.length]);
 
   // Find all messages with pending approvals
   const pendingApprovals = useMemo(

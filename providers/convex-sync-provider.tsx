@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { useQuery, useConvexAuth, useConvex } from "convex/react";
+import { Platform } from "react-native";
+import { useQuery, useConvexAuth, useConvex, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useTemplateStore } from "@/stores/template-store";
 import { useHistoryStore } from "@/stores/history-store";
@@ -7,8 +8,19 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useExerciseLibraryStore } from "@/stores/exercise-library-store";
 import { useRecipeStore } from "@/stores/recipe-store";
 import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
+import { useSubscriptionStore } from "@/stores/subscription-store";
 import { setConvexClient } from "@/lib/convex-sync";
 import { useDataMigration } from "@/hooks/use-data-migration";
+import { configurePurchases } from "@/hooks/use-purchases";
+
+// Lazy-load Purchases to avoid crash when native module isn't linked
+let Purchases: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  Purchases = require("react-native-purchases").default;
+} catch {
+  // Native module not available
+}
 
 export function ConvexSyncProvider({
   children,
@@ -38,9 +50,26 @@ function SyncEngine() {
   const settings = useQuery(api.settings.get);
   const recipes = useQuery(api.recipes.listRecipes);
   const nutritionGoals = useQuery(api.nutritionGoals.get);
+  const subscription = useQuery(api.subscriptions.getStatus);
+  const userId = useQuery(api.user.me);
+  const registerCurrentUser = useMutation(api.subscriptions.registerCurrentUser);
 
   // Run one-time migration of local data to Convex
   useDataMigration();
+
+  // Initialize RevenueCat SDK
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    configurePurchases();
+  }, []);
+
+  // Identify RevenueCat user with Convex userId
+  useEffect(() => {
+    if (!userId || Platform.OS === "web" || !Purchases) return;
+    Purchases.logIn(userId)
+      .then(() => registerCurrentUser())
+      .catch((err: unknown) => console.warn("[Purchases] logIn failed:", err));
+  }, [registerCurrentUser, userId]);
 
   // Hydrate exercise library from server
   useEffect(() => {
@@ -77,6 +106,12 @@ function SyncEngine() {
     if (nutritionGoals === undefined || nutritionGoals === null) return;
     useNutritionGoalsStore.getState().hydrateFromServer(nutritionGoals);
   }, [nutritionGoals]);
+
+  // Hydrate subscription store from server
+  useEffect(() => {
+    if (subscription === undefined) return;
+    useSubscriptionStore.getState().hydrateFromServer(subscription);
+  }, [subscription]);
 
   return null;
 }

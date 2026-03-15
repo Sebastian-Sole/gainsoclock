@@ -4,12 +4,6 @@ import {
   configureReanimatedLogger,
   ReanimatedLogLevel,
 } from "react-native-reanimated";
-
-configureReanimatedLogger({
-  level: ReanimatedLogLevel.warn,
-  strict: false,
-});
-
 import { useEffect, useRef } from "react";
 import { ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
@@ -25,6 +19,12 @@ import { NAV_THEME } from "@/lib/theme";
 import secureStorage from "@/lib/secure-storage";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { ConvexSyncProvider } from "@/providers/convex-sync-provider";
+import { OnboardingProvider } from "@/providers/onboarding-provider";
+
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false,
+});
 
 SplashScreen.preventAutoHideAsync();
 
@@ -61,46 +61,56 @@ function RootNavigator() {
   return (
     <SafeAreaProvider>
       <ThemeProvider value={NAV_THEME[colorScheme === "dark" ? "dark" : "light"]}>
-        <Stack>
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="workout"
-            options={{ headerShown: false, presentation: "fullScreenModal" }}
-          />
-          <Stack.Screen
-            name="template"
-            options={{ headerShown: false, presentation: "modal" }}
-          />
-          <Stack.Screen
-            name="exercise"
-            options={{ headerShown: false, presentation: "modal" }}
-          />
-          <Stack.Screen
-            name="import"
-            options={{ headerShown: false, presentation: "modal" }}
-          />
-          <Stack.Screen
-            name="calculator"
-            options={{ headerShown: false, presentation: "modal" }}
-          />
-          <Stack.Screen
-            name="chat"
-            options={{ headerShown: false, presentation: "modal" }}
-          />
-          <Stack.Screen
-            name="plan"
-            options={{ headerShown: false, presentation: "modal" }}
-          />
-          <Stack.Screen
-            name="recipe"
-            options={{ headerShown: false, presentation: "modal" }}
-          />
-          <Stack.Screen
-            name="settings"
-            options={{ headerShown: false, presentation: "modal" }}
-          />
-        </Stack>
+        <OnboardingProvider>
+          <Stack>
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="onboarding"
+              options={{ headerShown: false, presentation: "fullScreenModal" }}
+            />
+            <Stack.Screen
+              name="workout"
+              options={{ headerShown: false, presentation: "fullScreenModal" }}
+            />
+            <Stack.Screen
+              name="template"
+              options={{ headerShown: false, presentation: "modal" }}
+            />
+            <Stack.Screen
+              name="exercise"
+              options={{ headerShown: false, presentation: "modal" }}
+            />
+            <Stack.Screen
+              name="import"
+              options={{ headerShown: false, presentation: "modal" }}
+            />
+            <Stack.Screen
+              name="calculator"
+              options={{ headerShown: false, presentation: "modal" }}
+            />
+            <Stack.Screen
+              name="chat"
+              options={{ headerShown: false, presentation: "modal" }}
+            />
+            <Stack.Screen
+              name="plan"
+              options={{ headerShown: false, presentation: "modal" }}
+            />
+            <Stack.Screen
+              name="recipe"
+              options={{ headerShown: false, presentation: "modal" }}
+            />
+            <Stack.Screen
+              name="settings"
+              options={{ headerShown: false, presentation: "modal" }}
+            />
+            <Stack.Screen
+              name="purchase-success"
+              options={{ headerShown: false, presentation: "fullScreenModal" }}
+            />
+          </Stack>
+        </OnboardingProvider>
         <PortalHost />
         <StatusBar style="auto" />
       </ThemeProvider>

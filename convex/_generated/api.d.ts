@@ -20,6 +20,7 @@ import type * as nutritionGoals from "../nutritionGoals.js";
 import type * as plans from "../plans.js";
 import type * as recipes from "../recipes.js";
 import type * as settings from "../settings.js";
+import type * as subscriptions from "../subscriptions.js";
 import type * as templates from "../templates.js";
 import type * as user from "../user.js";
 import type * as validators from "../validators.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   plans: typeof plans;
   recipes: typeof recipes;
   settings: typeof settings;
+  subscriptions: typeof subscriptions;
   templates: typeof templates;
   user: typeof user;
   validators: typeof validators;
