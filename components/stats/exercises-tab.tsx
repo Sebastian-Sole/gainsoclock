@@ -46,7 +46,7 @@ export function ExercisesTab({ exerciseStats, weightUnit, distanceUnit }: Exerci
           placeholderTextColor={mutedColor}
           value={search}
           onChangeText={setSearch}
-          className="flex-1 py-3 text-base leading-tight text-foreground"
+          className="flex-1 py-3 text-[16px] text-foreground"
           autoCapitalize="none"
           autoCorrect={false}
           textAlignVertical="center"

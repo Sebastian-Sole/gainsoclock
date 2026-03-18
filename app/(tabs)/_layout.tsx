@@ -5,7 +5,7 @@ import {
   Compass,
   Dumbbell,
   MessageCircle,
-  Settings2,
+  UtensilsCrossed,
 } from "lucide-react-native";
 import { useColorScheme } from "nativewind";
 import React from "react";
@@ -59,6 +59,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="nutrition"
+        options={{
+          title: "Nutrition",
+          tabBarIcon: ({ color, size }) => (
+            <UtensilsCrossed size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="explore"
         options={{
           title: "Explore",
@@ -83,10 +92,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Settings",
-          tabBarIcon: ({ color, size }) => (
-            <Settings2 size={size} color={color} />
-          ),
+          href: null,
         }}
       />
     </Tabs>

@@ -88,6 +88,12 @@ export const createRecipe = internalMutation({
       .unique();
     if (existing) return existing._id;
 
+    // Auto-add "AI Generated" tag for AI-created recipes
+    const tags = args.tags ? [...args.tags] : [];
+    if (!tags.includes("AI Generated")) {
+      tags.unshift("AI Generated");
+    }
+
     return await ctx.db.insert("recipes", {
       userId: args.userId,
       clientId: args.clientId,
@@ -99,7 +105,7 @@ export const createRecipe = internalMutation({
       cookTimeMinutes: args.cookTimeMinutes,
       servings: args.servings,
       macros: args.macros,
-      tags: args.tags,
+      tags: tags.length > 0 ? tags : undefined,
       sourceConversationClientId: args.sourceConversationClientId,
       saved: true,
       createdAt: new Date().toISOString(),
@@ -142,5 +148,98 @@ export const deleteRecipe = mutation({
     if (recipe) {
       await ctx.db.delete(recipe._id);
     }
+  },
+});
+
+export const createUserRecipe = mutation({
+  args: {
+    clientId: v.string(),
+    title: v.string(),
+    description: v.string(),
+    notes: v.optional(v.string()),
+    ingredients: v.array(ingredientValidator),
+    instructions: v.array(v.string()),
+    prepTimeMinutes: v.optional(v.number()),
+    cookTimeMinutes: v.optional(v.number()),
+    servings: v.optional(v.number()),
+    macros: v.optional(macrosValidator),
+    tags: v.optional(v.array(v.string())),
+    createdAt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    // Dedup by clientId
+    const existing = await ctx.db
+      .query("recipes")
+      .withIndex("by_user_clientId", (q) =>
+        q.eq("userId", userId).eq("clientId", args.clientId)
+      )
+      .unique();
+    if (existing) return existing._id;
+
+    // Auto-add "User Created" tag for user-created recipes
+    const userTags = args.tags ? [...args.tags] : [];
+    if (!userTags.includes("User Created")) {
+      userTags.unshift("User Created");
+    }
+
+    return await ctx.db.insert("recipes", {
+      userId,
+      clientId: args.clientId,
+      title: args.title,
+      description: args.description,
+      notes: args.notes,
+      ingredients: args.ingredients,
+      instructions: args.instructions,
+      prepTimeMinutes: args.prepTimeMinutes,
+      cookTimeMinutes: args.cookTimeMinutes,
+      servings: args.servings,
+      macros: args.macros,
+      tags: userTags.length > 0 ? userTags : undefined,
+      saved: true,
+      createdAt: args.createdAt,
+      updatedAt: args.createdAt,
+    });
+  },
+});
+
+export const updateRecipe = mutation({
+  args: {
+    clientId: v.string(),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    notes: v.optional(v.union(v.string(), v.null())),
+    ingredients: v.optional(v.array(ingredientValidator)),
+    instructions: v.optional(v.array(v.string())),
+    prepTimeMinutes: v.optional(v.union(v.number(), v.null())),
+    cookTimeMinutes: v.optional(v.union(v.number(), v.null())),
+    servings: v.optional(v.union(v.number(), v.null())),
+    macros: v.optional(v.union(macrosValidator, v.null())),
+    tags: v.optional(v.union(v.array(v.string()), v.null())),
+    updatedAt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const recipe = await ctx.db
+      .query("recipes")
+      .withIndex("by_user_clientId", (q) =>
+        q.eq("userId", userId).eq("clientId", args.clientId)
+      )
+      .unique();
+    if (!recipe) throw new Error("Recipe not found");
+
+    const { clientId, ...updates } = args;
+    const patch: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(updates)) {
+      if (val !== undefined) {
+        // null signals "clear this field" — convert to undefined for removal
+        patch[key] = val === null ? undefined : val;
+      }
+    }
+    await ctx.db.patch(recipe._id, patch);
   },
 });

@@ -109,7 +109,7 @@ export default function SignUpScreen() {
             autoCorrect={false}
             keyboardType="email-address"
             textContentType="emailAddress"
-            className="mb-4 rounded-xl border border-input bg-card px-4 py-4 text-base text-foreground"
+            className="mb-4 rounded-xl border border-input bg-card px-4 py-4 text-[16px] text-foreground"
           />
 
           {/* Password */}
@@ -126,7 +126,7 @@ export default function SignUpScreen() {
             placeholderTextColor="#9ca3af"
             secureTextEntry
             textContentType="newPassword"
-            className="mb-4 rounded-xl border border-input bg-card px-4 py-4 text-base text-foreground"
+            className="mb-4 rounded-xl border border-input bg-card px-4 py-4 text-[16px] text-foreground"
           />
 
           {/* Confirm Password */}
@@ -143,7 +143,7 @@ export default function SignUpScreen() {
             placeholderTextColor="#9ca3af"
             secureTextEntry
             textContentType="newPassword"
-            className="mb-6 rounded-xl border border-input bg-card px-4 py-4 text-base text-foreground"
+            className="mb-6 rounded-xl border border-input bg-card px-4 py-4 text-[16px] text-foreground"
           />
 
           {/* Sign Up Button */}

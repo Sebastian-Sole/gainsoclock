@@ -10,6 +10,34 @@ import type {
 import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
 
+// ── Helpers ────────────────────────────────────────────────────
+
+/**
+ * Remove JSON blobs that the model sometimes echoes as plain text
+ * alongside tool calls. Keeps any natural-language text before/after.
+ */
+function stripInlineJson(text: string): string {
+  // Remove fenced JSON code blocks
+  let cleaned = text.replace(/```(?:json)?\s*\{[\s\S]*?\}\s*```/g, "");
+
+  // Remove bare top-level JSON objects (heuristic: starts with { on its own line
+  // and contains known tool-call keys like "title", "name", "exercises", "ingredients")
+  cleaned = cleaned.replace(
+    /^\s*\{[\s\S]*?\}\s*$/gm,
+    (match) => {
+      // Only strip if it looks like a tool call payload
+      if (
+        /"(?:title|name|exercises|ingredients|instructions|macros)"/.test(match)
+      ) {
+        return "";
+      }
+      return match;
+    }
+  );
+
+  return cleaned.trim();
+}
+
 // ── Tool Definitions ───────────────────────────────────────────
 
 const TOOLS: ChatCompletionTool[] = [
@@ -461,7 +489,10 @@ ${exerciseHistorySection}
 ${planSection}
 
 ## Important Rules
-- CRITICAL: If the user's request lacks sufficient detail to create a truly personalized workout, plan, or recipe, you MUST ask clarifying questions BEFORE generating anything. Ask about: experience level, available equipment, training frequency, specific goals, injury history, time constraints per session, and preferred training style. It is far better to ask 2-3 targeted questions and create something perfect than to guess and produce something generic. Only skip questions if the user provided comprehensive details or you can confidently infer everything from their exercise history and stats above.
+- CRITICAL: Before responding, assess the COMPLEXITY of the user's request:
+  * SIMPLE requests (e.g., "make a PB&J recipe", "give me a bicep curl exercise", "create a quick stretch routine") — Just do it. These have obvious, well-known answers. Do NOT ask clarifying questions. Produce the result immediately using the appropriate tool.
+  * COMPLEX requests (e.g., "create a 12-week training program", "design a meal plan for cutting", "build a PPL split for my goals") — These require personalization. Ask 2-3 targeted clarifying questions BEFORE generating anything. Ask about relevant factors like: experience level, available equipment, training frequency, specific goals, injury history, time constraints, or dietary restrictions. It is far better to ask a few questions and create something perfect than to guess and produce something generic.
+  * When in doubt, lean toward just answering. Only ask questions when the request genuinely benefits from personalization AND the answer would meaningfully change based on the user's response. You can always infer reasonable defaults from the user's exercise history and stats above.
 - When creating templates, plans, or recipes, ALWAYS use the tool functions. Do NOT just describe them in text.
 - IMPORTANT: Before calling any tool function, you MUST first write a brief explanation in your text response. Explain what you're creating and why — e.g. the reasoning behind exercise selection, set/rep schemes, plan structure, or recipe choices. This gives the user context before they see the approval card. Keep it concise (2-4 sentences).
 - When creating templates, ALWAYS include suggestedReps and suggestedWeight (or suggestedTime/suggestedDistance for time/distance exercises) for each exercise. Base these on the user's exercise performance history above. If no history exists for an exercise, use sensible defaults for the exercise type and apparent experience level.
@@ -615,6 +646,11 @@ export const sendMessage = action({
       );
 
       if (toolCalls.length > 0) {
+        // Strip raw JSON that the model sometimes echoes as text content
+        // alongside tool calls (e.g., dumping the recipe/template JSON inline).
+        // We keep only non-JSON text (the explanation the model wrote).
+        fullContent = stripInlineJson(fullContent);
+
         // Helper to determine approval type from tool name
         function getApprovalType(name: string) {
           if (name === "create_workout_template") return "create_template";
