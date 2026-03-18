@@ -18,6 +18,7 @@ export interface OnboardingStep {
   tooltipDescription?: string;
   tooltipPosition?: TooltipPosition;
   spotlightPadding?: number;
+  spotlightOffsetY?: number;
 
   // Navigation (for tab switching between steps)
   navigateTo?: string;
@@ -44,6 +45,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     tooltipPosition: "top",
     navigateTo: "/(tabs)",
     spotlightPadding: 18,
+    spotlightOffsetY: 6,
   },
   {
     id: "create-template",
@@ -74,6 +76,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     navigateTo: "/(tabs)/stats",
     navigateDelay: 300,
     spotlightPadding: 18,
+    spotlightOffsetY: 6,
   },
   {
     id: "explore-tab",
@@ -86,6 +89,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     navigateTo: "/(tabs)/explore",
     navigateDelay: 300,
     spotlightPadding: 18,
+    spotlightOffsetY: 6,
   },
   {
     id: "chat-tab",
@@ -98,6 +102,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     navigateTo: "/(tabs)/chat",
     navigateDelay: 300,
     spotlightPadding: 18,
+    spotlightOffsetY: 6,
   },
   {
     id: "completion",

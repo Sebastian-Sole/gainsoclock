@@ -93,10 +93,11 @@ export function OnboardingOverlay({ getTarget }: OnboardingOverlayProps) {
   }, [currentStep, step, measureTarget, nextStep]);
 
   const padding = step.spotlightPadding ?? SPOTLIGHT_PADDING;
+  const offsetY = step.spotlightOffsetY ?? 0;
 
   // Build the SVG spotlight path
   const spotlightPath = targetRect
-    ? buildSpotlightPath(screenW, screenH, targetRect, padding)
+    ? buildSpotlightPath(screenW, screenH, targetRect, padding, offsetY)
     : null;
 
   return (
@@ -170,10 +171,11 @@ function buildSpotlightPath(
   screenW: number,
   screenH: number,
   target: TargetMeasurement,
-  padding: number = SPOTLIGHT_PADDING
+  padding: number = SPOTLIGHT_PADDING,
+  offsetY: number = 0
 ): string {
   const x = target.x - padding;
-  const y = target.y - padding;
+  const y = target.y - padding + offsetY;
   const w = target.width + padding * 2;
   const h = target.height + padding * 2;
   const r = SPOTLIGHT_RADIUS;
