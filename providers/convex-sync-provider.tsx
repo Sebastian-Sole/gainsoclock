@@ -15,7 +15,8 @@ import { configurePurchases } from "@/hooks/use-purchases";
 let Purchases: any = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  Purchases = require("react-native-purchases").default;
+  const rnpModule = require("react-native-purchases");
+  Purchases = rnpModule.default ?? rnpModule;
 } catch {
   // Native module not available
 }

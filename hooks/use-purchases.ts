@@ -12,9 +12,9 @@ let LOG_LEVEL: any = {};
 
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  Purchases = require("react-native-purchases").default;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  LOG_LEVEL = require("react-native-purchases").LOG_LEVEL;
+  const rnpModule = require("react-native-purchases");
+  Purchases = rnpModule.default ?? rnpModule;
+  LOG_LEVEL = rnpModule.LOG_LEVEL;
 } catch (e) {
   console.warn("[Purchases] react-native-purchases not available:", e);
 }
