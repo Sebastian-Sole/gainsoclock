@@ -8,9 +8,11 @@ import { useRouter } from "expo-router";
 import {
   ChevronLeft,
   ChevronRight,
+  Crown,
   Download,
   Heart,
   LogOut,
+  RotateCcw,
   Ruler,
   Timer,
   Trash2,
@@ -32,6 +34,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useHealthKit } from "@/hooks/use-healthkit";
+import { usePurchases } from "@/hooks/use-purchases";
 import { REST_TIME_PRESETS } from "@/lib/constants";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -39,6 +42,7 @@ import { useExerciseLibraryStore } from "@/stores/exercise-library-store";
 import { useHistoryStore } from "@/stores/history-store";
 import { useRecipeStore } from "@/stores/recipe-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useSubscriptionStore } from "@/stores/subscription-store";
 import { useTemplateStore } from "@/stores/template-store";
 import { useMealLogStore } from "@/stores/meal-log-store";
 import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
@@ -54,11 +58,53 @@ export default function SettingsScreen() {
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
 
+  const isPro = useSubscriptionStore((s) => s.isPro);
+  const resetSubscription = useSubscriptionStore((s) => s.reset);
+  const { restore, presentPaywall, presentCustomerCenter, isLoading: isRestoring } = usePurchases();
+
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Sign Out", style: "destructive", onPress: () => signOut() },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: () => {
+          resetSubscription();
+          if (Platform.OS !== "web") {
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              const Purchases = require("react-native-purchases").default;
+              Purchases?.logOut?.().catch((err: unknown) =>
+                console.warn("[Purchases] logOut failed:", err)
+              );
+            } catch {
+              // RevenueCat not available
+            }
+          }
+          void signOut();
+        },
+      },
     ]);
+  };
+
+  const handleUpgradeToPro = async () => {
+    const result = await presentPaywall();
+    if (result === "purchased") {
+      Alert.alert("Welcome!", "You now have access to all Pro features.");
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    await presentCustomerCenter();
+  };
+
+  const handleRestore = async () => {
+    const restored = await restore();
+    if (restored) {
+      Alert.alert("Restored!", "Your Pro subscription has been restored.");
+    } else {
+      Alert.alert("No Subscription Found", "We couldn't find any previous purchases to restore.");
+    }
   };
 
   const handleResetData = async () => {
@@ -300,6 +346,58 @@ export default function SettingsScreen() {
             </View>
           </>
         )}
+
+        {/* Subscription Section */}
+        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+          SUBSCRIPTION
+        </Text>
+        <View className="rounded-xl bg-card">
+          {isPro ? (
+            <Pressable
+              onPress={handleManageSubscription}
+              className="flex-row items-center gap-3 px-4 py-4"
+            >
+              <Crown size={20} color={iconColor} />
+              <View className="flex-1">
+                <Text className="font-medium">Manage Subscription</Text>
+                <Text className="text-sm text-muted-foreground">
+                  View or cancel your Pro plan
+                </Text>
+              </View>
+              <ChevronRight size={20} className="text-muted-foreground" />
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={handleUpgradeToPro}
+              className="flex-row items-center gap-3 px-4 py-4"
+            >
+              <Crown size={20} color={iconColor} />
+              <View className="flex-1">
+                <Text className="font-medium">Upgrade to Pro</Text>
+                <Text className="text-sm text-muted-foreground">
+                  Unlock all premium features
+                </Text>
+              </View>
+              <ChevronRight size={20} className="text-muted-foreground" />
+            </Pressable>
+          )}
+          <Separator />
+          <Pressable
+            onPress={handleRestore}
+            disabled={isRestoring}
+            className="flex-row items-center gap-3 px-4 py-4"
+          >
+            <RotateCcw size={20} color={iconColor} />
+            <View className="flex-1">
+              <Text className="font-medium">
+                {isRestoring ? "Restoring..." : "Restore Purchases"}
+              </Text>
+              <Text className="text-sm text-muted-foreground">
+                Recover a previous subscription
+              </Text>
+            </View>
+          </Pressable>
+        </View>
 
         {/* Data Section */}
         <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
