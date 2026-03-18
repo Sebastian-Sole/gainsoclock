@@ -11,6 +11,7 @@ import { Colors } from '@/constants/theme';
 import { MacroProgress } from './macro-progress';
 import { MealLogCard } from './meal-log-card';
 import { LogMealModal } from './log-meal-modal';
+import { EditGoalsModal } from './edit-goals-modal';
 import { useMealLogStore } from '@/stores/meal-log-store';
 import { useNutritionGoalsStore } from '@/stores/nutrition-goals-store';
 import type { Macros } from '@/lib/types';
@@ -24,6 +25,7 @@ export function TodayTab() {
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
 
   const [showLogModal, setShowLogModal] = useState(false);
+  const [showGoalsModal, setShowGoalsModal] = useState(false);
   const today = getToday();
 
   const todayMeals = useMealLogStore((s) => s.todayMeals);
@@ -61,7 +63,7 @@ export function TodayTab() {
       >
         {/* Macro Progress */}
         <View className="rounded-xl border border-border bg-card p-4 mb-4">
-          <MacroProgress consumed={consumed} goals={goals} />
+          <MacroProgress consumed={consumed} goals={goals} onEditGoals={() => setShowGoalsModal(true)} />
         </View>
 
         {/* Log Meal Button */}
@@ -99,6 +101,11 @@ export function TodayTab() {
         visible={showLogModal}
         onClose={() => setShowLogModal(false)}
         date={today}
+      />
+
+      <EditGoalsModal
+        visible={showGoalsModal}
+        onClose={() => setShowGoalsModal(false)}
       />
     </View>
   );

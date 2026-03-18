@@ -1,13 +1,16 @@
-import React from 'react';
-import { View, FlatList, Pressable } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, FlatList, Pressable, TextInput } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Bookmark, Flame, Clock, UtensilsCrossed } from 'lucide-react-native';
+import { Bookmark, Flame, Clock, UtensilsCrossed, Search, SlidersHorizontal } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useRouter } from 'expo-router';
 
 import { Colors } from '@/constants/theme';
 import { Fab } from '@/components/shared/fab';
 import { useRecipeStore } from '@/stores/recipe-store';
+import { RecipeFilterModal, DEFAULT_FILTERS, hasActiveFilters } from './recipe-filter-modal';
+import { applyRecipeFilters } from '@/lib/recipe-filters';
+import type { RecipeFilters } from './recipe-filter-modal';
 import type { Recipe } from '@/lib/types';
 
 function RecipeListCard({ recipe }: { recipe: Recipe }) {
@@ -70,9 +73,52 @@ export function RecipesTab() {
   const router = useRouter();
   const recipes = useRecipeStore((s) => s.recipes);
 
+  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState<RecipeFilters>(DEFAULT_FILTERS);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+
+  const filteredRecipes = useMemo(() => {
+    let result = recipes;
+
+    // Text search by name
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (r) => r.title.toLowerCase().includes(q) || r.description.toLowerCase().includes(q)
+      );
+    }
+
+    // Apply structured filters
+    result = applyRecipeFilters(result, filters);
+
+    return result;
+  }, [recipes, search, filters]);
+
+  const filtersActive = hasActiveFilters(filters);
+
   return (
     <View className="flex-1">
-      {recipes.length === 0 ? (
+      {/* Search + Filter */}
+      <View className="px-4 mb-3">
+        <View className="flex-row items-center gap-2 rounded-xl border border-input bg-card px-3">
+          <Search size={18} color="#9ca3af" />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search recipes..."
+            placeholderTextColor="#9ca3af"
+            className="flex-1 py-3 text-foreground"
+          />
+          <Pressable onPress={() => setShowFilterModal(true)} className="p-1.5" hitSlop={8}>
+            <SlidersHorizontal
+              size={18}
+              color={filtersActive ? primaryColor : '#9ca3af'}
+            />
+          </Pressable>
+        </View>
+      </View>
+
+      {recipes.length === 0 && !search.trim() && !filtersActive ? (
         <View className="flex-1 items-center justify-center px-4">
           <View className="items-center rounded-xl border border-dashed border-border px-8 py-12">
             <UtensilsCrossed size={32} color={primaryColor} />
@@ -82,9 +128,16 @@ export function RecipesTab() {
             </Text>
           </View>
         </View>
+      ) : filteredRecipes.length === 0 ? (
+        <View className="flex-1 items-center justify-center px-4">
+          <UtensilsCrossed size={28} color={primaryColor} />
+          <Text className="mt-3 text-center text-muted-foreground">
+            No matching recipes
+          </Text>
+        </View>
       ) : (
         <FlatList
-          data={recipes}
+          data={filteredRecipes}
           keyExtractor={(item) => item.id}
           contentContainerClassName="px-4 pb-24 gap-3"
           renderItem={({ item }) => <RecipeListCard recipe={item} />}
@@ -92,6 +145,13 @@ export function RecipesTab() {
       )}
 
       <Fab onPress={() => router.push('/recipe/create')} />
+
+      <RecipeFilterModal
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        filters={filters}
+        onApply={setFilters}
+      />
     </View>
   );
 }

@@ -402,7 +402,7 @@ export default function SettingsScreen() {
               placeholderTextColor={isDark ? "#555" : "#aaa"}
               autoCapitalize="none"
               autoCorrect={false}
-              className="mt-2 rounded-lg border border-border bg-background px-4 py-3 text-foreground"
+              className="mt-2 rounded-lg border border-border bg-background px-4 py-3 text-[16px] text-foreground"
             />
             <View className="mt-4 flex-row gap-3">
               <Pressable

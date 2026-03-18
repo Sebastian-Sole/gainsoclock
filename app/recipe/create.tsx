@@ -10,12 +10,14 @@ import {
 } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Plus, Trash2, ChevronDown, ChevronUp, Lock } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
 import { lightHaptic } from '@/lib/haptics';
 import { useRecipeStore } from '@/stores/recipe-store';
 import type { Ingredient, Macros } from '@/lib/types';
+
+const SOURCE_TAGS = ['AI Generated', 'User Created'];
 
 interface IngredientDraft extends Ingredient {
   key: string;
@@ -79,7 +81,7 @@ export default function CreateRecipeScreen() {
       setServings(existingRecipe.servings?.toString() ?? '');
       setPrepTime(existingRecipe.prepTimeMinutes?.toString() ?? '');
       setCookTime(existingRecipe.cookTimeMinutes?.toString() ?? '');
-      setTags(existingRecipe.tags?.join(', ') ?? '');
+      setTags(existingRecipe.tags?.filter((t) => !SOURCE_TAGS.includes(t)).join(', ') ?? '');
     }
   }, [existingRecipe?.id]);
 
@@ -119,10 +121,16 @@ export default function CreateRecipeScreen() {
       }));
 
     const cleanInstructions = instructions.filter((s) => s.trim());
-    const parsedTags = tags
+    const userTags = tags
       .split(',')
       .map((t) => t.trim())
-      .filter(Boolean);
+      .filter((t) => t && !SOURCE_TAGS.includes(t));
+
+    // Preserve source tags from the existing recipe when editing
+    const sourceTags = isEditing && existingRecipe?.tags
+      ? existingRecipe.tags.filter((t) => SOURCE_TAGS.includes(t))
+      : [];
+    const parsedTags = [...sourceTags, ...userTags];
 
     const recipeData = {
       title: title.trim(),
@@ -301,7 +309,7 @@ export default function CreateRecipeScreen() {
                       onChangeText={(v) => updateIngredient(index, { name: v })}
                       placeholder="Ingredient name"
                       placeholderTextColor="#9ca3af"
-                      className="flex-1 text-foreground"
+                      className="flex-1 py-1.5 text-[16px] text-foreground"
                     />
                     <Pressable onPress={() => removeIngredient(index)} className="p-1">
                       <Trash2 size={16} color="#ef4444" />
@@ -313,14 +321,14 @@ export default function CreateRecipeScreen() {
                       onChangeText={(v) => updateIngredient(index, { amount: v })}
                       placeholder="Amount"
                       placeholderTextColor="#9ca3af"
-                      className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
+                      className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-[14px] text-foreground"
                     />
                     <TextInput
                       value={ing.unit ?? ''}
                       onChangeText={(v) => updateIngredient(index, { unit: v })}
                       placeholder="Unit (g, cups...)"
                       placeholderTextColor="#9ca3af"
-                      className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
+                      className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-[14px] text-foreground"
                     />
                   </View>
 
@@ -485,6 +493,19 @@ export default function CreateRecipeScreen() {
 
           {/* Tags */}
           <Text className="mb-2 text-sm font-medium text-muted-foreground">TAGS</Text>
+          {/* Show locked source tags */}
+          {isEditing && existingRecipe?.tags?.some((t) => SOURCE_TAGS.includes(t)) && (
+            <View className="flex-row flex-wrap gap-2 mb-2">
+              {existingRecipe.tags
+                .filter((t) => SOURCE_TAGS.includes(t))
+                .map((tag) => (
+                  <View key={tag} className="flex-row items-center gap-1 rounded-full bg-muted px-3 py-1">
+                    <Lock size={10} color="#9ca3af" />
+                    <Text className="text-xs text-muted-foreground">{tag}</Text>
+                  </View>
+                ))}
+            </View>
+          )}
           <TextInput
             value={tags}
             onChangeText={setTags}

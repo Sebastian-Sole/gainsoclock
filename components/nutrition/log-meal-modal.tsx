@@ -9,13 +9,16 @@ import {
   Platform,
 } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { X, Search, UtensilsCrossed } from 'lucide-react-native';
+import { X, Search, UtensilsCrossed, SlidersHorizontal } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
 import { Colors } from '@/constants/theme';
 import { useRecipeStore } from '@/stores/recipe-store';
 import { useMealLogStore } from '@/stores/meal-log-store';
 import { lightHaptic } from '@/lib/haptics';
+import { RecipeFilterModal, DEFAULT_FILTERS, hasActiveFilters } from './recipe-filter-modal';
+import { applyRecipeFilters } from '@/lib/recipe-filters';
+import type { RecipeFilters } from './recipe-filter-modal';
 import type { Recipe, Macros } from '@/lib/types';
 
 interface LogMealModalProps {
@@ -30,10 +33,13 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
   const primaryColor = Colors[isDark ? 'dark' : 'light'].tint;
 
   const recipes = useRecipeStore((s) => s.recipes);
+  const addRecipe = useRecipeStore((s) => s.addRecipe);
   const addMeal = useMealLogStore((s) => s.addMeal);
 
   const [mode, setMode] = useState<'pick' | 'quick'>('pick');
   const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState<RecipeFilters>(DEFAULT_FILTERS);
+  const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [portion, setPortion] = useState('1');
 
@@ -45,16 +51,21 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
   const [quickFat, setQuickFat] = useState('');
 
   const filteredRecipes = useMemo(() => {
-    if (!search.trim()) return recipes;
-    const q = search.toLowerCase();
-    return recipes.filter(
-      (r) => r.title.toLowerCase().includes(q) || r.description.toLowerCase().includes(q)
-    );
-  }, [recipes, search]);
+    let result = recipes;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (r) => r.title.toLowerCase().includes(q) || r.description.toLowerCase().includes(q)
+      );
+    }
+    result = applyRecipeFilters(result, filters);
+    return result;
+  }, [recipes, search, filters]);
 
   const reset = () => {
     setMode('pick');
     setSearch('');
+    setFilters(DEFAULT_FILTERS);
     setSelectedRecipe(null);
     setPortion('1');
     setQuickTitle('');
@@ -95,6 +106,13 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
     handleClose();
   };
 
+  const getQuickMacros = (): Macros => ({
+    calories: parseInt(quickCalories, 10) || 0,
+    protein: parseInt(quickProtein, 10) || 0,
+    carbs: parseInt(quickCarbs, 10) || 0,
+    fat: parseInt(quickFat, 10) || 0,
+  });
+
   const handleQuickLog = () => {
     if (!quickTitle.trim()) return;
 
@@ -102,12 +120,35 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
       date,
       title: quickTitle.trim(),
       portionMultiplier: 1,
-      macros: {
-        calories: parseInt(quickCalories, 10) || 0,
-        protein: parseInt(quickProtein, 10) || 0,
-        carbs: parseInt(quickCarbs, 10) || 0,
-        fat: parseInt(quickFat, 10) || 0,
-      },
+      macros: getQuickMacros(),
+    });
+
+    lightHaptic();
+    handleClose();
+  };
+
+  const handleQuickLogAndSave = () => {
+    if (!quickTitle.trim()) return;
+
+    const macros = getQuickMacros();
+
+    // Save as recipe
+    const recipe = addRecipe({
+      title: quickTitle.trim(),
+      description: '',
+      ingredients: [],
+      instructions: [],
+      servings: 1,
+      macros: macros.calories || macros.protein || macros.carbs || macros.fat ? macros : undefined,
+    });
+
+    // Log the meal linked to the new recipe
+    addMeal({
+      date,
+      recipeClientId: recipe.id,
+      title: quickTitle.trim(),
+      portionMultiplier: 1,
+      macros,
     });
 
     lightHaptic();
@@ -222,6 +263,12 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
                     placeholderTextColor="#9ca3af"
                     className="flex-1 py-3 text-foreground"
                   />
+                  <Pressable onPress={() => setShowFilterModal(true)} className="p-1.5" hitSlop={8}>
+                    <SlidersHorizontal
+                      size={18}
+                      color={hasActiveFilters(filters) ? primaryColor : '#9ca3af'}
+                    />
+                  </Pressable>
                 </View>
               </View>
 
@@ -325,8 +372,24 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
                 Log Meal
               </Text>
             </Pressable>
+
+            <Pressable
+              onPress={handleQuickLogAndSave}
+              disabled={!quickTitle.trim()}
+              className={`items-center rounded-xl py-4 mt-3 border ${quickTitle.trim() ? 'border-primary' : 'border-primary/30'}`}
+            >
+              <Text className={`font-medium ${quickTitle.trim() ? 'text-primary' : 'text-primary/30'}`}>
+                Log Meal & Save Recipe
+              </Text>
+            </Pressable>
           </View>
         )}
+        <RecipeFilterModal
+          visible={showFilterModal}
+          onClose={() => setShowFilterModal(false)}
+          filters={filters}
+          onApply={setFilters}
+        />
       </KeyboardAvoidingView>
     </Modal>
   );

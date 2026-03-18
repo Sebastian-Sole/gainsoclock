@@ -1,6 +1,7 @@
 import React from 'react';
-import { View } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Pencil } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { Colors } from '@/constants/theme';
 import type { Macros, NutritionGoals } from '@/lib/types';
@@ -8,6 +9,7 @@ import type { Macros, NutritionGoals } from '@/lib/types';
 interface MacroProgressProps {
   consumed: Macros;
   goals: NutritionGoals;
+  onEditGoals?: () => void;
 }
 
 function ProgressBar({
@@ -30,13 +32,23 @@ function ProgressBar({
   );
 }
 
-export function MacroProgress({ consumed, goals }: MacroProgressProps) {
+export function MacroProgress({ consumed, goals, onEditGoals }: MacroProgressProps) {
   const { colorScheme } = useColorScheme();
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
+  const mutedColor = colorScheme === 'dark' ? '#a8a29e' : '#78716c';
   const remaining = Math.max(0, goals.calories - consumed.calories);
 
   return (
     <View className="gap-4">
+      {/* Edit Goals Button */}
+      {onEditGoals && (
+        <View className="absolute right-0 top-0 z-10">
+          <Pressable onPress={onEditGoals} className="p-1" hitSlop={8}>
+            <Pencil size={16} color={mutedColor} />
+          </Pressable>
+        </View>
+      )}
+
       {/* Calories */}
       <View className="items-center">
         <Text className="text-4xl font-bold">{consumed.calories}</Text>

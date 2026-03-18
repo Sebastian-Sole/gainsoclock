@@ -88,6 +88,12 @@ export const createRecipe = internalMutation({
       .unique();
     if (existing) return existing._id;
 
+    // Auto-add "AI Generated" tag for AI-created recipes
+    const tags = args.tags ? [...args.tags] : [];
+    if (!tags.includes("AI Generated")) {
+      tags.unshift("AI Generated");
+    }
+
     return await ctx.db.insert("recipes", {
       userId: args.userId,
       clientId: args.clientId,
@@ -99,7 +105,7 @@ export const createRecipe = internalMutation({
       cookTimeMinutes: args.cookTimeMinutes,
       servings: args.servings,
       macros: args.macros,
-      tags: args.tags,
+      tags: tags.length > 0 ? tags : undefined,
       sourceConversationClientId: args.sourceConversationClientId,
       saved: true,
       createdAt: new Date().toISOString(),
@@ -173,6 +179,12 @@ export const createUserRecipe = mutation({
       .unique();
     if (existing) return existing._id;
 
+    // Auto-add "User Created" tag for user-created recipes
+    const userTags = args.tags ? [...args.tags] : [];
+    if (!userTags.includes("User Created")) {
+      userTags.unshift("User Created");
+    }
+
     return await ctx.db.insert("recipes", {
       userId,
       clientId: args.clientId,
@@ -185,7 +197,7 @@ export const createUserRecipe = mutation({
       cookTimeMinutes: args.cookTimeMinutes,
       servings: args.servings,
       macros: args.macros,
-      tags: args.tags,
+      tags: userTags.length > 0 ? userTags : undefined,
       saved: true,
       createdAt: args.createdAt,
       updatedAt: args.createdAt,
