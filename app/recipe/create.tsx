@@ -117,7 +117,9 @@ export default function CreateRecipeScreen() {
       .filter((ing) => ing.name.trim())
       .map(({ key, showMacros, ...rest }) => ({
         ...rest,
-        macros: rest.macros?.calories ? rest.macros : undefined,
+        macros: rest.macros?.calories != null && rest.macros.calories !== 0 ? rest.macros
+          : (rest.macros?.protein || rest.macros?.carbs || rest.macros?.fat) ? rest.macros
+          : undefined,
       }));
 
     const cleanInstructions = instructions.filter((s) => s.trim());

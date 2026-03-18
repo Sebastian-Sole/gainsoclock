@@ -36,10 +36,12 @@ export const listDateRange = query({
 
     const logs = await ctx.db
       .query("mealLogs")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", userId).gte("date", args.from).lte("date", args.to)
+      )
       .collect();
 
-    return logs.filter((l) => l.date >= args.from && l.date <= args.to);
+    return logs;
   },
 });
 

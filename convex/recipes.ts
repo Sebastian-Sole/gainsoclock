@@ -210,14 +210,14 @@ export const updateRecipe = mutation({
     clientId: v.string(),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
-    notes: v.optional(v.string()),
+    notes: v.optional(v.union(v.string(), v.null())),
     ingredients: v.optional(v.array(ingredientValidator)),
     instructions: v.optional(v.array(v.string())),
-    prepTimeMinutes: v.optional(v.number()),
-    cookTimeMinutes: v.optional(v.number()),
-    servings: v.optional(v.number()),
-    macros: v.optional(macrosValidator),
-    tags: v.optional(v.array(v.string())),
+    prepTimeMinutes: v.optional(v.union(v.number(), v.null())),
+    cookTimeMinutes: v.optional(v.union(v.number(), v.null())),
+    servings: v.optional(v.union(v.number(), v.null())),
+    macros: v.optional(v.union(macrosValidator, v.null())),
+    tags: v.optional(v.union(v.array(v.string()), v.null())),
     updatedAt: v.string(),
   },
   handler: async (ctx, args) => {
@@ -235,7 +235,10 @@ export const updateRecipe = mutation({
     const { clientId, ...updates } = args;
     const patch: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(updates)) {
-      if (val !== undefined) patch[key] = val;
+      if (val !== undefined) {
+        // null signals "clear this field" — convert to undefined for removal
+        patch[key] = val === null ? undefined : val;
+      }
     }
     await ctx.db.patch(recipe._id, patch);
   },

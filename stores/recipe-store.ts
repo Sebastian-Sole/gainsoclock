@@ -94,7 +94,12 @@ export const useRecipeStore = create<RecipeState>()(
 
         const syncArgs: Record<string, unknown> = { clientId: id, updatedAt: now };
         for (const [key, val] of Object.entries(updates)) {
-          if (val !== undefined) syncArgs[key] = val;
+          if (val !== undefined) {
+            syncArgs[key] = val;
+          } else {
+            // Send null to clear optional fields on the server
+            syncArgs[key] = null;
+          }
         }
         syncToConvex(api.recipes.updateRecipe, syncArgs);
       },

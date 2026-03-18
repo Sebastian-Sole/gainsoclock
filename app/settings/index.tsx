@@ -40,6 +40,8 @@ import { useHistoryStore } from "@/stores/history-store";
 import { useRecipeStore } from "@/stores/recipe-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTemplateStore } from "@/stores/template-store";
+import { useMealLogStore } from "@/stores/meal-log-store";
+import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 
 export default function SettingsScreen() {
   const { colorScheme } = useColorScheme();
@@ -68,6 +70,8 @@ export default function SettingsScreen() {
     useTemplateStore.setState({ templates: [] });
     useExerciseLibraryStore.setState({ exercises: [] });
     useRecipeStore.setState({ recipes: [] });
+    useMealLogStore.setState({ todayMeals: [] });
+    useNutritionGoalsStore.setState({ goals: { calories: 2000, protein: 150, carbs: 250, fat: 65 } });
 
     // Clear server data
     try {
@@ -324,7 +328,7 @@ export default function SettingsScreen() {
             <View className="flex-1">
               <Text className="font-medium text-destructive">Reset Data</Text>
               <Text className="text-sm text-muted-foreground">
-                Delete all workout data
+                Delete all data including workouts, recipes, meals, and goals
               </Text>
             </View>
           </Pressable>
@@ -389,8 +393,8 @@ export default function SettingsScreen() {
               Reset Data
             </Text>
             <Text className="mt-3 leading-5 text-muted-foreground">
-              This will permanently delete all your workout history, templates,
-              and exercises. This action cannot be undone.
+              This will permanently delete all your data including workouts,
+              recipes, meals, and nutrition goals. This action cannot be undone.
             </Text>
             <Text className="mt-4 text-sm font-medium text-foreground">
               Type <Text className="font-bold">delete my data</Text> to confirm
