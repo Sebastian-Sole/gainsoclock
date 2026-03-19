@@ -18,17 +18,25 @@ import { ChatInput } from '@/components/chat/chat-input';
 import { ApprovalCard } from '@/components/chat/approval-card';
 import { ChatSidebar } from '@/components/chat/chat-sidebar';
 import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
+import { OfflineBanner } from '@/components/shared/offline-banner';
 import { Paywall } from '@/components/paywall';
+import { useNetwork } from '@/hooks/use-network';
+import { useSubscriptionStore } from '@/stores/subscription-store';
 import type { Id } from '@/convex/_generated/dataModel';
 
 export default function ChatScreen() {
+  const { isOffline } = useNetwork();
   const subscription = useQuery(api.subscriptions.getStatus);
+  const cachedIsPro = useSubscriptionStore((s) => s.isPro);
 
-  if (subscription === undefined) {
+  // When offline, use cached subscription state instead of waiting on server
+  const isActive = isOffline ? cachedIsPro : subscription?.isActive;
+
+  if (!isOffline && subscription === undefined) {
     return <SafeAreaView className="flex-1 bg-background" edges={['top']} />;
   }
 
-  if (!subscription.isActive) {
+  if (!isActive) {
     return <Paywall />;
   }
 
@@ -83,6 +91,8 @@ function ChatScreenContent() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <OfflineBanner />
+
       {/* Header */}
       <View className="flex-row items-center gap-2 px-4 pb-2 pt-2">
         <Pressable onPress={() => setSidebarOpen(true)} className="p-1">
@@ -144,6 +154,7 @@ function ActiveChatView({
 }) {
   const { colorScheme } = useColorScheme();
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
+  const { isOffline } = useNetwork();
   const { messages, sendMessage, isSending, isStreaming } = useChat(conversationId);
   const approveAction = useMutation(api.chat.approveAction);
   const executeApproval = useMutation(api.aiTools.executeApproval);
@@ -258,7 +269,7 @@ function ActiveChatView({
         </View>
       )}
 
-      <ChatInput onSend={sendMessage} disabled={isSending || isStreaming} />
+      <ChatInput onSend={sendMessage} disabled={isSending || isStreaming || isOffline} />
     </View>
   );
 }
@@ -272,6 +283,8 @@ function EmptyChatView({
   primaryColor: string;
   onSend: (content: string) => void;
 }) {
+  const { isOffline } = useNetwork();
+
   return (
     <>
       <View className="flex-1 items-center justify-center px-8">
@@ -281,12 +294,13 @@ function EmptyChatView({
           </View>
           <Text className="text-xl font-bold mb-2">Your AI Fitness Coach</Text>
           <Text className="text-sm text-muted-foreground text-center leading-5">
-            Ask me to create workout templates, build training plans, suggest
-            meals, or answer any fitness question.
+            {isOffline
+              ? 'AI Coach requires an internet connection. Connect to the internet to chat with your coach.'
+              : 'Ask me to create workout templates, build training plans, suggest meals, or answer any fitness question.'}
           </Text>
         </View>
       </View>
-      <ChatInput onSend={onSend} />
+      <ChatInput onSend={onSend} disabled={isOffline} />
     </>
   );
 }

@@ -46,6 +46,7 @@ import { useSubscriptionStore } from "@/stores/subscription-store";
 import { useTemplateStore } from "@/stores/template-store";
 import { useMealLogStore } from "@/stores/meal-log-store";
 import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
+import { useAuthCacheStore } from "@/stores/auth-cache-store";
 
 export default function SettingsScreen() {
   const { colorScheme } = useColorScheme();
@@ -60,6 +61,7 @@ export default function SettingsScreen() {
 
   const isPro = useSubscriptionStore((s) => s.isPro);
   const resetSubscription = useSubscriptionStore((s) => s.reset);
+  const clearAuthCache = useAuthCacheStore((s) => s.clear);
   const { restore, presentPaywall, presentCustomerCenter, isLoading: isRestoring } = usePurchases();
 
   const handleSignOut = () => {
@@ -70,6 +72,7 @@ export default function SettingsScreen() {
         style: "destructive",
         onPress: () => {
           resetSubscription();
+          clearAuthCache();
           if (Platform.OS !== "web") {
             try {
               // eslint-disable-next-line @typescript-eslint/no-require-imports

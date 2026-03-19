@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { zustandStorage } from '@/lib/storage';
 import { generateId } from '@/lib/id';
 import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
@@ -6,6 +8,8 @@ import type { MealLog, Macros } from '@/lib/types';
 
 interface MealLogState {
   todayMeals: MealLog[];
+  /** ISO date string of when todayMeals was last set (to detect stale cache) */
+  mealsDate: string | null;
 
   addMeal: (data: {
     date: string;
@@ -28,49 +32,72 @@ interface MealLogState {
   }>) => void;
 }
 
-export const useMealLogStore = create<MealLogState>()((set) => ({
-  todayMeals: [],
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
 
-  addMeal: (data) => {
-    const meal: MealLog = {
-      id: generateId(),
-      ...data,
-      loggedAt: new Date().toISOString(),
-    };
-    set((state) => ({ todayMeals: [meal, ...state.todayMeals] }));
+export const useMealLogStore = create<MealLogState>()(
+  persist(
+    (set, get) => ({
+      todayMeals: [],
+      mealsDate: null,
 
-    syncToConvex(api.mealLogs.logMeal, {
-      clientId: meal.id,
-      date: meal.date,
-      recipeClientId: meal.recipeClientId,
-      title: meal.title,
-      portionMultiplier: meal.portionMultiplier,
-      macros: meal.macros,
-      notes: meal.notes,
-      loggedAt: meal.loggedAt,
-    });
+      addMeal: (data) => {
+        const meal: MealLog = {
+          id: generateId(),
+          ...data,
+          loggedAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          todayMeals: [meal, ...state.todayMeals],
+          mealsDate: todayISO(),
+        }));
 
-    return meal;
-  },
+        syncToConvex(api.mealLogs.logMeal, {
+          clientId: meal.id,
+          date: meal.date,
+          recipeClientId: meal.recipeClientId,
+          title: meal.title,
+          portionMultiplier: meal.portionMultiplier,
+          macros: meal.macros,
+          notes: meal.notes,
+          loggedAt: meal.loggedAt,
+        });
 
-  deleteMeal: (id) => {
-    set((state) => ({
-      todayMeals: state.todayMeals.filter((m) => m.id !== id),
-    }));
-    syncToConvex(api.mealLogs.deleteMealLog, { clientId: id });
-  },
+        return meal;
+      },
 
-  hydrateFromServer: (meals) => {
-    const mapped: MealLog[] = meals.map((m) => ({
-      id: m.clientId,
-      date: m.date,
-      recipeClientId: m.recipeClientId,
-      title: m.title,
-      portionMultiplier: m.portionMultiplier,
-      macros: m.macros,
-      notes: m.notes,
-      loggedAt: m.loggedAt,
-    }));
-    set({ todayMeals: mapped });
-  },
-}));
+      deleteMeal: (id) => {
+        set((state) => ({
+          todayMeals: state.todayMeals.filter((m) => m.id !== id),
+        }));
+        syncToConvex(api.mealLogs.deleteMealLog, { clientId: id });
+      },
+
+      hydrateFromServer: (meals) => {
+        const mapped: MealLog[] = meals.map((m) => ({
+          id: m.clientId,
+          date: m.date,
+          recipeClientId: m.recipeClientId,
+          title: m.title,
+          portionMultiplier: m.portionMultiplier,
+          macros: m.macros,
+          notes: m.notes,
+          loggedAt: m.loggedAt,
+        }));
+        set({ todayMeals: mapped, mealsDate: todayISO() });
+      },
+    }),
+    {
+      name: 'meal-log-storage',
+      storage: zustandStorage,
+      onRehydrateStorage: () => (state) => {
+        // Clear stale meals from a previous day
+        if (state && state.mealsDate !== todayISO()) {
+          state.todayMeals = [];
+          state.mealsDate = null;
+        }
+      },
+    }
+  )
+);

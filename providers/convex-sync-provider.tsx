@@ -12,6 +12,7 @@ import { useSubscriptionStore } from "@/stores/subscription-store";
 import { setConvexClient } from "@/lib/convex-sync";
 import { useDataMigration } from "@/hooks/use-data-migration";
 import { configurePurchases } from "@/hooks/use-purchases";
+import { useNetwork } from "@/hooks/use-network";
 
 // Lazy-load Purchases to avoid crash when native module isn't linked
 let Purchases: any = null;
@@ -45,6 +46,7 @@ export function ConvexSyncProvider({
 }
 
 function SyncEngine() {
+  const { isOffline } = useNetwork();
   const exercises = useQuery(api.exercises.list);
   const templates = useQuery(api.templates.listWithExercises);
   const logs = useQuery(api.workoutLogs.listMeta);
@@ -64,13 +66,13 @@ function SyncEngine() {
     configurePurchases();
   }, []);
 
-  // Identify RevenueCat user with Convex userId
+  // Identify RevenueCat user with Convex userId (skip when offline to avoid warnings)
   useEffect(() => {
-    if (!userId || Platform.OS === "web" || !Purchases) return;
+    if (!userId || Platform.OS === "web" || !Purchases || isOffline) return;
     Purchases.logIn(userId)
       .then(() => registerCurrentUser())
       .catch((err: unknown) => console.warn("[Purchases] logIn failed:", err));
-  }, [registerCurrentUser, userId]);
+  }, [registerCurrentUser, userId, isOffline]);
 
   // Hydrate exercise library from server
   useEffect(() => {
