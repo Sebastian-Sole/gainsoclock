@@ -111,9 +111,9 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
 
         <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
           {/* Saved / Favorited */}
-          <Text className="mb-2 mt-4 text-sm font-medium text-muted-foreground">SAVED</Text>
+          <Text className="mb-2 mt-4 text-sm font-medium text-muted-foreground">PINNED</Text>
           <ToggleChip
-            label="Saved recipes only"
+            label="Pinned recipes only"
             active={local.savedOnly}
             onPress={() => setLocal((p) => ({ ...p, savedOnly: !p.savedOnly }))}
             primaryColor={primaryColor}
