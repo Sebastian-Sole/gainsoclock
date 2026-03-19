@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Bookmark, Clock, Users, Pencil, Trash2, Sparkles } from 'lucide-react-native';
+import { ChevronLeft, Pin, Clock, Users, Pencil, Trash2, Sparkles } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
 import { Colors } from '@/constants/theme';
@@ -72,7 +72,7 @@ export default function RecipeDetailScreen() {
           }}
           className="p-2"
         >
-          <Bookmark
+          <Pin
             size={20}
             color={recipe.saved ? primaryColor : '#9ca3af'}
             fill={recipe.saved ? primaryColor : 'none'}

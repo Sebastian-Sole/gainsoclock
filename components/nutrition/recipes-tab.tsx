@@ -1,14 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { View, FlatList, Pressable, TextInput } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Bookmark, Flame, Clock, UtensilsCrossed, Search, SlidersHorizontal } from 'lucide-react-native';
+import { Pin, Flame, Clock, UtensilsCrossed, Search, SlidersHorizontal, ShoppingCart } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useRouter } from 'expo-router';
 
 import { Colors } from '@/constants/theme';
 import { Fab } from '@/components/shared/fab';
 import { useRecipeStore } from '@/stores/recipe-store';
+import { useGroceryStore } from '@/stores/grocery-store';
 import { RecipeFilterModal, DEFAULT_FILTERS, hasActiveFilters } from './recipe-filter-modal';
+import { GroceryListModal } from './grocery-list-modal';
+import { SwipeableRecipeCard } from './swipeable-recipe-card';
 import { applyRecipeFilters } from '@/lib/recipe-filters';
 import type { RecipeFilters } from './recipe-filter-modal';
 import type { Recipe } from '@/lib/types';
@@ -27,7 +30,7 @@ function RecipeListCard({ recipe }: { recipe: Recipe }) {
       <View className="flex-row items-start justify-between mb-1">
         <Text className="flex-1 font-semibold">{recipe.title}</Text>
         {recipe.saved && (
-          <Bookmark size={16} color={primaryColor} fill={primaryColor} />
+          <Pin size={16} color={primaryColor} fill={primaryColor} />
         )}
       </View>
       {recipe.description ? (
@@ -73,9 +76,12 @@ export function RecipesTab() {
   const router = useRouter();
   const recipes = useRecipeStore((s) => s.recipes);
 
+  const groceryItemCount = useGroceryStore((s) => s.items.length);
+
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<RecipeFilters>(DEFAULT_FILTERS);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showGroceryModal, setShowGroceryModal] = useState(false);
 
   const filteredRecipes = useMemo(() => {
     let result = recipes;
@@ -90,6 +96,12 @@ export function RecipesTab() {
 
     // Apply structured filters
     result = applyRecipeFilters(result, filters);
+
+    // Pinned first, then by date
+    result = [...result].sort((a, b) => {
+      if (a.saved !== b.saved) return a.saved ? -1 : 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
     return result;
   }, [recipes, search, filters]);
@@ -109,6 +121,17 @@ export function RecipesTab() {
             placeholderTextColor="#9ca3af"
             className="flex-1 py-3 text-foreground"
           />
+          <Pressable onPress={() => setShowGroceryModal(true)} className="p-1.5 relative" hitSlop={8}>
+            <ShoppingCart size={18} color={groceryItemCount > 0 ? primaryColor : '#9ca3af'} />
+            {groceryItemCount > 0 && (
+              <View
+                className="absolute -top-1 -right-1 h-4 min-w-[16px] items-center justify-center rounded-full px-1"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <Text className="text-[10px] font-bold text-white">{groceryItemCount}</Text>
+              </View>
+            )}
+          </Pressable>
           <Pressable onPress={() => setShowFilterModal(true)} className="p-1.5" hitSlop={8}>
             <SlidersHorizontal
               size={18}
@@ -140,7 +163,11 @@ export function RecipesTab() {
           data={filteredRecipes}
           keyExtractor={(item) => item.id}
           contentContainerClassName="px-4 pb-24 gap-3"
-          renderItem={({ item }) => <RecipeListCard recipe={item} />}
+          renderItem={({ item }) => (
+            <SwipeableRecipeCard recipe={item}>
+              <RecipeListCard recipe={item} />
+            </SwipeableRecipeCard>
+          )}
         />
       )}
 
@@ -151,6 +178,11 @@ export function RecipesTab() {
         onClose={() => setShowFilterModal(false)}
         filters={filters}
         onApply={setFilters}
+      />
+
+      <GroceryListModal
+        visible={showGroceryModal}
+        onClose={() => setShowGroceryModal(false)}
       />
     </View>
   );

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { BookmarkX, Bookmark, Clock, Flame } from 'lucide-react-native';
+import { PinOff, Pin, Clock, Flame } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useRouter } from 'expo-router';
 import { useQuery } from 'convex/react';
@@ -53,12 +53,12 @@ export function MealsSection() {
     <View className="gap-6 px-4 pb-8">
       {/* Saved Recipes */}
       <View>
-        <Text className="mb-3 text-sm font-medium text-muted-foreground">SAVED RECIPES</Text>
+        <Text className="mb-3 text-sm font-medium text-muted-foreground">PINNED RECIPES</Text>
         {savedRecipes.length === 0 ? (
           <View className="items-center rounded-xl border border-dashed border-border px-8 py-10">
-            <BookmarkX size={28} color={primaryColor} />
+            <PinOff size={28} color={primaryColor} />
             <Text className="mt-3 text-center text-muted-foreground">
-              No saved recipes yet
+              No pinned recipes yet
             </Text>
             <Text className="mt-1 text-center text-sm text-muted-foreground">
               Ask the AI coach for recipe suggestions
@@ -74,7 +74,7 @@ export function MealsSection() {
               >
                 <View className="flex-row items-start justify-between mb-1">
                   <Text className="flex-1 font-semibold">{recipe.title}</Text>
-                  <Bookmark size={16} color={primaryColor} fill={primaryColor} />
+                  <Pin size={16} color={primaryColor} fill={primaryColor} />
                 </View>
                 <Text className="text-sm text-muted-foreground mb-2" numberOfLines={2}>
                   {recipe.description}

@@ -16,11 +16,11 @@ export const listRecipes = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    // Sort by most recent first
-    recipes.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    // Pinned first, then by most recent
+    recipes.sort((a, b) => {
+      if (a.saved !== b.saved) return a.saved ? -1 : 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
     return recipes;
   },
@@ -107,7 +107,7 @@ export const createRecipe = internalMutation({
       macros: args.macros,
       tags: tags.length > 0 ? tags : undefined,
       sourceConversationClientId: args.sourceConversationClientId,
-      saved: true,
+      saved: false,
       createdAt: new Date().toISOString(),
     });
   },
@@ -198,7 +198,7 @@ export const createUserRecipe = mutation({
       servings: args.servings,
       macros: args.macros,
       tags: userTags.length > 0 ? userTags : undefined,
-      saved: true,
+      saved: false,
       createdAt: args.createdAt,
       updatedAt: args.createdAt,
     });

@@ -60,7 +60,7 @@ export const useRecipeStore = create<RecipeState>()(
           id: generateId(),
           ...data,
           tags: tags.length > 0 ? tags : undefined,
-          saved: true,
+          saved: false,
           createdAt: now,
           updatedAt: now,
         };
