@@ -29,10 +29,12 @@ export default function ChatScreen() {
   const subscription = useQuery(api.subscriptions.getStatus);
   const cachedIsPro = useSubscriptionStore((s) => s.isPro);
 
-  // When offline, use cached subscription state instead of waiting on server
-  const isActive = isOffline ? cachedIsPro : subscription?.isActive;
+  // Use either server or cached state — the local store is updated immediately
+  // after purchase/restore while the server sync may still be in flight.
+  // hydrateFromServer will reconcile the local store once the server catches up.
+  const isActive = subscription?.isActive || cachedIsPro;
 
-  if (!isOffline && subscription === undefined) {
+  if (!isOffline && subscription === undefined && !cachedIsPro) {
     return <SafeAreaView className="flex-1 bg-background" edges={['top']} />;
   }
 

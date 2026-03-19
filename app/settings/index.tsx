@@ -98,7 +98,13 @@ export default function SettingsScreen() {
   };
 
   const handleManageSubscription = async () => {
-    await presentCustomerCenter();
+    const result = await presentCustomerCenter();
+    if (result === "unavailable" || result === "error") {
+      Alert.alert(
+        "Unable to Open",
+        "Could not open subscription management. Please manage your subscription in your device's Settings app."
+      );
+    }
   };
 
   const handleRestore = async () => {
