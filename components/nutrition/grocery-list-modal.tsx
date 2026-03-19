@@ -85,7 +85,7 @@ export function GroceryListModal({ visible, onClose }: GroceryListModalProps) {
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View className="flex-1 bg-background">
         {/* Header */}
         <View className="flex-row items-center justify-between px-4 pt-4 pb-2">

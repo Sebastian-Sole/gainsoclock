@@ -78,7 +78,8 @@ export const useGroceryStore = create<GroceryState>()(
 
               if (existingAmt !== null && newAmt !== null) {
                 // Merge amounts and append recipe source
-                const sources = existing.recipeTitle.includes(recipe.title)
+                const existingSources = existing.recipeTitle.split(', ');
+                const sources = existingSources.includes(recipe.title)
                   ? existing.recipeTitle
                   : `${existing.recipeTitle}, ${recipe.title}`;
                 items[existingIdx] = {
