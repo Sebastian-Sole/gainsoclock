@@ -15,7 +15,7 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
         state.isInternetReachable,
       );
 
-      const isNowOnline = state.isConnected === true;
+      const isNowOnline = state.isConnected === true && state.isInternetReachable !== false;
       wasOffline.current = !isNowOnline;
 
       // Flush queued mutations when transitioning from offline → online
@@ -29,7 +29,11 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
   // Also flush on mount in case the app was killed while offline and
   // reopened with connectivity
   useEffect(() => {
-    void flushSyncQueue();
+    NetInfo.fetch().then((state) => {
+      if (state.isConnected === true && state.isInternetReachable !== false) {
+        void flushSyncQueue();
+      }
+    });
   }, []);
 
   return <>{children}</>;

@@ -10,7 +10,8 @@
     "ios:build": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "convex:dev": "convex dev"
+    "convex:dev": "convex dev",
+    "clean:build": "npx expo prebuild --clean --platform ios"
   },
   "dependencies": {
     "@auth/core": "^0.37.4",

@@ -4,6 +4,7 @@ import { zustandStorage } from '@/lib/storage';
 import { generateId } from '@/lib/id';
 import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
+import { format } from 'date-fns';
 import type { MealLog, Macros } from '@/lib/types';
 
 interface MealLogState {
@@ -32,13 +33,13 @@ interface MealLogState {
   }>) => void;
 }
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+function todayLocal() {
+  return format(new Date(), 'yyyy-MM-dd');
 }
 
 export const useMealLogStore = create<MealLogState>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       todayMeals: [],
       mealsDate: null,
 
@@ -50,7 +51,7 @@ export const useMealLogStore = create<MealLogState>()(
         };
         set((state) => ({
           todayMeals: [meal, ...state.todayMeals],
-          mealsDate: todayISO(),
+          mealsDate: todayLocal(),
         }));
 
         syncToConvex(api.mealLogs.logMeal, {
@@ -85,17 +86,18 @@ export const useMealLogStore = create<MealLogState>()(
           notes: m.notes,
           loggedAt: m.loggedAt,
         }));
-        set({ todayMeals: mapped, mealsDate: todayISO() });
+        set({ todayMeals: mapped, mealsDate: todayLocal() });
       },
     }),
     {
       name: 'meal-log-storage',
       storage: zustandStorage,
-      onRehydrateStorage: () => (state) => {
-        // Clear stale meals from a previous day
-        if (state && state.mealsDate !== todayISO()) {
-          state.todayMeals = [];
-          state.mealsDate = null;
+      onRehydrateStorage: () => () => {
+        // Clear stale meals from a previous day via setState so
+        // subscribers are notified and the cleared state is persisted.
+        const { mealsDate } = useMealLogStore.getState();
+        if (mealsDate !== null && mealsDate !== todayLocal()) {
+          useMealLogStore.setState({ todayMeals: [], mealsDate: null });
         }
       },
     }

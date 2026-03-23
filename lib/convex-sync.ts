@@ -88,7 +88,8 @@ async function enqueue(path: string, args: unknown): Promise<void> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function syncToConvex(mutation: any, args: any) {
   const path = getMutationPath(mutation);
-  const isOffline = useNetworkStore.getState().isConnected === false;
+  const { isConnected, isInternetReachable } = useNetworkStore.getState();
+  const isOffline = isConnected === false || isInternetReachable === false;
 
   if (!convexClient || isOffline) {
     if (path) {
