@@ -18,7 +18,7 @@ interface SetRowProps {
   editable?: boolean;
 }
 
-export function SetRow({ set, index, onUpdate, onToggleComplete, onRemove, editable = true }: SetRowProps) {
+export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggleComplete, onRemove, editable = true }: SetRowProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const scale = useSharedValue(1);
@@ -137,4 +137,4 @@ export function SetRow({ set, index, onUpdate, onToggleComplete, onRemove, edita
       )}
     </Animated.View>
   );
-}
+});

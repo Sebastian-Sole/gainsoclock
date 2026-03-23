@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useMemo, useState, useCallback } from 'react';
-import { View, FlatList, Pressable, ActivityIndicator } from 'react-native';
+import { View, FlatList, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -40,14 +40,27 @@ export default function ChatConversationScreen() {
   const handleApproveAll = useCallback(async () => {
     if (pendingApprovals.length === 0) return;
     setIsApprovingAll(true);
+    const failed: string[] = [];
     try {
       for (const msg of pendingApprovals) {
-        await approveAction({ messageId: msg._id as Id<"chatMessages"> });
-        await executeApproval({
-          type: msg.pendingApproval!.type,
-          payload: msg.pendingApproval!.payload,
-          conversationClientId: id,
-        });
+        try {
+          // Execute resource creation first, then mark as approved only on success
+          await executeApproval({
+            type: msg.pendingApproval!.type,
+            payload: msg.pendingApproval!.payload,
+            conversationClientId: id,
+          });
+          await approveAction({ messageId: msg._id as Id<"chatMessages"> });
+        } catch (error) {
+          console.error('Approval failed for message:', msg._id, error);
+          failed.push(msg.pendingApproval!.type);
+        }
+      }
+      if (failed.length > 0) {
+        Alert.alert(
+          'Some Approvals Failed',
+          `${failed.length} of ${pendingApprovals.length} approval(s) failed: ${failed.join(', ')}. Please try again for the remaining items.`,
+        );
       }
     } finally {
       setIsApprovingAll(false);

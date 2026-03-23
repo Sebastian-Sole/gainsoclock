@@ -12,7 +12,7 @@ interface CalendarDayProps {
   onPress: () => void;
 }
 
-export function CalendarDay({ day, isToday, isSelected, hasWorkout, isCurrentMonth, onPress }: CalendarDayProps) {
+export const CalendarDay = React.memo(function CalendarDay({ day, isToday, isSelected, hasWorkout, isCurrentMonth, onPress }: CalendarDayProps) {
   return (
     <Pressable
       onPress={onPress}
@@ -40,4 +40,10 @@ export function CalendarDay({ day, isToday, isSelected, hasWorkout, isCurrentMon
       </View>
     </Pressable>
   );
-}
+}, (prev, next) =>
+  prev.day === next.day &&
+  prev.isToday === next.isToday &&
+  prev.isSelected === next.isSelected &&
+  prev.hasWorkout === next.hasWorkout &&
+  prev.isCurrentMonth === next.isCurrentMonth
+);

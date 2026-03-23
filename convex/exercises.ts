@@ -15,20 +15,6 @@ export const list = query({
   },
 });
 
-export const search = query({
-  args: { query: v.string() },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return [];
-    const all = await ctx.db
-      .query("exercises")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    const lowerQuery = args.query.toLowerCase();
-    return all.filter((e) => e.name.toLowerCase().includes(lowerQuery));
-  },
-});
-
 export const create = mutation({
   args: {
     clientId: v.string(),

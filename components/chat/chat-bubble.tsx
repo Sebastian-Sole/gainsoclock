@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
@@ -153,6 +153,10 @@ export function StreamingDots() {
 
 export function ChatBubble({ role, content, isStreaming }: ChatBubbleProps) {
   const isUser = role === 'user';
+  const markdownElements = useMemo(
+    () => (!isUser && content ? renderMarkdown(content, false) : null),
+    [content, isUser]
+  );
 
   if (!content && !isStreaming) return null;
 
@@ -171,7 +175,7 @@ export function ChatBubble({ role, content, isStreaming }: ChatBubbleProps) {
             {content}
           </Text>
         ) : (
-          renderMarkdown(content, false)
+          markdownElements
         )
       ) : isStreaming ? (
         <StreamingDots />

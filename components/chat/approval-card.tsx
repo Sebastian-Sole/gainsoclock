@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Pressable, ActivityIndicator, Modal, ScrollView } from 'react-native';
+import { View, Pressable, ActivityIndicator, Modal, ScrollView, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation } from 'convex/react';
@@ -39,12 +39,19 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
   const handleApprove = async () => {
     setIsProcessing(true);
     try {
-      await approveAction({ messageId: messageId as Id<"chatMessages"> });
+      // Execute resource creation first, then mark as approved only on success
       await executeApproval({
         type: approval.type,
         payload: approval.payload,
         conversationClientId,
       });
+      await approveAction({ messageId: messageId as Id<"chatMessages"> });
+    } catch (error) {
+      console.error('Approval failed:', error);
+      Alert.alert(
+        'Approval Failed',
+        'Something went wrong while processing this approval. Please try again.',
+      );
     } finally {
       setIsProcessing(false);
     }

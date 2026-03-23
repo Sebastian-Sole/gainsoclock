@@ -2,15 +2,14 @@ import React from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useRouter } from 'expo-router';
-import { useQuery } from 'convex/react';
-import { api } from '@/convex/_generated/api';
 import { useColorScheme } from 'nativewind';
+import { usePlanStore } from '@/stores/plan-store';
 import { Calendar, ChevronRight } from 'lucide-react-native';
 import { Colors } from '@/constants/theme';
 import { cn } from '@/lib/utils';
 
 export function PlansList() {
-  const plans = useQuery(api.plans.listPlans) ?? [];
+  const plans = usePlanStore((s) => s.plans);
   const router = useRouter();
   const { colorScheme } = useColorScheme();
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
@@ -31,11 +30,11 @@ export function PlansList() {
   return (
     <FlatList
       data={plans}
-      keyExtractor={(item) => item.clientId}
+      keyExtractor={(item) => item.id}
       contentContainerClassName="px-4 pb-8 gap-2"
       renderItem={({ item }) => (
         <Pressable
-          onPress={() => router.push(`/plan/${item.clientId}`)}
+          onPress={() => router.push(`/plan/${item.id}`)}
           className="flex-row items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
         >
           <View

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import { View, ScrollView, Pressable, AppState } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Plus, UtensilsCrossed } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
@@ -26,7 +26,18 @@ export function TodayTab() {
 
   const [showLogModal, setShowLogModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
-  const today = getToday();
+  const [today, setToday] = useState(getToday);
+
+  // Recalculate today's date when the app comes to the foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        const now = getToday();
+        setToday((prev) => (prev !== now ? now : prev));
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   const todayMeals = useMealLogStore((s) => s.todayMeals);
   const hydrateFromServer = useMealLogStore((s) => s.hydrateFromServer);

@@ -139,27 +139,51 @@ export const useTemplateStore = create<TemplateState>()(
       getTemplate: (id) => get().templates.find((t) => t.id === id),
 
       hydrateFromServer: (serverTemplates) => {
-        const mapped: WorkoutTemplate[] = serverTemplates.map((t) => ({
-          id: t.clientId,
-          name: t.name,
-          notes: t.notes,
-          exercises: t.exercises.map((e) => ({
-            id: e.id,
-            exerciseId: e.exerciseId,
-            name: e.name,
-            type: e.type as TemplateExercise['type'],
-            order: e.order,
-            restTimeSeconds: e.restTimeSeconds,
-            defaultSetsCount: e.defaultSetsCount,
-            suggestedReps: e.suggestedReps,
-            suggestedWeight: e.suggestedWeight,
-            suggestedTime: e.suggestedTime,
-            suggestedDistance: e.suggestedDistance,
-          })),
-          createdAt: t.createdAt,
-          updatedAt: t.updatedAt,
-        }));
-        set({ templates: mapped });
+        const localTemplates = get().templates;
+        const localById = new Map(localTemplates.map((t) => [t.id, t]));
+
+        const merged: WorkoutTemplate[] = [];
+        const seenIds = new Set<string>();
+
+        // For each server template, prefer local version if it exists (may have unsaved changes)
+        for (const st of serverTemplates) {
+          seenIds.add(st.clientId);
+          const local = localById.get(st.clientId);
+          if (local) {
+            merged.push(local);
+          } else {
+            // Server-only: map to local shape
+            merged.push({
+              id: st.clientId,
+              name: st.name,
+              notes: st.notes,
+              exercises: st.exercises.map((e) => ({
+                id: e.id,
+                exerciseId: e.exerciseId,
+                name: e.name,
+                type: e.type as TemplateExercise['type'],
+                order: e.order,
+                restTimeSeconds: e.restTimeSeconds,
+                defaultSetsCount: e.defaultSetsCount,
+                suggestedReps: e.suggestedReps,
+                suggestedWeight: e.suggestedWeight,
+                suggestedTime: e.suggestedTime,
+                suggestedDistance: e.suggestedDistance,
+              })),
+              createdAt: st.createdAt,
+              updatedAt: st.updatedAt,
+            });
+          }
+        }
+
+        // Preserve local-only templates (not yet on server)
+        for (const t of localTemplates) {
+          if (!seenIds.has(t.id)) {
+            merged.push(t);
+          }
+        }
+
+        set({ templates: merged });
       },
     }),
     {

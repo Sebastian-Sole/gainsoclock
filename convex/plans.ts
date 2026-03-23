@@ -58,6 +58,36 @@ export const getPlanWithDays = query({
   },
 });
 
+export const getActivePlanWithDays = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const plans = await ctx.db
+      .query("workoutPlans")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const activePlan = plans.find((p) => p.status === "active");
+    if (!activePlan) return null;
+
+    const days = await ctx.db
+      .query("planDays")
+      .withIndex("by_plan", (q) =>
+        q.eq("userId", userId).eq("planClientId", activePlan.clientId)
+      )
+      .collect();
+
+    days.sort((a, b) => {
+      if (a.week !== b.week) return a.week - b.week;
+      return a.dayOfWeek - b.dayOfWeek;
+    });
+
+    return { ...activePlan, days };
+  },
+});
+
 export const getActivePlan = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {

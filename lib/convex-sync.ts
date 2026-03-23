@@ -9,9 +9,39 @@ const QUEUE_KEY = "convex-sync-queue";
 let convexClient: ConvexReactClient | null = null;
 let isFlushing = false;
 
+// ── In-memory queue + mutex ──────────────────────────────────────────
+// The in-memory array is the source of truth. AsyncStorage is a
+// write-behind cache so the queue survives app restarts.
+
+let memoryQueue: QueuedMutation[] = [];
+let memoryQueueLoaded = false;
+let mutexPromise: Promise<void> = Promise.resolve();
+
+/**
+ * Acquire a simple async mutex. Every caller awaits the previous lock's
+ * release before proceeding, guaranteeing serial access to the queue.
+ */
+function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  let release: () => void;
+  const next = new Promise<void>((res) => {
+    release = res;
+  });
+  const prev = mutexPromise;
+  mutexPromise = next;
+  return prev.then(async () => {
+    try {
+      return await fn();
+    } finally {
+      release!();
+    }
+  });
+}
+
 export function setConvexClient(client: ConvexReactClient) {
   convexClient = client;
 }
+
+const MAX_RETRIES = 5;
 
 interface QueuedMutation {
   /** Function path, e.g. "workoutLogs:create" */
@@ -19,6 +49,7 @@ interface QueuedMutation {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any;
   queuedAt: number;
+  retryCount: number;
 }
 
 /**
@@ -45,23 +76,27 @@ function getMutationPath(mutation: any): string | null {
   }
 }
 
-// ── Queue persistence ────────────────────────────────────────────────
+// ── Queue persistence (write-behind to AsyncStorage) ─────────────────
 
-async function loadQueue(): Promise<QueuedMutation[]> {
+async function ensureLoaded(): Promise<void> {
+  if (memoryQueueLoaded) return;
   try {
     const raw = await AsyncStorage.getItem(QUEUE_KEY);
-    return raw ? (JSON.parse(raw) as QueuedMutation[]) : [];
+    if (raw) {
+      memoryQueue = JSON.parse(raw) as QueuedMutation[];
+    }
   } catch {
-    return [];
+    // If AsyncStorage read fails, start with an empty queue.
   }
+  memoryQueueLoaded = true;
 }
 
-async function saveQueue(queue: QueuedMutation[]): Promise<void> {
+async function persistQueue(): Promise<void> {
   try {
-    if (queue.length === 0) {
+    if (memoryQueue.length === 0) {
       await AsyncStorage.removeItem(QUEUE_KEY);
     } else {
-      await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+      await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(memoryQueue));
     }
   } catch (err) {
     console.warn("[ConvexSync] Failed to persist queue:", err);
@@ -69,9 +104,11 @@ async function saveQueue(queue: QueuedMutation[]): Promise<void> {
 }
 
 async function enqueue(path: string, args: unknown): Promise<void> {
-  const queue = await loadQueue();
-  queue.push({ path, args, queuedAt: Date.now() });
-  await saveQueue(queue);
+  return withLock(async () => {
+    await ensureLoaded();
+    memoryQueue.push({ path, args, queuedAt: Date.now(), retryCount: 0 });
+    await persistQueue();
+  });
 }
 
 // ── Public API ───────────────────────────────────────────────────────
@@ -114,14 +151,24 @@ export async function flushSyncQueue(): Promise<void> {
   isFlushing = true;
 
   try {
-    const queue = await loadQueue();
-    if (queue.length === 0) return;
+    // Take a snapshot of current items under the lock, then clear them.
+    // Any enqueue() calls that arrive while we process will append to the
+    // now-empty memoryQueue and will NOT be overwritten.
+    const snapshot = await withLock(async () => {
+      await ensureLoaded();
+      const items = [...memoryQueue];
+      memoryQueue = [];
+      await persistQueue();
+      return items;
+    });
 
-    console.log(`[ConvexSync] Flushing ${queue.length} queued mutation(s)…`);
+    if (snapshot.length === 0) return;
 
-    const remaining: QueuedMutation[] = [];
+    console.log(`[ConvexSync] Flushing ${snapshot.length} queued mutation(s)…`);
 
-    for (const item of queue) {
+    const failed: QueuedMutation[] = [];
+
+    for (const item of snapshot) {
       const mutationRef = resolveMutation(item.path);
       if (!mutationRef) {
         console.warn(`[ConvexSync] Unknown mutation path: ${item.path}, dropping`);
@@ -130,15 +177,29 @@ export async function flushSyncQueue(): Promise<void> {
       try {
         await convexClient.mutation(mutationRef, item.args);
       } catch (err) {
-        console.warn(`[ConvexSync] Retry failed for ${item.path}:`, err);
-        remaining.push(item);
+        const nextRetry = (item.retryCount ?? 0) + 1;
+        if (nextRetry >= MAX_RETRIES) {
+          console.warn(
+            `[ConvexSync] Dropping ${item.path} after ${MAX_RETRIES} failed retries:`,
+            err,
+          );
+        } else {
+          console.warn(
+            `[ConvexSync] Retry ${nextRetry}/${MAX_RETRIES} failed for ${item.path}:`,
+            err,
+          );
+          failed.push({ ...item, retryCount: nextRetry });
+        }
       }
     }
 
-    await saveQueue(remaining);
-
-    if (remaining.length > 0) {
-      console.warn(`[ConvexSync] ${remaining.length} mutation(s) still pending`);
+    // Re-enqueue failed items under the lock (prepend so they retry first).
+    if (failed.length > 0) {
+      await withLock(async () => {
+        memoryQueue = [...failed, ...memoryQueue];
+        await persistQueue();
+      });
+      console.warn(`[ConvexSync] ${failed.length} mutation(s) still pending`);
     } else {
       console.log("[ConvexSync] Queue flushed successfully");
     }

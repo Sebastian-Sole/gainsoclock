@@ -9,6 +9,7 @@ import { useExerciseLibraryStore } from "@/stores/exercise-library-store";
 import { useRecipeStore } from "@/stores/recipe-store";
 import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useSubscriptionStore } from "@/stores/subscription-store";
+import { usePlanStore } from "@/stores/plan-store";
 import { setConvexClient } from "@/lib/convex-sync";
 import { useDataMigration } from "@/hooks/use-data-migration";
 import { configurePurchases } from "@/hooks/use-purchases";
@@ -54,6 +55,8 @@ function SyncEngine() {
   const recipes = useQuery(api.recipes.listRecipes);
   const nutritionGoals = useQuery(api.nutritionGoals.get);
   const subscription = useQuery(api.subscriptions.getStatus);
+  const plans = useQuery(api.plans.listPlans);
+  const activePlanWithDays = useQuery(api.plans.getActivePlanWithDays);
   const userId = useQuery(api.user.me);
   const registerCurrentUser = useMutation(api.subscriptions.registerCurrentUser);
 
@@ -109,6 +112,18 @@ function SyncEngine() {
     if (nutritionGoals === undefined || nutritionGoals === null) return;
     useNutritionGoalsStore.getState().hydrateFromServer(nutritionGoals);
   }, [nutritionGoals]);
+
+  // Hydrate plan store from server
+  useEffect(() => {
+    if (plans === undefined) return;
+    usePlanStore.getState().hydrateFromServer(plans);
+  }, [plans]);
+
+  // Hydrate active plan with days from server
+  useEffect(() => {
+    if (activePlanWithDays === undefined) return;
+    usePlanStore.getState().hydrateActivePlanFromServer(activePlanWithDays);
+  }, [activePlanWithDays]);
 
   // Hydrate subscription store from server
   useEffect(() => {

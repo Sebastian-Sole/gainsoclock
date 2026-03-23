@@ -140,9 +140,9 @@ export default function CreateRecipeScreen() {
       notes: notes.trim() || undefined,
       ingredients: cleanIngredients,
       instructions: cleanInstructions,
-      servings: servings ? parseInt(servings, 10) : undefined,
-      prepTimeMinutes: prepTime ? parseInt(prepTime, 10) : undefined,
-      cookTimeMinutes: cookTime ? parseInt(cookTime, 10) : undefined,
+      servings: servings ? parseInt(servings, 10) || 1 : undefined,
+      prepTimeMinutes: prepTime ? parseInt(prepTime, 10) || undefined : undefined,
+      cookTimeMinutes: cookTime ? parseInt(cookTime, 10) || undefined : undefined,
       macros: calculatedMacros,
       tags: parsedTags.length > 0 ? parsedTags : undefined,
     };
