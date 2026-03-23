@@ -153,10 +153,10 @@ export const syncFromClient = action({
         if (status >= 500 || status === 429 || status === 408) {
           console.warn(
             `[RevenueCat] API verification failed with transient error (${status}). ` +
-              "Defaulting to inactive — subscription will sync on next successful verification.",
+              "Preserving current subscription state — will sync on next successful verification.",
           );
-          // Never trust client data. Default to inactive on transient errors.
-          verified = false;
+          // Transient error: skip the upsert entirely to preserve the last known good state.
+          return;
         } else {
           console.error(
             `[RevenueCat] API verification failed (${status}); ` +

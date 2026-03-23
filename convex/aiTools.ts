@@ -87,7 +87,7 @@ function validateExercise(
 function validateTemplatePayload(
   data: Record<string, unknown>,
   context = ""
-): void {
+): TemplatePayload {
   assertString(data.name, `${context}name`);
   assertOptionalString(data.notes, `${context}notes`);
   const exercises = data.exercises ?? [];
@@ -95,10 +95,15 @@ function validateTemplatePayload(
   (exercises as Record<string, unknown>[]).forEach((ex, i) =>
     validateExercise(ex, i, context)
   );
+  return {
+    name: data.name as string,
+    notes: data.notes as string | undefined,
+    exercises: exercises as ExercisePayload[],
+  };
 }
 
 /** Validate the full create_plan payload. */
-function validateCreatePlanPayload(data: Record<string, unknown>): void {
+function validateCreatePlanPayload(data: Record<string, unknown>): CreatePlanPayload {
   assertString(data.name, "name");
   // description is optional — falls back to ""
   assertOptionalString(data.description, "description");
@@ -106,44 +111,61 @@ function validateCreatePlanPayload(data: Record<string, unknown>): void {
   assertNumber(data.durationWeeks, "durationWeeks");
   assertOptionalString(data.startDate, "startDate");
 
-  const templates = data.templates ?? [];
-  assertArray(templates, "templates");
-  (templates as Record<string, unknown>[]).forEach((t, i) =>
+  const rawTemplates = data.templates ?? [];
+  assertArray(rawTemplates, "templates");
+  const templates = (rawTemplates as Record<string, unknown>[]).map((t, i) =>
     validateTemplatePayload(t, `templates[${i}].`)
   );
 
-  const days = data.days ?? [];
-  assertArray(days, "days");
-  (days as Record<string, unknown>[]).forEach((day, i) => {
+  const rawDays = data.days ?? [];
+  assertArray(rawDays, "days");
+  const days = (rawDays as Record<string, unknown>[]).map((day, i) => {
     assertNumber(day.week, `days[${i}].week`);
     assertNumber(day.dayOfWeek, `days[${i}].dayOfWeek`);
     assertOptionalString(day.templateName, `days[${i}].templateName`);
     assertOptionalString(day.label, `days[${i}].label`);
     assertOptionalString(day.notes, `days[${i}].notes`);
+    return {
+      week: day.week as number,
+      dayOfWeek: day.dayOfWeek as number,
+      templateName: day.templateName as string | undefined,
+      label: day.label as string | undefined,
+      notes: day.notes as string | undefined,
+    };
   });
+
+  return {
+    name: data.name as string,
+    description: data.description as string | undefined,
+    goal: data.goal as string | undefined,
+    durationWeeks: data.durationWeeks as number,
+    startDate: data.startDate as string | undefined,
+    templates,
+    days,
+  };
 }
 
 /** Validate the update_plan payload. */
-function validateUpdatePlanPayload(data: Record<string, unknown>): void {
+function validateUpdatePlanPayload(data: Record<string, unknown>): UpdatePlanPayload {
   assertString(data.planClientId, "planClientId");
 
   if (data.updates === undefined || data.updates === null || typeof data.updates !== "object") {
     throw new Error('Invalid payload: "updates" must be an object.');
   }
-  const updates = data.updates as Record<string, unknown>;
+  const rawUpdates = data.updates as Record<string, unknown>;
 
-  assertOptionalString(updates.name, "updates.name");
-  assertOptionalString(updates.description, "updates.description");
+  assertOptionalString(rawUpdates.name, "updates.name");
+  assertOptionalString(rawUpdates.description, "updates.description");
 
-  const newTemplates = updates.newTemplates ?? [];
-  assertArray(newTemplates, "updates.newTemplates");
-  (newTemplates as Record<string, unknown>[]).forEach((t, i) =>
+  const rawNewTemplates = rawUpdates.newTemplates ?? [];
+  assertArray(rawNewTemplates, "updates.newTemplates");
+  const newTemplates = (rawNewTemplates as Record<string, unknown>[]).map((t, i) =>
     validateTemplatePayload(t, `updates.newTemplates[${i}].`)
   );
 
-  const daysToUpdate = updates.daysToUpdate ?? [];
-  assertArray(daysToUpdate, "updates.daysToUpdate");
-  (daysToUpdate as Record<string, unknown>[]).forEach((day, i) => {
+  const rawDaysToUpdate = rawUpdates.daysToUpdate ?? [];
+  assertArray(rawDaysToUpdate, "updates.daysToUpdate");
+  const daysToUpdate = (rawDaysToUpdate as Record<string, unknown>[]).map((day, i) => {
     assertNumber(day.week, `updates.daysToUpdate[${i}].week`);
     assertNumber(day.dayOfWeek, `updates.daysToUpdate[${i}].dayOfWeek`);
     assertOptionalString(
@@ -152,15 +174,33 @@ function validateUpdatePlanPayload(data: Record<string, unknown>): void {
     );
     assertOptionalString(day.label, `updates.daysToUpdate[${i}].label`);
     assertOptionalString(day.notes, `updates.daysToUpdate[${i}].notes`);
+    return {
+      week: day.week as number,
+      dayOfWeek: day.dayOfWeek as number,
+      templateName: day.templateName as string | undefined,
+      label: day.label as string | undefined,
+      notes: day.notes as string | undefined,
+      remove: day.remove === true ? true : undefined,
+    };
   });
+
+  return {
+    planClientId: data.planClientId as string,
+    updates: {
+      name: rawUpdates.name as string | undefined,
+      description: rawUpdates.description as string | undefined,
+      newTemplates,
+      daysToUpdate,
+    },
+  };
 }
 
 /** Validate a macros object. */
 function validateMacros(
   macros: unknown,
   field: string
-): void {
-  if (macros === undefined || macros === null) return;
+): MacrosPayload | undefined {
+  if (macros === undefined || macros === null) return undefined;
   if (typeof macros !== "object" || Array.isArray(macros)) {
     throw new Error(`Invalid payload: "${field}" must be an object.`);
   }
@@ -169,13 +209,19 @@ function validateMacros(
   assertNumber(m.protein, `${field}.protein`);
   assertNumber(m.carbs, `${field}.carbs`);
   assertNumber(m.fat, `${field}.fat`);
+  return {
+    calories: m.calories as number,
+    protein: m.protein as number,
+    carbs: m.carbs as number,
+    fat: m.fat as number,
+  };
 }
 
 /** Validate a single ingredient. */
 function validateIngredient(
   ing: unknown,
   index: number
-): void {
+): IngredientPayload {
   if (typeof ing !== "object" || ing === null || Array.isArray(ing)) {
     throw new Error(`Invalid payload: "ingredients[${index}]" must be an object.`);
   }
@@ -183,41 +229,62 @@ function validateIngredient(
   assertString(obj.name, `ingredients[${index}].name`);
   assertString(obj.amount, `ingredients[${index}].amount`);
   assertOptionalString(obj.unit, `ingredients[${index}].unit`);
-  validateMacros(obj.macros, `ingredients[${index}].macros`);
+  const macros = validateMacros(obj.macros, `ingredients[${index}].macros`);
+  return {
+    name: obj.name as string,
+    amount: obj.amount as string,
+    unit: obj.unit as string | undefined,
+    macros,
+  };
 }
 
 /** Validate the create_recipe payload. */
-function validateCreateRecipePayload(data: Record<string, unknown>): void {
+function validateCreateRecipePayload(data: Record<string, unknown>): CreateRecipePayload {
   assertString(data.title, "title");
   assertOptionalString(data.description, "description");
 
-  const ingredients = data.ingredients ?? [];
-  assertArray(ingredients, "ingredients");
-  (ingredients as unknown[]).forEach((ing, i) => validateIngredient(ing, i));
+  const rawIngredients = data.ingredients ?? [];
+  assertArray(rawIngredients, "ingredients");
+  const ingredients = (rawIngredients as unknown[]).map((ing, i) => validateIngredient(ing, i));
 
-  const instructions = data.instructions ?? [];
-  assertArray(instructions, "instructions");
-  (instructions as unknown[]).forEach((inst, i) => {
+  const rawInstructions = data.instructions ?? [];
+  assertArray(rawInstructions, "instructions");
+  const instructions = (rawInstructions as unknown[]).map((inst, i) => {
     if (typeof inst !== "string") {
       throw new Error(
         `Invalid payload: "instructions[${i}]" must be a string.`
       );
     }
+    return inst;
   });
 
   assertOptionalNumber(data.prepTimeMinutes, "prepTimeMinutes");
   assertOptionalNumber(data.cookTimeMinutes, "cookTimeMinutes");
   assertOptionalNumber(data.servings, "servings");
-  validateMacros(data.macros, "macros");
+  const macros = validateMacros(data.macros, "macros");
 
+  let tags: string[] | undefined;
   if (data.tags !== undefined && data.tags !== null) {
     assertArray(data.tags, "tags");
-    (data.tags as unknown[]).forEach((tag, i) => {
+    tags = (data.tags as unknown[]).map((tag, i) => {
       if (typeof tag !== "string") {
         throw new Error(`Invalid payload: "tags[${i}]" must be a string.`);
       }
+      return tag;
     });
   }
+
+  return {
+    title: data.title as string,
+    description: data.description as string | undefined,
+    ingredients,
+    instructions,
+    prepTimeMinutes: data.prepTimeMinutes as number | undefined,
+    cookTimeMinutes: data.cookTimeMinutes as number | undefined,
+    servings: data.servings as number | undefined,
+    macros,
+    tags,
+  };
 }
 
 interface ExercisePayload {
@@ -229,6 +296,70 @@ interface ExercisePayload {
   suggestedWeight?: number;
   suggestedTime?: number;
   suggestedDistance?: number;
+}
+
+interface TemplatePayload {
+  name: string;
+  notes?: string;
+  exercises: ExercisePayload[];
+}
+
+interface PlanDayPayload {
+  week: number;
+  dayOfWeek: number;
+  templateName?: string;
+  label?: string;
+  notes?: string;
+}
+
+interface CreatePlanPayload {
+  name: string;
+  description?: string;
+  goal?: string;
+  durationWeeks: number;
+  startDate?: string;
+  templates: TemplatePayload[];
+  days: PlanDayPayload[];
+}
+
+interface DayUpdatePayload extends PlanDayPayload {
+  remove?: boolean;
+}
+
+interface UpdatePlanPayload {
+  planClientId: string;
+  updates: {
+    name?: string;
+    description?: string;
+    newTemplates: TemplatePayload[];
+    daysToUpdate: DayUpdatePayload[];
+  };
+}
+
+interface MacrosPayload {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+interface IngredientPayload {
+  name: string;
+  amount: string;
+  unit?: string;
+  macros?: MacrosPayload;
+}
+
+interface CreateRecipePayload {
+  title: string;
+  description?: string;
+  ingredients: IngredientPayload[];
+  instructions: string[];
+  prepTimeMinutes?: number;
+  cookTimeMinutes?: number;
+  servings?: number;
+  macros?: MacrosPayload;
+  tags?: string[];
 }
 
 // --- End validation helpers ---
@@ -262,11 +393,11 @@ export const executeApproval = mutation({
 
     if (args.type === "create_template") {
       // Validate
-      validateTemplatePayload(data);
+      const tpl = validateTemplatePayload(data);
 
       // Create a single template
       const templateClientId = generateId();
-      const exercises = (data.exercises as ExercisePayload[] ?? []).map(
+      const exercises = tpl.exercises.map(
         (ex, i) => {
           const exerciseClientId = generateId();
           return { ...ex, exerciseClientId, clientId: generateId(), order: i };
@@ -299,8 +430,8 @@ export const executeApproval = mutation({
       await ctx.db.insert("templates", {
         userId,
         clientId: templateClientId,
-        name: data.name as string,
-        notes: data.notes as string | undefined,
+        name: tpl.name,
+        notes: tpl.notes,
         createdAt: now,
         updatedAt: now,
       });
@@ -322,16 +453,16 @@ export const executeApproval = mutation({
       }
     } else if (args.type === "create_plan") {
       // Validate
-      validateCreatePlanPayload(data);
+      const planData = validateCreatePlanPayload(data);
 
       // Create templates first
       const templateNameToClientId = new Map<string, string>();
 
-      for (const template of (data.templates as Record<string, unknown>[]) ?? []) {
+      for (const template of planData.templates) {
         const templateClientId = generateId();
-        templateNameToClientId.set(template.name as string, templateClientId);
+        templateNameToClientId.set(template.name, templateClientId);
 
-        const exercises = ((template.exercises as ExercisePayload[]) ?? []).map(
+        const exercises = template.exercises.map(
           (ex, i) => {
             const exerciseClientId = generateId();
             return { ...ex, exerciseClientId, clientId: generateId(), order: i };
@@ -363,8 +494,8 @@ export const executeApproval = mutation({
         await ctx.db.insert("templates", {
           userId,
           clientId: templateClientId,
-          name: template.name as string,
-          notes: template.notes as string | undefined,
+          name: template.name,
+          notes: template.notes,
           createdAt: now,
           updatedAt: now,
         });
@@ -391,11 +522,11 @@ export const executeApproval = mutation({
       await ctx.db.insert("workoutPlans", {
         userId,
         clientId: planClientId,
-        name: data.name as string,
-        description: (data.description as string) ?? "",
-        goal: data.goal as string | undefined,
-        durationWeeks: data.durationWeeks as number,
-        startDate: (data.startDate as string) ?? now.split("T")[0],
+        name: planData.name,
+        description: planData.description ?? "",
+        goal: planData.goal,
+        durationWeeks: planData.durationWeeks,
+        startDate: planData.startDate ?? now.split("T")[0],
         status: "active",
         sourceConversationClientId: args.conversationClientId,
         createdAt: now,
@@ -403,34 +534,32 @@ export const executeApproval = mutation({
       });
 
       // Create plan days
-      for (const day of (data.days as Record<string, unknown>[]) ?? []) {
+      for (const day of planData.days) {
         const templateClientId = day.templateName
-          ? templateNameToClientId.get(day.templateName as string)
+          ? templateNameToClientId.get(day.templateName)
           : undefined;
 
         await ctx.db.insert("planDays", {
           userId,
           planClientId,
-          week: day.week as number,
-          dayOfWeek: day.dayOfWeek as number,
+          week: day.week,
+          dayOfWeek: day.dayOfWeek,
           templateClientId,
-          label: (day.label as string) ?? (day.templateName as string),
-          notes: day.notes as string | undefined,
+          label: day.label ?? day.templateName,
+          notes: day.notes,
           status: day.templateName ? "pending" : "rest",
         });
       }
     } else if (args.type === "update_plan") {
       // Validate
-      validateUpdatePlanPayload(data);
-
-      const planClientId = data.planClientId as string;
-      const updates = data.updates as Record<string, unknown>;
+      const updateData = validateUpdatePlanPayload(data);
+      const { updates } = updateData;
 
       // Find the plan
       const plan = await ctx.db
         .query("workoutPlans")
         .withIndex("by_user_clientId", (q) =>
-          q.eq("userId", userId).eq("clientId", planClientId)
+          q.eq("userId", userId).eq("clientId", updateData.planClientId)
         )
         .unique();
 
@@ -438,8 +567,8 @@ export const executeApproval = mutation({
 
       // Update plan metadata
       const planPatch: Record<string, string> = { updatedAt: now };
-      if (updates.name) planPatch.name = updates.name as string;
-      if (updates.description) planPatch.description = updates.description as string;
+      if (updates.name !== undefined) planPatch.name = updates.name;
+      if (updates.description !== undefined) planPatch.description = updates.description;
       await ctx.db.patch(plan._id, planPatch);
 
       // Pre-load all user templates for name resolution
@@ -450,11 +579,11 @@ export const executeApproval = mutation({
       const templatesByName = new Map(allTemplates.map((t) => [t.name, t.clientId]));
 
       // Create new templates if provided
-      for (const template of (updates.newTemplates as Record<string, unknown>[]) ?? []) {
+      for (const template of updates.newTemplates) {
         const templateClientId = generateId();
-        templatesByName.set(template.name as string, templateClientId);
+        templatesByName.set(template.name, templateClientId);
 
-        const exercises = ((template.exercises as ExercisePayload[]) ?? []).map(
+        const exercises = template.exercises.map(
           (ex, i) => {
             const exerciseClientId = generateId();
             return { ...ex, exerciseClientId, clientId: generateId(), order: i };
@@ -485,7 +614,7 @@ export const executeApproval = mutation({
         await ctx.db.insert("templates", {
           userId,
           clientId: templateClientId,
-          name: template.name as string,
+          name: template.name,
           createdAt: now,
           updatedAt: now,
         });
@@ -507,15 +636,14 @@ export const executeApproval = mutation({
       const existingDays = await ctx.db
         .query("planDays")
         .withIndex("by_plan", (q) =>
-          q.eq("userId", userId).eq("planClientId", planClientId)
+          q.eq("userId", userId).eq("planClientId", updateData.planClientId)
         )
         .collect();
 
       // Update plan days
-      for (const dayUpdate of (updates.daysToUpdate as Record<string, unknown>[]) ?? []) {
+      for (const dayUpdate of updates.daysToUpdate) {
         const existingDay = existingDays.find(
-          (d: { week: number; dayOfWeek: number }) =>
-            d.week === (dayUpdate.week as number) && d.dayOfWeek === (dayUpdate.dayOfWeek as number)
+          (d) => d.week === dayUpdate.week && d.dayOfWeek === dayUpdate.dayOfWeek
         );
 
         if (dayUpdate.remove && existingDay) {
@@ -524,12 +652,12 @@ export const executeApproval = mutation({
           const patch: Record<string, string | undefined> = {};
 
           if (dayUpdate.templateName) {
-            const resolvedId = templatesByName.get(dayUpdate.templateName as string);
+            const resolvedId = templatesByName.get(dayUpdate.templateName);
             if (resolvedId) patch.templateClientId = resolvedId;
             patch.status = "pending";
           }
-          if (dayUpdate.label) patch.label = dayUpdate.label as string;
-          if (dayUpdate.notes !== undefined) patch.notes = dayUpdate.notes as string | undefined;
+          if (dayUpdate.label) patch.label = dayUpdate.label;
+          if (dayUpdate.notes !== undefined) patch.notes = dayUpdate.notes;
 
           if (Object.keys(patch).length > 0) {
             await ctx.db.patch(existingDay._id, patch);
@@ -537,38 +665,38 @@ export const executeApproval = mutation({
         } else {
           // Create new day
           const templateClientId = dayUpdate.templateName
-            ? templatesByName.get(dayUpdate.templateName as string)
+            ? templatesByName.get(dayUpdate.templateName)
             : undefined;
 
           await ctx.db.insert("planDays", {
             userId,
-            planClientId,
-            week: dayUpdate.week as number,
-            dayOfWeek: dayUpdate.dayOfWeek as number,
+            planClientId: updateData.planClientId,
+            week: dayUpdate.week,
+            dayOfWeek: dayUpdate.dayOfWeek,
             templateClientId,
-            label: (dayUpdate.label as string) ?? (dayUpdate.templateName as string),
-            notes: dayUpdate.notes as string | undefined,
+            label: dayUpdate.label ?? dayUpdate.templateName,
+            notes: dayUpdate.notes,
             status: dayUpdate.templateName ? "pending" : "rest",
           });
         }
       }
     } else if (args.type === "create_recipe") {
       // Validate
-      validateCreateRecipePayload(data);
+      const recipe = validateCreateRecipePayload(data);
 
       const recipeClientId = generateId();
       await ctx.db.insert("recipes", {
         userId,
         clientId: recipeClientId,
-        title: data.title as string,
-        description: (data.description as string) ?? "",
-        ingredients: (data.ingredients as Array<{ name: string; amount: string; unit?: string; macros?: { calories: number; protein: number; carbs: number; fat: number } }>) ?? [],
-        instructions: (data.instructions as string[]) ?? [],
-        prepTimeMinutes: data.prepTimeMinutes as number | undefined,
-        cookTimeMinutes: data.cookTimeMinutes as number | undefined,
-        servings: data.servings as number | undefined,
-        macros: data.macros as { calories: number; protein: number; carbs: number; fat: number } | undefined,
-        tags: data.tags as string[] | undefined,
+        title: recipe.title,
+        description: recipe.description ?? "",
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+        prepTimeMinutes: recipe.prepTimeMinutes,
+        cookTimeMinutes: recipe.cookTimeMinutes,
+        servings: recipe.servings,
+        macros: recipe.macros,
+        tags: recipe.tags,
         sourceConversationClientId: args.conversationClientId,
         saved: true,
         createdAt: now,
