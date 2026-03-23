@@ -28,18 +28,28 @@ export const getUserContext = internalQuery({
 
     const exerciseMap = new Map(exercises.map((e) => [e.clientId, e]));
 
-    const templatesWithExercises = [];
-    for (const template of templates.slice(-10)) {
-      const templateExercises = await ctx.db
-        .query("templateExercises")
-        .withIndex("by_template", (q) =>
-          q.eq("userId", args.userId).eq("templateClientId", template.clientId)
-        )
-        .collect();
+    // Batch-fetch ALL templateExercises for this user at once (avoids N+1)
+    const allTemplateExercises = await ctx.db
+      .query("templateExercises")
+      .withIndex("by_template", (q) => q.eq("userId", args.userId))
+      .collect();
 
+    // Group templateExercises by templateClientId in memory
+    const templateExercisesByTemplate = new Map<string, typeof allTemplateExercises>();
+    for (const te of allTemplateExercises) {
+      const group = templateExercisesByTemplate.get(te.templateClientId);
+      if (group) {
+        group.push(te);
+      } else {
+        templateExercisesByTemplate.set(te.templateClientId, [te]);
+      }
+    }
+
+    const templatesWithExercises = templates.slice(-10).map((template) => {
+      const templateExercises = templateExercisesByTemplate.get(template.clientId) ?? [];
       templateExercises.sort((a, b) => a.order - b.order);
 
-      templatesWithExercises.push({
+      return {
         clientId: template.clientId,
         name: template.name,
         exercises: templateExercises.map((te) => {
@@ -51,8 +61,8 @@ export const getUserContext = internalQuery({
             restTimeSeconds: te.restTimeSeconds,
           };
         }),
-      });
-    }
+      };
+    });
 
     // 4. Recent workout logs (last 14 days, summarized)
     const twoWeeksAgo = new Date();
@@ -109,6 +119,42 @@ export const getUserContext = internalQuery({
     }
 
     // 6. Exercise performance history (per-exercise recent sets)
+    // Batch-fetch ALL workoutLogExercises and workoutSets for this user (avoids N+1)
+    const allLogExercises = await ctx.db
+      .query("workoutLogExercises")
+      .withIndex("by_exercise", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const allSets = await ctx.db
+      .query("workoutSets")
+      .withIndex("by_workout_exercise", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Group logExercises by exerciseClientId in memory
+    const logExercisesByExercise = new Map<string, typeof allLogExercises>();
+    for (const le of allLogExercises) {
+      const group = logExercisesByExercise.get(le.exerciseClientId);
+      if (group) {
+        group.push(le);
+      } else {
+        logExercisesByExercise.set(le.exerciseClientId, [le]);
+      }
+    }
+
+    // Group sets by workoutLogExerciseClientId in memory
+    const setsByLogExercise = new Map<string, typeof allSets>();
+    for (const s of allSets) {
+      const group = setsByLogExercise.get(s.workoutLogExerciseClientId);
+      if (group) {
+        group.push(s);
+      } else {
+        setsByLogExercise.set(s.workoutLogExerciseClientId, [s]);
+      }
+    }
+
+    // Build a map from workoutLog clientId -> completedAt for quick lookup
+    const logDateMap = new Map(allLogs.map((l) => [l.clientId, l.completedAt]));
+
     const exerciseHistory: {
       name: string;
       type: string;
@@ -116,40 +162,24 @@ export const getUserContext = internalQuery({
       recentSets: { reps?: number; weight?: number; time?: number; distance?: number }[];
     }[] = [];
 
-    // Get recent workout log exercises for each exercise (capped at 20 most-used)
     for (const exercise of exercises.slice(0, 20)) {
-      const logExercises = await ctx.db
-        .query("workoutLogExercises")
-        .withIndex("by_exercise", (q) =>
-          q.eq("userId", args.userId).eq("exerciseClientId", exercise.clientId)
-        )
-        .collect();
+      const logExercises = logExercisesByExercise.get(exercise.clientId);
+      if (!logExercises || logExercises.length === 0) continue;
 
-      if (logExercises.length === 0) continue;
-
-      // Find the most recent log exercise by looking up its parent workout log
+      // Find the most recent log exercise by looking up its parent workout log date
       let mostRecentLogEx = logExercises[logExercises.length - 1];
       let mostRecentDate = "";
 
       for (const le of logExercises.slice(-5)) {
-        const parentLog = allLogs.find(
-          (l) => l.clientId === le.workoutLogClientId
-        );
-        if (parentLog && parentLog.completedAt > mostRecentDate) {
-          mostRecentDate = parentLog.completedAt;
+        const completedAt = logDateMap.get(le.workoutLogClientId);
+        if (completedAt && completedAt > mostRecentDate) {
+          mostRecentDate = completedAt;
           mostRecentLogEx = le;
         }
       }
 
-      // Get completed sets for the most recent session
-      const sets = await ctx.db
-        .query("workoutSets")
-        .withIndex("by_workout_exercise", (q) =>
-          q
-            .eq("userId", args.userId)
-            .eq("workoutLogExerciseClientId", mostRecentLogEx.clientId)
-        )
-        .collect();
+      // Get completed sets for the most recent session from in-memory map
+      const sets = setsByLogExercise.get(mostRecentLogEx.clientId) ?? [];
 
       const completedSets = sets
         .filter((s) => s.completed)

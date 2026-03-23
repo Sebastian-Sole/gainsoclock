@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Alert } from "react-native";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -16,10 +16,12 @@ export function useChat(conversationClientId: string) {
   const messages = useChatMessages(conversationClientId);
   const sendMessageAction = useAction(api.chatActions.sendMessage);
   const [isSending, setIsSending] = useState(false);
+  const isSendingRef = useRef(false);
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (!content.trim() || isSending) return;
+      if (!content.trim() || isSendingRef.current) return;
+      isSendingRef.current = true;
       setIsSending(true);
       try {
         await sendMessageAction({
@@ -37,10 +39,11 @@ export function useChat(conversationClientId: string) {
         }
         Alert.alert("Message Failed", "Could not send your message. Please try again.");
       } finally {
+        isSendingRef.current = false;
         setIsSending(false);
       }
     },
-    [conversationClientId, sendMessageAction, isSending]
+    [conversationClientId, sendMessageAction]
   );
 
   const isStreaming = messages.some((m) => m.status === "streaming");

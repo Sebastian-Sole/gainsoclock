@@ -22,8 +22,9 @@ export const listMeta = query({
 
     return await ctx.db
       .query("workoutLogs")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+      .withIndex("by_user_completedAt", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(200);
   },
 });
 

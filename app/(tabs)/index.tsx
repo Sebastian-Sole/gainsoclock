@@ -6,9 +6,8 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Play, Calendar } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
-import { useQuery } from 'convex/react';
-import { api } from '@/convex/_generated/api';
 import { useSettingsStore } from '@/stores/settings-store';
+import { usePlanStore } from '@/stores/plan-store';
 import { getPlanDayDate, isToday } from '@/lib/plan-dates';
 import { Colors } from '@/constants/theme';
 
@@ -39,12 +38,7 @@ export default function WorkoutsScreen() {
   const { colorScheme } = useColorScheme();
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const weekStartDay = useSettingsStore((s) => s.weekStartDay);
-  const plans = useQuery(api.plans.listPlans);
-  const activePlan = plans?.find((p) => p.status === 'active');
-  const activePlanData = useQuery(
-    api.plans.getPlanWithDays,
-    activePlan ? { clientId: activePlan.clientId } : "skip"
-  );
+  const activePlanData = usePlanStore((s) => s.activePlanWithDays);
 
   const todayPlanDay = useMemo(() => {
     if (!activePlanData?.days || !activePlanData.startDate) return null;
@@ -116,7 +110,7 @@ export default function WorkoutsScreen() {
     const template = templates.find((t) => t.id === todayPlanDay.templateClientId);
     if (!template) return;
 
-    const planDayId = `${activePlanData.clientId}:${todayPlanDay.week}:${todayPlanDay.dayOfWeek}`;
+    const planDayId = `${activePlanData.id}:${todayPlanDay.week}:${todayPlanDay.dayOfWeek}`;
 
     if (activeWorkout) {
       Alert.alert(

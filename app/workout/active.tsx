@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, ScrollView, Pressable, Alert, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Badge } from '@/components/ui/badge';
@@ -20,9 +20,46 @@ import { mediumHaptic, successHaptic } from '@/lib/haptics';
 import { saveWorkoutToHealthKit } from '@/lib/healthkit';
 import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
-import type { Exercise, WorkoutLog, WorkoutLogExercise } from '@/lib/types';
+import type { Exercise, WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useTemplateStore } from '@/stores/template-store';
+
+interface MemoizedSetRowProps {
+  set: WorkoutSet;
+  index: number;
+  exerciseId: string;
+  exercise: Exercise;
+  onUpdateSet: (exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => void;
+  onToggleSet: (exerciseId: string, setId: string, exercise: Exercise) => void;
+  onRemoveSet: (exerciseId: string, setId: string) => void;
+}
+
+const MemoizedSetRow = React.memo(function MemoizedSetRow({
+  set, index, exerciseId, exercise, onUpdateSet, onToggleSet, onRemoveSet,
+}: MemoizedSetRowProps) {
+  const handleUpdate = useCallback(
+    (updates: Partial<WorkoutSet>) => onUpdateSet(exerciseId, set.id, updates),
+    [onUpdateSet, exerciseId, set.id]
+  );
+  const handleToggle = useCallback(
+    () => onToggleSet(exerciseId, set.id, exercise),
+    [onToggleSet, exerciseId, set.id, exercise]
+  );
+  const handleRemove = useCallback(
+    () => onRemoveSet(exerciseId, set.id),
+    [onRemoveSet, exerciseId, set.id]
+  );
+
+  return (
+    <SetRow
+      set={set}
+      index={index}
+      onUpdate={handleUpdate}
+      onToggleComplete={handleToggle}
+      onRemove={handleRemove}
+    />
+  );
+});
 
 export default function ActiveWorkoutScreen() {
   const router = useRouter();
@@ -52,15 +89,7 @@ export default function ActiveWorkoutScreen() {
   const { isActive: isRestActive, remaining: restRemaining, stop: stopRest } = useRestTimer();
   const [restTotal, setRestTotal] = useState(0);
 
-  if (!activeWorkout) {
-    return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-background">
-        <Text className="text-muted-foreground">No active workout</Text>
-      </SafeAreaView>
-    );
-  }
-
-  const handleToggleSet = (exerciseId: string, setId: string, exercise: Exercise) => {
+  const handleToggleSet = useCallback((exerciseId: string, setId: string, exercise: Exercise) => {
     Keyboard.dismiss();
     const set = exercise.sets.find((s) => s.id === setId);
     const wasCompleted = set?.completed ?? false;
@@ -73,15 +102,15 @@ export default function ActiveWorkoutScreen() {
       setRestTotal(exercise.restTimeSeconds);
       startRestTimer(exercise.restTimeSeconds);
     }
-  };
+  }, [toggleSetComplete, startRestTimer]);
 
-  const handleAddSet = (exercise: Exercise) => {
+  const handleAddSet = useCallback((exercise: Exercise) => {
     Keyboard.dismiss();
     const newSet = createDefaultSet(exercise.type);
     addSet(exercise.id, newSet);
-  };
+  }, [addSet]);
 
-  const handleMoveExercise = (index: number, direction: 'up' | 'down') => {
+  const handleMoveExercise = useCallback((index: number, direction: 'up' | 'down') => {
     Keyboard.dismiss();
     if (!activeWorkout) return;
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
@@ -90,12 +119,28 @@ export default function ActiveWorkoutScreen() {
     [exercises[index], exercises[targetIndex]] = [exercises[targetIndex], exercises[index]];
     reorderExercises(exercises);
     mediumHaptic();
-  };
+  }, [activeWorkout, reorderExercises]);
 
-  const handleAddExercise = () => {
+  const handleAddExercise = useCallback(() => {
     Keyboard.dismiss();
     router.push('/exercise/create?source=active');
-  };
+  }, [router]);
+
+  const handleUpdateSet = useCallback((exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => {
+    updateSet(exerciseId, setId, updates);
+  }, [updateSet]);
+
+  const handleRemoveSet = useCallback((exerciseId: string, setId: string) => {
+    removeSet(exerciseId, setId);
+  }, [removeSet]);
+
+  if (!activeWorkout) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-background">
+        <Text className="text-muted-foreground">No active workout</Text>
+      </SafeAreaView>
+    );
+  }
 
   const handleEndWorkout = () => {
     Keyboard.dismiss();
@@ -143,14 +188,21 @@ export default function ActiveWorkoutScreen() {
 
             // Update plan day status if workout was started from a plan
             if (workout.planDayId) {
-              const [planClientId, weekStr, dayStr] = workout.planDayId.split(':');
-              syncToConvex(api.plans.updatePlanDayStatus, {
-                planClientId,
-                week: Number(weekStr),
-                dayOfWeek: Number(dayStr),
-                status: 'completed' as const,
-                workoutLogClientId: log.id,
-              });
+              const parts = workout.planDayId.split(':');
+              if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+                const [planClientId, weekStr, dayStr] = parts;
+                const week = Number(weekStr);
+                const dayOfWeek = Number(dayStr);
+                if (!isNaN(week) && !isNaN(dayOfWeek)) {
+                  syncToConvex(api.plans.updatePlanDayStatus, {
+                    planClientId,
+                    week,
+                    dayOfWeek,
+                    status: 'completed' as const,
+                    workoutLogClientId: log.id,
+                  });
+                }
+              }
             }
 
             successHaptic();
@@ -277,13 +329,15 @@ export default function ActiveWorkoutScreen() {
             {/* Set rows */}
             <View className="gap-1">
               {exercise.sets.map((set, setIndex) => (
-                <SetRow
+                <MemoizedSetRow
                   key={set.id}
                   set={set}
                   index={setIndex}
-                  onUpdate={(updates) => updateSet(exercise.id, set.id, updates)}
-                  onToggleComplete={() => handleToggleSet(exercise.id, set.id, exercise)}
-                  onRemove={() => removeSet(exercise.id, set.id)}
+                  exerciseId={exercise.id}
+                  exercise={exercise}
+                  onUpdateSet={handleUpdateSet}
+                  onToggleSet={handleToggleSet}
+                  onRemoveSet={handleRemoveSet}
                 />
               ))}
             </View>

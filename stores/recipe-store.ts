@@ -52,7 +52,7 @@ export const useRecipeStore = create<RecipeState>()(
       addRecipe: (data) => {
         const now = new Date().toISOString();
         // Auto-add "User Created" tag for user-created recipes
-        const tags = data.tags ?? [];
+        const tags = [...(data.tags ?? [])];
         if (!tags.includes('User Created')) {
           tags.unshift('User Created');
         }

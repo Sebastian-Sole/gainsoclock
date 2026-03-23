@@ -13,7 +13,7 @@ export function applyRecipeFilters(recipes: Recipe[], filters: RecipeFilters): R
     // Cook time filter (use cookTimeMinutes, fallback to prepTimeMinutes)
     if (filters.maxCookTime !== undefined) {
       const cookTime = r.cookTimeMinutes ?? r.prepTimeMinutes;
-      if (cookTime === undefined || cookTime > filters.maxCookTime) return false;
+      if (cookTime !== undefined && cookTime > filters.maxCookTime) return false;
     }
 
     // Calorie/macro filters (per-serving if servings exist)

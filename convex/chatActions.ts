@@ -550,7 +550,7 @@ export const sendMessage = action({
     });
 
     // 3. Load conversation history
-    const history = await ctx.runMutation(internal.chat.getHistory, {
+    const history = await ctx.runQuery(internal.chat.getHistory, {
       userId,
       conversationClientId: args.conversationClientId,
     });

@@ -69,7 +69,8 @@ export default defineSchema({
     durationSeconds: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_user_clientId", ["userId", "clientId"]),
+    .index("by_user_clientId", ["userId", "clientId"])
+    .index("by_user_completedAt", ["userId", "completedAt"]),
 
   // Exercises performed in a completed workout
   workoutLogExercises: defineTable({

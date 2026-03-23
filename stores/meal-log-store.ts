@@ -39,7 +39,7 @@ function todayLocal() {
 
 export const useMealLogStore = create<MealLogState>()(
   persist(
-    (set, _get) => ({
+    (set, get) => ({
       todayMeals: [],
       mealsDate: null,
 
@@ -76,17 +76,41 @@ export const useMealLogStore = create<MealLogState>()(
       },
 
       hydrateFromServer: (meals) => {
-        const mapped: MealLog[] = meals.map((m) => ({
-          id: m.clientId,
-          date: m.date,
-          recipeClientId: m.recipeClientId,
-          title: m.title,
-          portionMultiplier: m.portionMultiplier,
-          macros: m.macros,
-          notes: m.notes,
-          loggedAt: m.loggedAt,
-        }));
-        set({ todayMeals: mapped, mealsDate: todayLocal() });
+        const localMeals = get().todayMeals;
+        const localById = new Map(localMeals.map((m) => [m.id, m]));
+
+        const merged: MealLog[] = [];
+        const seenIds = new Set<string>();
+
+        // For each server meal, prefer local version if it exists (may have unsaved changes)
+        for (const sm of meals) {
+          seenIds.add(sm.clientId);
+          const local = localById.get(sm.clientId);
+          if (local) {
+            merged.push(local);
+          } else {
+            // Server-only: map to local shape
+            merged.push({
+              id: sm.clientId,
+              date: sm.date,
+              recipeClientId: sm.recipeClientId,
+              title: sm.title,
+              portionMultiplier: sm.portionMultiplier,
+              macros: sm.macros,
+              notes: sm.notes,
+              loggedAt: sm.loggedAt,
+            });
+          }
+        }
+
+        // Preserve local-only meals (not yet on server)
+        for (const m of localMeals) {
+          if (!seenIds.has(m.id)) {
+            merged.push(m);
+          }
+        }
+
+        set({ todayMeals: merged, mealsDate: todayLocal() });
       },
     }),
     {

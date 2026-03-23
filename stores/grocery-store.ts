@@ -21,13 +21,20 @@ function parseAmount(s: string): number | null {
   // "1 1/2" → whole + fraction
   const mixedMatch = trimmed.match(/^(\d+)\s+(\d+)\/(\d+)$/);
   if (mixedMatch) {
-    return parseInt(mixedMatch[1], 10) + parseInt(mixedMatch[2], 10) / parseInt(mixedMatch[3], 10);
+    const whole = parseInt(mixedMatch[1], 10);
+    const numerator = parseInt(mixedMatch[2], 10);
+    const denominator = parseInt(mixedMatch[3], 10);
+    if (denominator === 0) return whole;
+    return whole + numerator / denominator;
   }
 
   // "1/2" → fraction
   const fracMatch = trimmed.match(/^(\d+)\/(\d+)$/);
   if (fracMatch) {
-    return parseInt(fracMatch[1], 10) / parseInt(fracMatch[2], 10);
+    const numerator = parseInt(fracMatch[1], 10);
+    const denominator = parseInt(fracMatch[2], 10);
+    if (denominator === 0) return numerator;
+    return numerator / denominator;
   }
 
   // plain number / decimal
