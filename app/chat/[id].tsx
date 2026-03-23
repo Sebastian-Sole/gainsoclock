@@ -8,15 +8,18 @@ import { useColorScheme } from 'nativewind';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useChat } from '@/hooks/use-chat';
+import { useNetwork } from '@/hooks/use-network';
 import { ChatBubble, StreamingDots } from '@/components/chat/chat-bubble';
 import { ChatInput } from '@/components/chat/chat-input';
 import { ApprovalCard } from '@/components/chat/approval-card';
+import { OfflineBanner } from '@/components/shared/offline-banner';
 import type { Id } from '@/convex/_generated/dataModel';
 
 export default function ChatConversationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colorScheme } = useColorScheme();
+  const { isOffline } = useNetwork();
   const flatListRef = useRef<FlatList>(null);
 
   const conversations = useQuery(api.chat.listConversations) ?? [];
@@ -62,6 +65,8 @@ export default function ChatConversationScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <OfflineBanner />
+
       {/* Header */}
       <View className="flex-row items-center gap-2 border-b border-border px-4 pb-3 pt-2">
         <Pressable onPress={() => router.back()} className="p-1">
@@ -140,7 +145,7 @@ export default function ChatConversationScreen() {
       )}
 
       {/* Input */}
-      <ChatInput onSend={sendMessage} disabled={isSending || isStreaming} />
+      <ChatInput onSend={sendMessage} disabled={isSending || isStreaming || isOffline} />
     </SafeAreaView>
   );
 }

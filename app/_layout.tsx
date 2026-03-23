@@ -20,6 +20,7 @@ import { NAV_THEME } from "@/lib/theme";
 import secureStorage from "@/lib/secure-storage";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { ConvexSyncProvider } from "@/providers/convex-sync-provider";
+import { NetworkProvider } from "@/providers/network-provider";
 import { OnboardingProvider } from "@/providers/onboarding-provider";
 
 configureReanimatedLogger({
@@ -123,10 +124,12 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <ConvexAuthProvider client={convex} storage={secureStorage}>
-      <ConvexSyncProvider>
-        <RootNavigator />
-      </ConvexSyncProvider>
-    </ConvexAuthProvider>
+    <NetworkProvider>
+      <ConvexAuthProvider client={convex} storage={secureStorage}>
+        <ConvexSyncProvider>
+          <RootNavigator />
+        </ConvexSyncProvider>
+      </ConvexAuthProvider>
+    </NetworkProvider>
   );
 }

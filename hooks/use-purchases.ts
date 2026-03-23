@@ -151,6 +151,14 @@ export function usePurchases() {
           expiresAt: activeEntitlement?.expirationDate ?? undefined,
         });
       } catch (error) {
+        // Revert optimistic local state so the UI doesn't show Pro access
+        // that the server can't confirm. Without this, the local store stays
+        // isPro=true indefinitely while every server call rejects.
+        useSubscriptionStore.getState().setSubscription({
+          isPro: false,
+          productId: null,
+          expiresAt: null,
+        });
         console.warn(
           "[Purchases] Failed to sync subscription to server:",
           error,
