@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "Gains o'Clock",
-    "slug": "gains-o-clock",
+    "name": "Fitbull",
+    "slug": "fitbull",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "gains-o-clock",
+    "scheme": "fitbull",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.soleinnovations.gainsoclock"
+      "bundleIdentifier": "app.fitbull"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.soleinnovations.gainsoclock"
+      "package": "app.fitbull"
     },
     "web": {
       "output": "static",
@@ -45,8 +45,8 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "Gains o'Clock reads your health data to display body measurements and workout history.",
-          "NSHealthUpdateUsageDescription": "Gains o'Clock saves your completed workouts to Apple Health.",
+          "NSHealthShareUsageDescription": "Fitbull reads your health data to display body measurements and workout history.",
+          "NSHealthUpdateUsageDescription": "Fitbull saves your completed workouts to Apple Health.",
           "background": false
         }
       ]

@@ -460,7 +460,7 @@ export default function SettingsScreen() {
         {/* App info */}
         <View className="mt-8 items-center pb-8">
           <Text className="text-sm text-muted-foreground">
-            Gainsoclock v1.0.0
+            Fitbull v1.0.0
           </Text>
 
           <Text className="text-sm text-muted-foreground">

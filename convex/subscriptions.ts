@@ -134,7 +134,7 @@ export const syncFromClient = action({
         const data = await response.json();
         const entitlements = data?.subscriber?.entitlements ?? {};
         const entitlementId =
-          process.env.REVENUECAT_ENTITLEMENT_ID ?? "Gains o'Clock Pro";
+          process.env.REVENUECAT_ENTITLEMENT_ID ?? "Fitbull Pro";
 
         const entitlement =
           entitlements[entitlementId] ?? Object.values(entitlements)[0];

@@ -97,7 +97,7 @@ export default function OnboardingScreen() {
             <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-primary/10">
               <Crown size={40} color={primaryColor} />
             </View>
-            <Text className="text-center text-3xl font-bold">Welcome to Gains o&apos;Clock</Text>
+            <Text className="text-center text-3xl font-bold">Welcome to Fitbull</Text>
             <Text className="mt-2 text-center text-muted-foreground">
               Start free now, or unlock Pro to get your full AI coaching setup.
             </Text>

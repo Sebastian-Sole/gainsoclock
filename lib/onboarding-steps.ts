@@ -29,7 +29,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: "welcome",
     type: "fullscreen",
-    title: "Welcome to GainSoClock!",
+    title: "Welcome to Fitbull!",
     description:
       "Let's take a quick tour so you know where everything is. It only takes a moment.",
     icon: "Dumbbell",

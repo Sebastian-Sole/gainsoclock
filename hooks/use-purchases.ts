@@ -48,7 +48,7 @@ export type CustomerCenterResult =
   | "error";
 
 const ENTITLEMENT_ID =
-  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ?? "Gains o'Clock Pro";
+  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ?? "Fitbull Pro";
 
 function getActiveEntitlement(customerInfo: CustomerInfo) {
   const activeEntitlements = customerInfo?.entitlements?.active ?? {};
