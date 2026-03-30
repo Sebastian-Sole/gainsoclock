@@ -1,4 +1,4 @@
-import type { ExerciseType, WorkoutLog, WorkoutSet } from './types';
+import type { ExerciseType, WorkoutLog, WorkoutLogExercise, WorkoutSet, WorkoutTemplate } from './types';
 import { generateId } from './id';
 
 export const DEFAULT_REST_TIME = 90; // seconds
@@ -32,7 +32,7 @@ export function createDefaultSets(type: ExerciseType, count = DEFAULT_SETS_COUNT
   return Array.from({ length: count }, () => createDefaultSet(type, suggested));
 }
 
-export function createEmptyLog(date: Date): WorkoutLog {
+function getLogTimestamps(date: Date) {
   const completedAt = new Date(date);
   const now = new Date();
   const isToday =
@@ -47,11 +47,45 @@ export function createEmptyLog(date: Date): WorkoutLog {
   }
 
   const startedAt = new Date(completedAt.getTime() - 3600 * 1000);
+  return { startedAt, completedAt };
+}
+
+export function createEmptyLog(date: Date): WorkoutLog {
+  const { startedAt, completedAt } = getLogTimestamps(date);
 
   return {
     id: generateId(),
     templateName: '',
     exercises: [],
+    startedAt: startedAt.toISOString(),
+    completedAt: completedAt.toISOString(),
+    durationSeconds: 3600,
+  };
+}
+
+export function createLogFromTemplate(date: Date, template: WorkoutTemplate): WorkoutLog {
+  const { startedAt, completedAt } = getLogTimestamps(date);
+
+  const exercises: WorkoutLogExercise[] = template.exercises.map((te, i) => ({
+    id: generateId(),
+    exerciseId: te.exerciseId,
+    name: te.name,
+    type: te.type,
+    order: i,
+    restTimeSeconds: te.restTimeSeconds,
+    sets: createDefaultSets(te.type, te.defaultSetsCount, {
+      suggestedReps: te.suggestedReps,
+      suggestedWeight: te.suggestedWeight,
+      suggestedTime: te.suggestedTime,
+      suggestedDistance: te.suggestedDistance,
+    }),
+  }));
+
+  return {
+    id: generateId(),
+    templateId: template.id,
+    templateName: template.name,
+    exercises,
     startedAt: startedAt.toISOString(),
     completedAt: completedAt.toISOString(),
     durationSeconds: 3600,
