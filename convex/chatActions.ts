@@ -741,7 +741,6 @@ export const sendMessage = action({
           "Sorry, I encountered an error processing your request. Please try again.",
         status: "error",
       });
-      throw error;
     }
   },
 });

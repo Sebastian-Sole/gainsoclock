@@ -35,9 +35,8 @@ export function useChat(conversationClientId: string) {
             "Pro Required",
             "AI Coach is a Pro feature. Please upgrade to continue."
           );
-          return;
         }
-        Alert.alert("Message Failed", "Could not send your message. Please try again.");
+        // Other errors are handled gracefully in-chat via the error message status
       } finally {
         isSendingRef.current = false;
         setIsSending(false);

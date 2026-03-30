@@ -14,6 +14,7 @@ interface ChatBubbleProps {
   role: 'user' | 'assistant' | 'system';
   content: string;
   isStreaming?: boolean;
+  isError?: boolean;
 }
 
 function renderInlineMarkdown(text: string, isUser: boolean): React.ReactNode {
@@ -151,7 +152,7 @@ export function StreamingDots() {
   );
 }
 
-export function ChatBubble({ role, content, isStreaming }: ChatBubbleProps) {
+export function ChatBubble({ role, content, isStreaming, isError }: ChatBubbleProps) {
   const isUser = role === 'user';
   const markdownElements = useMemo(
     () => (!isUser && content ? renderMarkdown(content, false) : null),
@@ -166,12 +167,18 @@ export function ChatBubble({ role, content, isStreaming }: ChatBubbleProps) {
         'max-w-[85%] rounded-2xl px-4 py-3',
         isUser
           ? 'self-end bg-primary'
-          : 'self-start bg-card border border-border'
+          : isError
+            ? 'self-start bg-destructive/10 border border-destructive/30'
+            : 'self-start bg-card border border-border'
       )}
     >
       {content ? (
         isUser ? (
           <Text className="text-[15px] leading-6 text-primary-foreground">
+            {content}
+          </Text>
+        ) : isError ? (
+          <Text className="text-[15px] leading-6 text-destructive">
             {content}
           </Text>
         ) : (
