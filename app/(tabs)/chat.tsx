@@ -220,6 +220,7 @@ function ActiveChatView({
               role={item.role as 'user' | 'assistant'}
               content={item.content}
               isStreaming={item.status === 'streaming'}
+              isError={item.status === 'error'}
             />
             {item.pendingApproval && (
               <View className={item.content ? 'mt-2' : ''}>
