@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.fitbull"
+      "bundleIdentifier": "com.soleinnovations.fitbull"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "app.fitbull"
+      "package": "com.soleinnovations.fitbull"
     },
     "web": {
       "output": "static",
