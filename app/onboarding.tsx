@@ -69,7 +69,7 @@ export default function OnboardingScreen() {
 
       if (result === "purchased") {
         await completeOnboarding();
-        router.push("/purchase-success" as never);
+        router.replace("/(tabs)" as never);
         return;
       }
 
