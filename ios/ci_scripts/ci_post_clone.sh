@@ -9,7 +9,7 @@ npm install -g pnpm
 
 # Install dependencies
 cd "$CI_PRIMARY_REPOSITORY_PATH"
-pnpm install
+pnpm install --no-frozen-lockfile
 
 # Install CocoaPods dependencies
 cd ios
