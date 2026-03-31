@@ -355,12 +355,15 @@ export const swapPlanDays = mutation({
         templateClientId?: string;
         label?: string;
         notes?: string;
-        status: string;
+        status: (typeof day)["status"];
+        workoutLogClientId?: string;
       } = { status: day.status };
       if (day.templateClientId !== undefined)
         fields.templateClientId = day.templateClientId;
       if (day.label !== undefined) fields.label = day.label;
       if (day.notes !== undefined) fields.notes = day.notes;
+      if (day.workoutLogClientId !== undefined)
+        fields.workoutLogClientId = day.workoutLogClientId;
       return fields;
     }
 
