@@ -347,19 +347,69 @@ export const swapPlanDays = mutation({
       .collect();
     const dayB = daysB.find((d) => d.dayOfWeek === args.dayB.dayOfWeek);
 
-    if (!dayA || !dayB) return;
+    if (!dayA && !dayB) return;
 
-    // Swap scheduled content only (preserve status and workoutLogClientId on original day)
-    await ctx.db.patch(dayA._id, {
-      templateClientId: dayB.templateClientId,
-      label: dayB.label,
-      notes: dayB.notes,
-    });
-    await ctx.db.patch(dayB._id, {
-      templateClientId: dayA.templateClientId,
-      label: dayA.label,
-      notes: dayA.notes,
-    });
+    // Helper: extract swappable fields, omitting undefined optional values
+    function extractFields(day: NonNullable<typeof dayA>) {
+      const fields: {
+        templateClientId?: string;
+        label?: string;
+        notes?: string;
+        status: (typeof day)["status"];
+        workoutLogClientId?: string;
+      } = { status: day.status };
+      if (day.templateClientId !== undefined)
+        fields.templateClientId = day.templateClientId;
+      if (day.label !== undefined) fields.label = day.label;
+      if (day.notes !== undefined) fields.notes = day.notes;
+      if (day.workoutLogClientId !== undefined)
+        fields.workoutLogClientId = day.workoutLogClientId;
+      return fields;
+    }
+
+    if (dayA && dayB) {
+      // Both days exist — delete and recreate with swapped content
+      const aFields = extractFields(dayA);
+      const bFields = extractFields(dayB);
+      await ctx.db.delete(dayA._id);
+      await ctx.db.delete(dayB._id);
+      await ctx.db.insert("planDays", {
+        userId,
+        planClientId: args.planClientId,
+        week: args.dayA.week,
+        dayOfWeek: args.dayA.dayOfWeek,
+        ...bFields,
+      });
+      await ctx.db.insert("planDays", {
+        userId,
+        planClientId: args.planClientId,
+        week: args.dayB.week,
+        dayOfWeek: args.dayB.dayOfWeek,
+        ...aFields,
+      });
+    } else if (dayA && !dayB) {
+      // dayA has workout, dayB is empty — move workout to dayB, delete dayA
+      const aFields = extractFields(dayA);
+      await ctx.db.delete(dayA._id);
+      await ctx.db.insert("planDays", {
+        userId,
+        planClientId: args.planClientId,
+        week: args.dayB.week,
+        dayOfWeek: args.dayB.dayOfWeek,
+        ...aFields,
+      });
+    } else if (!dayA && dayB) {
+      // dayB has workout, dayA is empty — move workout to dayA, delete dayB
+      const bFields = extractFields(dayB);
+      await ctx.db.delete(dayB._id);
+      await ctx.db.insert("planDays", {
+        userId,
+        planClientId: args.planClientId,
+        week: args.dayA.week,
+        dayOfWeek: args.dayA.dayOfWeek,
+        ...bFields,
+      });
+    }
 
     const plan = await ctx.db
       .query("workoutPlans")
