@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, Alert } from 'react-native';
+import { View, ScrollView, Pressable, Alert, Modal, FlatList } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CalendarDays, Plus } from 'lucide-react-native';
+import { CalendarDays, Plus, FileText, X } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { addMonths, subMonths, format } from 'date-fns';
 import { useRouter } from 'expo-router';
@@ -11,6 +11,7 @@ import { Calendar } from '@/components/history/calendar';
 import { WorkoutLogCard } from '@/components/history/workout-log-card';
 import { Fab } from '@/components/shared/fab';
 import { useHistoryStore } from '@/stores/history-store';
+import { useTemplateStore } from '@/stores/template-store';
 
 export default function HistoryScreen() {
   const { colorScheme } = useColorScheme();
@@ -22,6 +23,8 @@ export default function HistoryScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const logs = useHistoryStore((s) => s.logs);
+  const templates = useTemplateStore((s) => s.templates);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   const workoutDates = useMemo(() => {
     const dates = new Set<string>();
@@ -44,14 +47,32 @@ export default function HistoryScreen() {
     );
   }, [selectedDate, logs]);
 
-  const handleAddWorkout = () => {
+  const isFutureDate = () => {
     const today = new Date();
     today.setHours(23, 59, 59, 999);
-    if (selectedDate.getTime() > today.getTime()) {
+    return selectedDate.getTime() > today.getTime();
+  };
+
+  const handleAddWorkout = () => {
+    if (isFutureDate()) {
       Alert.alert('Future Date', 'You can only log workouts for today or past dates.');
       return;
     }
-    router.push(`/workout/new?date=${selectedDate.toISOString()}`);
+    if (templates.length > 0) {
+      setShowTemplatePicker(true);
+    } else {
+      router.push(`/workout/new?date=${selectedDate.toISOString()}`);
+    }
+  };
+
+  const handleSelectTemplate = (templateId?: string) => {
+    setShowTemplatePicker(false);
+    const dateParam = `date=${selectedDate.toISOString()}`;
+    if (templateId) {
+      router.push(`/workout/new?${dateParam}&templateId=${templateId}`);
+    } else {
+      router.push(`/workout/new?${dateParam}`);
+    }
   };
 
   return (
@@ -100,6 +121,56 @@ export default function HistoryScreen() {
       </ScrollView>
 
       <Fab onPress={handleAddWorkout} />
+
+      {/* Template Picker Modal */}
+      <Modal
+        visible={showTemplatePicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowTemplatePicker(false)}
+      >
+        <View className="flex-1 bg-background">
+          <View className="flex-row items-center justify-between border-b border-border px-4 py-4">
+            <Pressable onPress={() => setShowTemplatePicker(false)} className="h-10 w-10 items-center justify-center">
+              <X size={24} color={primaryColor} />
+            </Pressable>
+            <Text className="text-lg font-semibold">Log Workout</Text>
+            <View className="w-10" />
+          </View>
+
+          <FlatList
+            data={templates}
+            keyExtractor={(item) => item.id}
+            contentContainerClassName="px-4 pt-4 pb-8"
+            ListHeaderComponent={
+              <Pressable
+                onPress={() => handleSelectTemplate()}
+                className="mb-3 flex-row items-center gap-3 rounded-xl border border-dashed border-primary bg-accent px-4 py-4"
+              >
+                <Plus size={20} color={primaryColor} />
+                <View>
+                  <Text className="font-medium text-primary">Empty Workout</Text>
+                  <Text className="text-xs text-muted-foreground">Start from scratch</Text>
+                </View>
+              </Pressable>
+            }
+            renderItem={({ item }) => (
+              <Pressable
+                onPress={() => handleSelectTemplate(item.id)}
+                className="mb-2 flex-row items-center gap-3 rounded-xl bg-card px-4 py-4"
+              >
+                <FileText size={20} color={primaryColor} />
+                <View className="flex-1">
+                  <Text className="font-medium">{item.name}</Text>
+                  <Text className="text-xs text-muted-foreground">
+                    {item.exercises.length} exercise{item.exercises.length !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+              </Pressable>
+            )}
+          />
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

@@ -1,23 +1,23 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { isSameMonth, isToday } from 'date-fns';
 import { ChartNoAxesCombined } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
-import { isToday, isSameMonth } from 'date-fns';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
+import { DateRangePicker } from '@/components/stats/date-range-picker';
+import { ExercisesTab } from '@/components/stats/exercises-tab';
+import { HistoryTab } from '@/components/stats/history-tab';
+import { OverviewTab } from '@/components/stats/overview-tab';
+import { RecordsTab } from '@/components/stats/records-tab';
 import { Colors } from '@/constants/theme';
 import { useStats } from '@/hooks/use-stats';
-import { useSettingsStore } from '@/stores/settings-store';
-import { useHistoryStore } from '@/stores/history-store';
-import { DateRangePicker } from '@/components/stats/date-range-picker';
-import { OverviewTab } from '@/components/stats/overview-tab';
-import { ExercisesTab } from '@/components/stats/exercises-tab';
-import { RecordsTab } from '@/components/stats/records-tab';
-import { HistoryTab } from '@/components/stats/history-tab';
-import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
 import type { DateRangeFilter } from '@/lib/stats';
+import { useHistoryStore } from '@/stores/history-store';
+import { useSettingsStore } from '@/stores/settings-store';
 
 const DEFAULT_FILTER: DateRangeFilter = { preset: 'all', from: null, to: null };
 
@@ -56,7 +56,14 @@ export default function StatsScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
         <Text className="text-3xl font-bold">Stats</Text>
-        <SettingsHeaderButton />
+        <View className="flex-row items-center gap-2">
+          {showTodayButton && (
+            <Pressable onPress={goToToday} className="rounded-full bg-primary px-3 py-1">
+              <Text className="text-sm font-semibold text-primary-foreground">Today</Text>
+            </Pressable>
+          )}
+          <SettingsHeaderButton />
+        </View>
       </View>
 
       {isEmpty ? (
@@ -92,15 +99,6 @@ export default function StatsScreen() {
                 </TabsTrigger>
               </TabsList>
             </View>
-
-            {/* Today button — below tabs, only on history tab */}
-            {showTodayButton && (
-              <View className="items-end px-4 pb-2">
-                <Pressable onPress={goToToday} className="rounded-full px-3 py-1" style={{ backgroundColor: primaryColor }}>
-                  <Text className="text-sm font-semibold text-white">Today</Text>
-                </Pressable>
-              </View>
-            )}
 
             {/* Date range picker — below tabs, hidden on history tab */}
             {activeTab !== 'history' && (

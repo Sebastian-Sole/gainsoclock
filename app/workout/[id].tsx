@@ -13,12 +13,13 @@ import { SetRow } from '@/components/workout/set-row';
 import { useEditLogStore } from '@/stores/edit-log-store';
 import { useHistoryStore } from '@/stores/history-store';
 import { useSettingsStore } from '@/stores/settings-store';
-import { createDefaultSet, createEmptyLog } from '@/lib/defaults';
+import { createDefaultSet, createEmptyLog, createLogFromTemplate } from '@/lib/defaults';
 import { lightHaptic, mediumHaptic, successHaptic } from '@/lib/haptics';
+import { useTemplateStore } from '@/stores/template-store';
 import type { WorkoutLogExercise } from '@/lib/types';
 
 export default function EditLogScreen() {
-  const { id, date } = useLocalSearchParams<{ id: string; date?: string }>();
+  const { id, date, templateId } = useLocalSearchParams<{ id: string; date?: string; templateId?: string }>();
   const router = useRouter();
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -31,6 +32,7 @@ export default function EditLogScreen() {
   const updateLog = useHistoryStore((s) => s.updateLog);
   const addLog = useHistoryStore((s) => s.addLog);
   const originalLog = isNewLog ? undefined : logs.find((l) => l.id === id);
+  const template = useTemplateStore((s) => templateId ? s.templates.find((t) => t.id === templateId) : undefined);
 
   const editingLog = useEditLogStore((s) => s.editingLog);
   const loadLog = useEditLogStore((s) => s.loadLog);
@@ -54,12 +56,16 @@ export default function EditLogScreen() {
   useEffect(() => {
     if (isNewLog) {
       const targetDate = date ? new Date(date) : new Date();
-      loadLog(createEmptyLog(targetDate));
+      if (template) {
+        loadLog(createLogFromTemplate(targetDate, template));
+      } else {
+        loadLog(createEmptyLog(targetDate));
+      }
     } else if (originalLog) {
       loadLog(originalLog);
     }
     return () => clearLog();
-  }, [isNewLog, originalLog?.id]);
+  }, [isNewLog, originalLog?.id, template?.id]);
 
   const saveLog = () => {
     if (!editingLog) return;

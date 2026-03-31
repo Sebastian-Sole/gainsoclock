@@ -1,19 +1,19 @@
+import { Text } from '@/components/ui/text';
+import {
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  isSameMonth,
+  isToday,
+  startOfMonth,
+  startOfWeek,
+} from 'date-fns';
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { CalendarHeader } from './calendar-header';
 import { CalendarDay } from './calendar-day';
-import {
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isSameDay,
-  isToday,
-  isSameMonth,
-  format,
-} from 'date-fns';
+import { CalendarHeader } from './calendar-header';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -51,7 +51,7 @@ export function Calendar({
   }, [days]);
 
   return (
-    <View className="rounded-xl bg-card p-3">
+    <View className="rounded-xl bg-card p-3 pt-0">
       <CalendarHeader
         currentMonth={currentMonth}
         onPrevMonth={onPrevMonth}
