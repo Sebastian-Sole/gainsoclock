@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/icon";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
@@ -51,7 +52,6 @@ import { useAuthCacheStore } from "@/stores/auth-cache-store";
 export default function SettingsScreen() {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
-  const iconColor = isDark ? "#fb923c" : "#f97316";
   const router = useRouter();
   const { signOut } = useAuthActions();
 
@@ -158,10 +158,7 @@ export default function SettingsScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <View className="flex-row items-center gap-2 px-4 pb-2 pt-2">
         <Pressable onPress={() => router.back()} className="p-1">
-          <ChevronLeft
-            size={24}
-            color={isDark ? "#fff" : "#000"}
-          />
+          <Icon as={ChevronLeft} size={24} className="text-foreground" />
         </Pressable>
         <Text className="text-3xl font-bold">Settings</Text>
       </View>
@@ -174,7 +171,7 @@ export default function SettingsScreen() {
         <View className="rounded-xl bg-card">
           {/* Weight Unit */}
           <View className="flex-row items-center gap-3 px-4 py-4">
-            <Weight size={20} color={iconColor} />
+            <Icon as={Weight} size={20} className="text-primary" />
             <View className="flex-1">
               <Text className="font-medium">Weight</Text>
             </View>
@@ -222,7 +219,7 @@ export default function SettingsScreen() {
 
           {/* Distance Unit */}
           <View className="flex-row items-center gap-3 px-4 py-4">
-            <Ruler size={20} color={iconColor} />
+            <Icon as={Ruler} size={20} className="text-primary" />
             <View className="flex-1">
               <Text className="font-medium">Distance</Text>
             </View>
@@ -273,7 +270,7 @@ export default function SettingsScreen() {
         </Text>
         <View className="rounded-xl bg-card px-4 py-4">
           <View className="flex-row items-center gap-3">
-            <Timer size={20} color={iconColor} />
+            <Icon as={Timer} size={20} className="text-primary" />
             <Text className="flex-1 font-medium">Rest Time</Text>
           </View>
           <View className="mt-3 flex-row flex-wrap gap-2">
@@ -309,7 +306,7 @@ export default function SettingsScreen() {
         </Text>
         <View className="rounded-xl bg-card">
           <View className="flex-row items-center gap-3 px-4 py-4">
-            <Vibrate size={20} color={iconColor} />
+            <Icon as={Vibrate} size={20} className="text-primary" />
             <View className="flex-1">
               <Text className="font-medium">Haptic Feedback</Text>
               <Text className="text-sm text-muted-foreground">
@@ -331,7 +328,7 @@ export default function SettingsScreen() {
             </Text>
             <View className="rounded-xl bg-card">
               <View className="flex-row items-center gap-3 px-4 py-4">
-                <Heart size={20} color={iconColor} />
+                <Icon as={Heart} size={20} className="text-primary" />
                 <View className="flex-1">
                   <Text className="font-medium">Sync with Apple Health</Text>
                   <Text className="text-sm text-muted-foreground">
@@ -366,28 +363,28 @@ export default function SettingsScreen() {
               onPress={handleManageSubscription}
               className="flex-row items-center gap-3 px-4 py-4"
             >
-              <Crown size={20} color={iconColor} />
+              <Icon as={Crown} size={20} className="text-primary" />
               <View className="flex-1">
                 <Text className="font-medium">Manage Subscription</Text>
                 <Text className="text-sm text-muted-foreground">
                   View or cancel your Pro plan
                 </Text>
               </View>
-              <ChevronRight size={20} className="text-muted-foreground" />
+              <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
             </Pressable>
           ) : (
             <Pressable
               onPress={handleUpgradeToPro}
               className="flex-row items-center gap-3 px-4 py-4"
             >
-              <Crown size={20} color={iconColor} />
+              <Icon as={Crown} size={20} className="text-primary" />
               <View className="flex-1">
                 <Text className="font-medium">Upgrade to Pro</Text>
                 <Text className="text-sm text-muted-foreground">
                   Unlock all premium features
                 </Text>
               </View>
-              <ChevronRight size={20} className="text-muted-foreground" />
+              <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
             </Pressable>
           )}
           <Separator />
@@ -396,7 +393,7 @@ export default function SettingsScreen() {
             disabled={isRestoring}
             className="flex-row items-center gap-3 px-4 py-4"
           >
-            <RotateCcw size={20} color={iconColor} />
+            <Icon as={RotateCcw} size={20} className="text-primary" />
             <View className="flex-1">
               <Text className="font-medium">
                 {isRestoring ? "Restoring..." : "Restore Purchases"}
@@ -417,21 +414,21 @@ export default function SettingsScreen() {
             onPress={() => router.push("/import")}
             className="flex-row items-center gap-3 px-4 py-4"
           >
-            <Download size={20} color={iconColor} />
+            <Icon as={Download} size={20} className="text-primary" />
             <View className="flex-1">
               <Text className="font-medium">Import Data</Text>
               <Text className="text-sm text-muted-foreground">
                 Import workouts from other apps
               </Text>
             </View>
-            <ChevronRight size={20} className="text-muted-foreground" />
+            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
           </Pressable>
           <Separator />
           <Pressable
             onPress={() => setResetModalVisible(true)}
             className="flex-row items-center gap-3 px-4 py-4"
           >
-            <Trash2 size={20} color="#ef4444" />
+            <Icon as={Trash2} size={20} className="text-destructive" />
             <View className="flex-1">
               <Text className="font-medium text-destructive">Reset Data</Text>
               <Text className="text-sm text-muted-foreground">
@@ -450,7 +447,7 @@ export default function SettingsScreen() {
             onPress={handleSignOut}
             className="flex-row items-center gap-3 px-4 py-4"
           >
-            <LogOut size={20} color="#ef4444" />
+            <Icon as={LogOut} size={20} className="text-destructive" />
             <Text className="flex-1 font-medium text-destructive">
               Sign Out
             </Text>

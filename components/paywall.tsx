@@ -3,15 +3,12 @@ import { Alert, View, Pressable, ActivityIndicator } from "react-native";
 import { Text } from "@/components/ui/text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Crown } from "lucide-react-native";
-import { useColorScheme } from "nativewind";
+import { Icon } from "@/components/ui/icon";
 import { useRouter } from "expo-router";
-import { Colors } from "@/constants/theme";
 import { PRO_FEATURES } from "@/constants/features";
 import { usePurchases } from "@/hooks/use-purchases";
 
 export function Paywall() {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === "dark" ? "dark" : "light"].tint;
   const router = useRouter();
   const { restore, presentPaywall, isLoading } = usePurchases();
 
@@ -49,7 +46,7 @@ export function Paywall() {
         {/* Header */}
         <View className="items-center pt-8">
           <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-            <Crown size={40} color={primaryColor} />
+            <Icon as={Crown} size={40} className="text-primary" />
           </View>
           <Text className="text-2xl font-bold">Unlock AI Coach</Text>
           <Text className="mt-2 text-center text-muted-foreground">
@@ -62,7 +59,7 @@ export function Paywall() {
           {PRO_FEATURES.map((feature) => (
             <View key={feature.title} className="flex-row items-center gap-4">
               <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                <feature.icon size={20} color={primaryColor} />
+                <Icon as={feature.icon} size={20} className="text-primary" />
               </View>
               <View className="flex-1">
                 <Text className="font-medium">{feature.title}</Text>

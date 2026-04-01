@@ -10,6 +10,7 @@ import { Text } from '@/components/ui/text';
 import { X, Check } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import { lightHaptic } from '@/lib/haptics';
 
 export interface RecipeFilters {
@@ -67,7 +68,7 @@ function ToggleChip({
       }`}
       style={active ? { borderColor: primaryColor, backgroundColor: primaryColor + '15' } : undefined}
     >
-      {active && <Check size={14} color={primaryColor} />}
+      {active && <Icon as={Check} size={14} className="text-primary" />}
       <Text className={`text-sm ${active ? 'font-medium' : ''}`} style={active ? { color: primaryColor } : undefined}>
         {label}
       </Text>
@@ -105,7 +106,7 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
         <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
           <Text className="text-xl font-bold">Filter Recipes</Text>
           <Pressable onPress={onClose} className="p-2">
-            <X size={24} color={isDark ? '#fff' : '#000'} />
+            <Icon as={X} size={24} className="text-foreground" />
           </Pressable>
         </View>
 

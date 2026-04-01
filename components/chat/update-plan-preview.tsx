@@ -2,8 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { RefreshCw } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 
 interface DayUpdate {
   week: number;
@@ -37,9 +36,6 @@ interface UpdatePlanPreviewProps {
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export function UpdatePlanPreview({ data, collapsed }: UpdatePlanPreviewProps) {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-
   const daysToUpdate = data.updates?.daysToUpdate ?? [];
   const newTemplates = data.updates?.newTemplates ?? [];
 
@@ -56,7 +52,7 @@ export function UpdatePlanPreview({ data, collapsed }: UpdatePlanPreviewProps) {
   return (
     <View>
       <View className="flex-row items-center gap-2 mb-1 pb-2 border-b border-border">
-        <RefreshCw size={16} color={primaryColor} />
+        <Icon as={RefreshCw} size={16} className="text-primary" />
         <Text className="font-semibold">Plan Update</Text>
       </View>
 

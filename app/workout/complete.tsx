@@ -4,7 +4,7 @@ import { Text } from '@/components/ui/text';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CheckCircle, Clock, Dumbbell, Target, Heart } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
+import { Icon } from '@/components/ui/icon';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { useHistoryStore } from '@/stores/history-store';
@@ -13,9 +13,6 @@ import { useSettingsStore } from '@/stores/settings-store';
 
 export default function WorkoutCompleteScreen() {
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const primaryColor = isDark ? '#fb923c' : '#f97316';
 
   const logs = useHistoryStore((s) => s.logs);
   const lastLog = logs[0];
@@ -52,12 +49,12 @@ export default function WorkoutCompleteScreen() {
       <ScrollView className="flex-1" contentContainerClassName="px-6 pb-8">
         {/* Success header */}
         <Animated.View entering={FadeInDown.delay(100)} className="mt-8 items-center">
-          <CheckCircle size={64} color={primaryColor} />
+          <Icon as={CheckCircle} size={64} className="text-primary" />
           <Text className="mt-4 text-2xl font-bold">Workout Complete!</Text>
           <Text className="mt-1 text-muted-foreground">{lastLog.templateName}</Text>
           {Platform.OS === 'ios' && healthKitEnabled && (
             <View className="mt-2 flex-row items-center gap-1">
-              <Heart size={14} color={primaryColor} />
+              <Icon as={Heart} size={14} className="text-primary" />
               <Text className="text-sm text-muted-foreground">Synced to Apple Health</Text>
             </View>
           )}
@@ -66,12 +63,12 @@ export default function WorkoutCompleteScreen() {
         {/* Stats grid */}
         <Animated.View entering={FadeInDown.delay(200)} className="mt-8 flex-row gap-3">
           <View className="flex-1 items-center rounded-xl bg-card p-4">
-            <Clock size={24} color={primaryColor} />
+            <Icon as={Clock} size={24} className="text-primary" />
             <Text className="mt-2 text-xl font-bold">{formatDuration(lastLog.durationSeconds)}</Text>
             <Text className="text-xs text-muted-foreground">Duration</Text>
           </View>
           <View className="flex-1 items-center rounded-xl bg-card p-4">
-            <Dumbbell size={24} color={primaryColor} />
+            <Icon as={Dumbbell} size={24} className="text-primary" />
             <Text className="mt-2 text-xl font-bold">{lastLog.exercises.length}</Text>
             <Text className="text-xs text-muted-foreground">Exercises</Text>
           </View>
@@ -79,12 +76,12 @@ export default function WorkoutCompleteScreen() {
 
         <Animated.View entering={FadeInDown.delay(300)} className="mt-3 flex-row gap-3">
           <View className="flex-1 items-center rounded-xl bg-card p-4">
-            <Target size={24} color={primaryColor} />
+            <Icon as={Target} size={24} className="text-primary" />
             <Text className="mt-2 text-xl font-bold">{completedSets}/{totalSets}</Text>
             <Text className="text-xs text-muted-foreground">Sets Done</Text>
           </View>
           <View className="flex-1 items-center rounded-xl bg-card p-4">
-            <Dumbbell size={24} color={primaryColor} />
+            <Icon as={Dumbbell} size={24} className="text-primary" />
             <Text className="mt-2 text-xl font-bold">
               {totalVolume > 0 ? `${totalVolume.toLocaleString()} ${weightUnit}` : '--'}
             </Text>

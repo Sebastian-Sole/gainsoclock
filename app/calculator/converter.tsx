@@ -5,14 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowDown } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 
 const LBS_PER_KG = 2.20462;
 
 export default function UnitConverter() {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const primaryColor = Colors[isDark ? 'dark' : 'light'].tint;
 
   const [lbs, setLbs] = useState('');
   const [kg, setKg] = useState('');
@@ -69,7 +68,7 @@ export default function UnitConverter() {
 
           {/* Arrow */}
           <View className="items-center">
-            <ArrowDown size={24} color={primaryColor} />
+            <Icon as={ArrowDown} size={24} className="text-primary" />
           </View>
 
           {/* Kg input */}

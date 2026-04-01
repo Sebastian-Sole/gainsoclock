@@ -1,6 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { ShoppingCart } from 'lucide-react-native';
+import { Icon } from '@/components/ui/icon';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -57,7 +58,7 @@ export function SwipeableRecipeCard({ recipe, children }: SwipeableRecipeCardPro
         style={[bgStyle]}
         className="absolute inset-0 flex-row items-center pl-5 rounded-xl bg-green-600"
       >
-        <ShoppingCart size={22} color="#fff" />
+        <Icon as={ShoppingCart} size={22} className="text-primary-foreground" />
       </Animated.View>
       {/* Card content */}
       <GestureDetector gesture={pan}>

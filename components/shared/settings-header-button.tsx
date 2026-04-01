@@ -1,17 +1,14 @@
 import React from 'react';
 import { Pressable } from 'react-native';
 import { Settings } from 'lucide-react-native';
+import { Icon } from '@/components/ui/icon';
 import { useRouter } from 'expo-router';
-import { useColorScheme } from 'nativewind';
 
 export function SettingsHeaderButton() {
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const iconColor = colorScheme === 'dark' ? '#f2f2f2' : '#1c1008';
-
   return (
     <Pressable onPress={() => router.push('/settings')} className="p-2">
-      <Settings size={22} color={iconColor} />
+      <Icon as={Settings} size={22} className="text-foreground" />
     </Pressable>
   );
 }

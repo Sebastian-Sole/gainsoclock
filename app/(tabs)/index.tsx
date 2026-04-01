@@ -1,25 +1,26 @@
-import React, { useState, useMemo } from 'react';
-import { View, FlatList, Pressable, Alert } from 'react-native';
+import { Icon } from '@/components/ui/icon';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Play, Calendar } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
-import { useSettingsStore } from '@/stores/settings-store';
-import { usePlanStore } from '@/stores/plan-store';
-import { getPlanDayDate, isToday } from '@/lib/plan-dates';
-import { Colors } from '@/constants/theme';
 
-import { TemplateCard } from '@/components/workout/template-card';
-import { EmptyState } from '@/components/workout/empty-state';
-import { Fab } from '@/components/shared/fab';
+import { getPlanDayDate, isToday } from '@/lib/plan-dates';
+import { usePlanStore } from '@/stores/plan-store';
+import { useSettingsStore } from '@/stores/settings-store';
+import { useRouter } from 'expo-router';
+import { Calendar, Play } from 'lucide-react-native';
+
+import React, { useMemo, useState } from 'react';
+import { Alert, FlatList, Pressable, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { PlansList } from '@/components/chat/plans-list';
+import { Fab } from '@/components/shared/fab';
+import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
+import { EmptyState } from '@/components/workout/empty-state';
+import { TemplateCard } from '@/components/workout/template-card';
+import { useOnboardingTarget } from '@/hooks/use-onboarding-target';
+import { heavyHaptic, mediumHaptic } from '@/lib/haptics';
 import { useTemplateStore } from '@/stores/template-store';
 import { useWorkoutStore } from '@/stores/workout-store';
-import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
-import { mediumHaptic, heavyHaptic } from '@/lib/haptics';
-import { useOnboardingTarget } from '@/hooks/use-onboarding-target';
 
 export default function WorkoutsScreen() {
   const router = useRouter();
@@ -35,8 +36,6 @@ export default function WorkoutsScreen() {
   const startEmptyWorkout = useWorkoutStore((s) => s.startEmptyWorkout);
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
 
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const weekStartDay = useSettingsStore((s) => s.weekStartDay);
   const activePlanData = usePlanStore((s) => s.activePlanWithDays);
 
@@ -197,8 +196,8 @@ export default function WorkoutsScreen() {
               className="mx-4 mb-3 rounded-xl border border-primary/20 bg-primary/5 p-4"
             >
               <View className="flex-row items-center gap-2 mb-1">
-                <Calendar size={16} color={primaryColor} />
-                <Text className="text-sm font-semibold text-primary">Today's Workout</Text>
+                <Icon as={Calendar} size={16} className="text-primary" />
+                <Text className="text-sm font-semibold text-primary">Today&apos;s Workout</Text>
               </View>
               <Text className="text-base font-bold">{todayPlanDay.label}</Text>
               <Text className="text-xs text-muted-foreground mt-0.5">
@@ -214,7 +213,7 @@ export default function WorkoutsScreen() {
             onPress={handleStartEmpty}
             className="mx-4 mb-4 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
           >
-            <Play size={18} color="white" fill="white" />
+            <Icon as={Play} size={18} className="text-primary-foreground fill-primary-foreground" />
             <Text className="font-semibold text-primary-foreground">Start Empty Workout</Text>
           </Pressable>
 

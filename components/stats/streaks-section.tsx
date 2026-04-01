@@ -2,9 +2,8 @@ import React from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Flame, Trophy } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 import { format } from 'date-fns';
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import type { StreakStats } from '@/lib/stats';
 
 interface StreaksSectionProps {
@@ -12,8 +11,6 @@ interface StreaksSectionProps {
 }
 
 export function StreaksSection({ streaks }: StreaksSectionProps) {
-  const { colorScheme } = useColorScheme();
-  const iconColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
 
   const longestRange = streaks.longestStreakStart && streaks.longestStreakEnd
     ? `${format(new Date(streaks.longestStreakStart), 'MMM d')} – ${format(new Date(streaks.longestStreakEnd), 'MMM d, yyyy')}`
@@ -27,7 +24,7 @@ export function StreaksSection({ streaks }: StreaksSectionProps) {
       <View className="rounded-xl border border-border bg-card">
         {/* Current Streak */}
         <View className="flex-row items-center gap-3 p-4">
-          <Flame size={24} color={iconColor} />
+          <Icon as={Flame} size={24} className="text-primary" />
           <View className="flex-1">
             <Text className="text-lg font-bold">
               {streaks.currentStreak} {streaks.currentStreak === 1 ? 'day' : 'days'}
@@ -43,7 +40,7 @@ export function StreaksSection({ streaks }: StreaksSectionProps) {
 
         {/* Longest Streak */}
         <View className="flex-row items-center gap-3 p-4">
-          <Trophy size={24} color={iconColor} />
+          <Icon as={Trophy} size={24} className="text-primary" />
           <View className="flex-1">
             <Text className="text-lg font-bold">
               {streaks.longestStreak} {streaks.longestStreak === 1 ? 'day' : 'days'}

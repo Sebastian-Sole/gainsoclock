@@ -2,21 +2,22 @@ import React, { useState, useMemo } from 'react';
 import { View, ScrollView, Pressable, Alert, Modal, FlatList } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CalendarDays, Plus, FileText, X } from 'lucide-react-native';
+import { CalendarDays, FileText, Plus, X } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
+import { Icon } from '@/components/ui/icon';
 import { addMonths, subMonths, format } from 'date-fns';
 import { useRouter } from 'expo-router';
 
 import { Calendar } from '@/components/history/calendar';
 import { WorkoutLogCard } from '@/components/history/workout-log-card';
 import { Fab } from '@/components/shared/fab';
+import { Colors } from '@/constants/theme';
 import { useHistoryStore } from '@/stores/history-store';
 import { useTemplateStore } from '@/stores/template-store';
 
 export default function HistoryScreen() {
   const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const primaryColor = isDark ? '#fb923c' : '#f97316';
+  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const router = useRouter();
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -100,13 +101,13 @@ export default function HistoryScreen() {
         {/* Workout logs */}
         {logsForSelectedDate.length === 0 ? (
           <View className="items-center rounded-xl border border-dashed border-border py-12">
-            <CalendarDays size={32} color={primaryColor} />
+            <Icon as={CalendarDays} size={32} className="text-primary" />
             <Text className="mt-3 text-muted-foreground">No workouts on this day</Text>
             <Pressable
               onPress={handleAddWorkout}
               className="mt-4 flex-row items-center gap-2 rounded-lg bg-primary/10 px-4 py-2.5"
             >
-              <Plus size={16} color={primaryColor} />
+              <Icon as={Plus} size={16} className="text-primary" />
               <Text className="text-sm font-medium text-primary">Log a Workout</Text>
             </Pressable>
           </View>

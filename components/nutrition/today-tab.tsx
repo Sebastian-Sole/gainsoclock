@@ -2,12 +2,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { View, ScrollView, Pressable, AppState } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Plus, UtensilsCrossed } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { format } from 'date-fns';
 
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import { MacroProgress } from './macro-progress';
 import { MealLogCard } from './meal-log-card';
 import { LogMealModal } from './log-meal-modal';
@@ -21,9 +20,6 @@ function getToday(): string {
 }
 
 export function TodayTab() {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-
   const [showLogModal, setShowLogModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [today, setToday] = useState(getToday);
@@ -82,7 +78,7 @@ export function TodayTab() {
           onPress={() => setShowLogModal(true)}
           className="flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3 mb-4"
         >
-          <Plus size={18} color="white" />
+          <Icon as={Plus} size={18} className="text-primary-foreground" />
           <Text className="font-semibold text-primary-foreground">Log Meal</Text>
         </Pressable>
 
@@ -91,7 +87,7 @@ export function TodayTab() {
 
         {todayMeals.length === 0 ? (
           <View className="items-center rounded-xl border border-dashed border-border px-8 py-10">
-            <UtensilsCrossed size={28} color={primaryColor} />
+            <Icon as={UtensilsCrossed} size={28} className="text-primary" />
             <Text className="mt-3 text-center text-muted-foreground">
               No meals logged today
             </Text>

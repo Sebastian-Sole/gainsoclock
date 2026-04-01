@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable } from 'react-native';
 import { Plus } from 'lucide-react-native';
+import { Icon } from '@/components/ui/icon';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { lightHaptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
@@ -37,7 +38,7 @@ export function Fab({ onPress, className }: FabProps) {
         className
       )}
     >
-      <Plus size={24} color="white" />
+      <Icon as={Plus} size={24} className="text-primary-foreground" />
     </AnimatedPressable>
   );
 }

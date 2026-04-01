@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Icon } from '@/components/ui/icon';
 import { Clock, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 import { useRouter } from 'expo-router';
 import type { WorkoutLog } from '@/lib/types';
 import { formatDuration, exerciseTypeLabel } from '@/lib/format';
@@ -14,8 +14,6 @@ interface WorkoutLogCardProps {
 }
 
 export function WorkoutLogCard({ log }: WorkoutLogCardProps) {
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const deleteLog = useHistoryStore((s) => s.deleteLog);
@@ -55,7 +53,7 @@ export function WorkoutLogCard({ log }: WorkoutLogCardProps) {
         </View>
         <View className="items-end">
           <View className="flex-row items-center gap-1">
-            <Clock size={14} color={isDark ? '#9BA1A6' : '#687076'} />
+            <Icon as={Clock} size={14} className="text-muted-foreground" />
             <Text className="text-sm text-muted-foreground">
               {formatDuration(log.durationSeconds)}
             </Text>
@@ -71,9 +69,9 @@ export function WorkoutLogCard({ log }: WorkoutLogCardProps) {
           {log.exercises.length} exercise{log.exercises.length !== 1 ? 's' : ''}
         </Text>
         {expanded ? (
-          <ChevronUp size={14} color={isDark ? '#9BA1A6' : '#687076'} />
+          <Icon as={ChevronUp} size={14} className="text-muted-foreground" />
         ) : (
-          <ChevronDown size={14} color={isDark ? '#9BA1A6' : '#687076'} />
+          <Icon as={ChevronDown} size={14} className="text-muted-foreground" />
         )}
       </View>
 
@@ -100,14 +98,14 @@ export function WorkoutLogCard({ log }: WorkoutLogCardProps) {
               onPress={() => router.push(`/workout/${log.id}`)}
               className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-primary/10 py-2.5"
             >
-              <Pencil size={14} color={isDark ? '#fb923c' : '#f97316'} />
+              <Icon as={Pencil} size={14} className="text-primary" />
               <Text className="text-sm font-medium text-primary">Edit</Text>
             </Pressable>
             <Pressable
               onPress={handleDelete}
               className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-destructive/10 py-2.5"
             >
-              <Trash2 size={14} color="#ef4444" />
+              <Icon as={Trash2} size={14} className="text-destructive" />
               <Text className="text-sm font-medium text-destructive">Delete</Text>
             </Pressable>
           </View>

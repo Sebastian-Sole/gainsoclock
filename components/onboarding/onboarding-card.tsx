@@ -1,9 +1,8 @@
 import React from 'react';
 import { View, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Icon } from '@/components/ui/icon';
 import { Dumbbell, PartyPopper } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
-import { Colors } from '@/constants/theme';
 import type { OnboardingStep } from '@/lib/onboarding-steps';
 import { TOTAL_STEPS } from '@/lib/onboarding-steps';
 
@@ -20,18 +19,15 @@ interface OnboardingCardProps {
 }
 
 export function OnboardingCard({ step, stepIndex, onNext, onSkip }: OnboardingCardProps) {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-
-  const Icon = step.icon ? ICONS[step.icon] : null;
+  const IconComponent = step.icon ? ICONS[step.icon] : null;
   const isLastStep = stepIndex === TOTAL_STEPS - 1;
 
   return (
     <View className="flex-1 items-center justify-center px-6">
       <View className="w-full rounded-2xl bg-card border border-border p-8 items-center">
-        {Icon && (
+        {IconComponent && (
           <View className="mb-5 h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-            <Icon size={36} color={primaryColor} />
+            <Icon as={IconComponent} size={36} className="text-primary" />
           </View>
         )}
 

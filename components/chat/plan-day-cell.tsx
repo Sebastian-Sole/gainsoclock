@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Check, X } from 'lucide-react-native';
+import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { isPast } from '@/lib/plan-dates';
 
@@ -53,9 +54,9 @@ export function PlanDayCell({
       )}
     >
       {isCompleted ? (
-        <Check size={14} color="#22c55e" />
+        <Icon as={Check} size={14} className="text-green-500" />
       ) : isMissed ? (
-        <X size={14} color="#ef4444" />
+        <Icon as={X} size={14} className="text-destructive" />
       ) : (
         <Text
           className={cn(

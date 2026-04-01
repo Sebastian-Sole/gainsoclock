@@ -7,6 +7,7 @@ import React, { useMemo, useState } from 'react';
 import { Alert, FlatList, Modal, Pressable, View } from 'react-native';
 
 import { Calendar } from '@/components/history/calendar';
+import { Icon } from '@/components/ui/icon';
 import { WorkoutLogCard } from '@/components/history/workout-log-card';
 import { Colors } from '@/constants/theme';
 import { useHistoryStore } from '@/stores/history-store';
@@ -94,7 +95,7 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
 
       {logsForSelectedDate.length === 0 ? (
         <View className="items-center rounded-xl border border-dashed border-border py-12">
-          <CalendarDays size={32} color={primaryColor} />
+          <Icon as={CalendarDays} size={32} className="text-primary" />
           <Text className="mt-3 text-muted-foreground">No workouts on this day</Text>
           <Pressable
             onPress={handleAddWorkout}

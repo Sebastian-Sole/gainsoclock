@@ -6,7 +6,7 @@ import { useColorScheme } from 'nativewind';
 import { format, isSameDay, startOfDay, subDays } from 'date-fns';
 import { Calendar } from 'lucide-react-native';
 
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import { PRESET_OPTIONS, type PresetKey, type DateRangeFilter } from '@/lib/stats';
 import { useSettingsStore } from '@/stores/settings-store';
 
@@ -18,7 +18,6 @@ interface DateRangePickerProps {
 export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const mutedColor = Colors[isDark ? 'dark' : 'light'].icon;
 
   const savedFrom = useSettingsStore((s) => s.customRangeFrom);
   const savedTo = useSettingsStore((s) => s.customRangeTo);
@@ -150,7 +149,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
               }}
               className="flex-1 flex-row items-center gap-2 rounded-lg border border-border bg-card px-3 py-2"
             >
-              <Calendar size={14} color={mutedColor} />
+              <Icon as={Calendar} size={14} className="text-muted-foreground" />
               <Text className="text-sm">
                 {format(draftFrom, 'MMM d, yyyy')}
               </Text>
@@ -166,7 +165,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
               }}
               className="flex-1 flex-row items-center gap-2 rounded-lg border border-border bg-card px-3 py-2"
             >
-              <Calendar size={14} color={mutedColor} />
+              <Icon as={Calendar} size={14} className="text-muted-foreground" />
               <Text className="text-sm">
                 {format(draftTo, 'MMM d, yyyy')}
               </Text>

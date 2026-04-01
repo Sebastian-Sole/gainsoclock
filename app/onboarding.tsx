@@ -1,5 +1,4 @@
 import { Text } from "@/components/ui/text";
-import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { usePurchases } from "@/hooks/use-purchases";
 import { useMutation } from "convex/react";
@@ -11,7 +10,7 @@ import {
   MessageCircle,
   Sparkles,
 } from "lucide-react-native";
-import { useColorScheme } from "nativewind";
+import { Icon } from "@/components/ui/icon";
 import React, { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -41,8 +40,6 @@ const FEATURES = [
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === "dark" ? "dark" : "light"].tint;
   const completeOnboarding = useMutation(api.user.completeOnboarding);
   const { presentPaywall } = usePurchases();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -95,7 +92,7 @@ export default function OnboardingScreen() {
         <View>
           <View className="items-center pt-6">
             <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-              <Crown size={40} color={primaryColor} />
+              <Icon as={Crown} size={40} className="text-primary" />
             </View>
             <Text className="text-center text-3xl font-bold">Welcome to Fitbull</Text>
             <Text className="mt-2 text-center text-muted-foreground">
@@ -107,7 +104,7 @@ export default function OnboardingScreen() {
             {FEATURES.map((feature) => (
               <View key={feature.title} className="flex-row items-start gap-4">
                 <View className="mt-1 h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                  <feature.icon size={20} color={primaryColor} />
+                  <Icon as={feature.icon} size={20} className="text-primary" />
                 </View>
                 <View className="flex-1">
                   <Text className="font-medium">{feature.title}</Text>

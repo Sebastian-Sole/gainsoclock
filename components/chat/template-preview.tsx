@@ -2,8 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Dumbbell } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import { useSettingsStore } from '@/stores/settings-store';
 
 interface TemplatePreviewData {
@@ -47,8 +46,6 @@ function formatExerciseDetail(exercise: TemplatePreviewData['exercises'][number]
 }
 
 export function TemplatePreview({ data, collapsed }: TemplatePreviewProps) {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const weightUnit = useSettingsStore((s) => s.weightUnit);
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
 
@@ -60,7 +57,7 @@ export function TemplatePreview({ data, collapsed }: TemplatePreviewProps) {
   return (
     <View>
       <View className="flex-row items-center gap-2 mb-1 pb-2 border-b border-border">
-        <Dumbbell size={16} color={primaryColor} />
+        <Icon as={Dumbbell} size={16} className="text-primary" />
         <Text className="font-semibold">New Template</Text>
       </View>
       <Text className="text-sm font-medium mt-2 mb-2">{data.name}</Text>

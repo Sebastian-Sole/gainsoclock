@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Pressable, useWindowDimensions } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Icon } from '@/components/ui/icon';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,7 +37,6 @@ export function OnboardingTooltip({
   const { width: screenW, height: screenH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
-  const iconColor = colorScheme === 'dark' ? '#fff' : '#000';
 
   const isFirstStep = stepIndex === 0;
   const LAST_SPOTLIGHT_STEP_INDEX = TOTAL_STEPS - 2;
@@ -111,7 +111,7 @@ export function OnboardingTooltip({
                 onPress={onPrev}
                 className="flex-row items-center rounded-lg border border-border px-3 py-2"
               >
-                <ChevronLeft size={16} color={iconColor} />
+                <Icon as={ChevronLeft} size={16} className="text-foreground" />
                 <Text className="text-sm font-medium ml-0.5">Back</Text>
               </Pressable>
             )}
@@ -128,7 +128,7 @@ export function OnboardingTooltip({
             <Text className="text-sm font-medium text-primary-foreground mr-0.5">
               {isLastStep ? 'Done' : 'Next'}
             </Text>
-            <ChevronRight size={16} color="white" />
+            <Icon as={ChevronRight} size={16} className="text-primary-foreground" />
           </Pressable>
         </View>
 

@@ -4,6 +4,7 @@ import { Text } from '@/components/ui/text';
 import { X, Trash2 } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import { lightHaptic } from '@/lib/haptics';
 import { useGroceryStore, type GroceryItem } from '@/stores/grocery-store';
 
@@ -15,7 +16,6 @@ interface GroceryListModalProps {
 function GroceryRow({ item }: { item: GroceryItem }) {
   const { colorScheme } = useColorScheme();
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-  const mutedColor = colorScheme === 'dark' ? '#a8a29e' : '#78716c';
   const toggleItem = useGroceryStore((s) => s.toggleItem);
   const removeItem = useGroceryStore((s) => s.removeItem);
 
@@ -38,8 +38,7 @@ function GroceryRow({ item }: { item: GroceryItem }) {
       </Pressable>
       <View className="flex-1">
         <Text
-          className={`text-sm ${item.checked ? 'line-through' : ''}`}
-          style={item.checked ? { color: mutedColor } : undefined}
+          className={`text-sm ${item.checked ? 'line-through text-muted-foreground' : ''}`}
         >
           {item.amount}{item.unit ? ` ${item.unit}` : ''} {item.name}
         </Text>
@@ -53,7 +52,7 @@ function GroceryRow({ item }: { item: GroceryItem }) {
         className="p-1"
         hitSlop={8}
       >
-        <Trash2 size={14} color={mutedColor} />
+        <Icon as={Trash2} size={14} className="text-muted-foreground" />
       </Pressable>
     </View>
   );
@@ -98,7 +97,7 @@ export function GroceryListModal({ visible, onClose }: GroceryListModalProps) {
             </View>
           </View>
           <Pressable onPress={onClose} className="p-2">
-            <X size={24} color={isDark ? '#fff' : '#000'} />
+            <Icon as={X} size={24} className="text-foreground" />
           </Pressable>
         </View>
 

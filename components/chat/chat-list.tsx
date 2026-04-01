@@ -3,9 +3,8 @@ import { FlatList, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
-import { useColorScheme } from 'nativewind';
 import { MessageCircle } from 'lucide-react-native';
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import { useChatConversations, useCreateConversation, useDeleteConversation } from '@/hooks/use-chat';
 import { ChatListItem } from './chat-list-item';
 import { Fab } from '@/components/shared/fab';
@@ -15,8 +14,6 @@ export function ChatList() {
   const createConversation = useCreateConversation();
   const deleteConversation = useDeleteConversation();
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
 
   const handleNewChat = async () => {
     const clientId = await createConversation();
@@ -39,7 +36,7 @@ export function ChatList() {
       <View className="flex-1">
         <View className="flex-1 items-center justify-center px-4">
           <View className="items-center rounded-xl border border-dashed border-border px-8 py-12">
-            <MessageCircle size={32} color={primaryColor} />
+            <Icon as={MessageCircle} size={32} className="text-primary" />
             <Text className="mt-3 text-center text-muted-foreground">
               Start a conversation with your AI fitness coach
             </Text>

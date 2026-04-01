@@ -10,7 +10,7 @@ import Animated, {
 import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus, Trash2 } from 'lucide-react-native';
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 
 const SIDEBAR_WIDTH = 300;
 
@@ -39,8 +39,6 @@ export function ChatSidebar({
   onNewChat,
   onDeleteConversation,
 }: ChatSidebarProps) {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const insets = useSafeAreaInsets();
 
   const progress = useSharedValue(0);
@@ -107,7 +105,7 @@ export function ChatSidebar({
             }}
             className="flex-row items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
           >
-            <Plus size={18} color={primaryColor} />
+            <Icon as={Plus} size={18} className="text-primary" />
             <Text className="font-semibold">New Chat</Text>
           </Pressable>
         </View>
@@ -142,7 +140,7 @@ export function ChatSidebar({
                 hitSlop={8}
                 className="p-1.5 rounded-md active:bg-destructive/10"
               >
-                <Trash2 size={16} color="#ef4444" />
+                <Icon as={Trash2} size={16} className="text-destructive" />
               </Pressable>
             </Pressable>
           )}

@@ -10,9 +10,7 @@ import {
 } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { X, Search, UtensilsCrossed, SlidersHorizontal } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
-
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import { useRecipeStore } from '@/stores/recipe-store';
 import { useMealLogStore } from '@/stores/meal-log-store';
 import { lightHaptic } from '@/lib/haptics';
@@ -28,10 +26,6 @@ interface LogMealModalProps {
 }
 
 export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const primaryColor = Colors[isDark ? 'dark' : 'light'].tint;
-
   const recipes = useRecipeStore((s) => s.recipes);
   const addRecipe = useRecipeStore((s) => s.addRecipe);
   const addMeal = useMealLogStore((s) => s.addMeal);
@@ -165,7 +159,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
         <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
           <Text className="text-xl font-bold">Log Meal</Text>
           <Pressable onPress={handleClose} className="p-2">
-            <X size={24} color={isDark ? '#fff' : '#000'} />
+            <Icon as={X} size={24} className="text-foreground" />
           </Pressable>
         </View>
 
@@ -255,7 +249,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
             <View className="flex-1">
               <View className="px-4 mb-3">
                 <View className="flex-row items-center gap-2 rounded-xl border border-input bg-card px-3">
-                  <Search size={18} color="#9ca3af" />
+                  <Icon as={Search} size={18} className="text-muted-foreground" />
                   <TextInput
                     value={search}
                     onChangeText={setSearch}
@@ -264,9 +258,10 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
                     className="flex-1 py-3 text-foreground"
                   />
                   <Pressable onPress={() => setShowFilterModal(true)} className="p-1.5" hitSlop={8}>
-                    <SlidersHorizontal
+                    <Icon
+                      as={SlidersHorizontal}
                       size={18}
-                      color={hasActiveFilters(filters) ? primaryColor : '#9ca3af'}
+                      className={hasActiveFilters(filters) ? 'text-primary' : 'text-muted-foreground'}
                     />
                   </Pressable>
                 </View>
@@ -274,7 +269,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
 
               {filteredRecipes.length === 0 ? (
                 <View className="flex-1 items-center justify-center px-4">
-                  <UtensilsCrossed size={28} color={primaryColor} />
+                  <Icon as={UtensilsCrossed} size={28} className="text-primary" />
                   <Text className="mt-3 text-center text-muted-foreground">
                     {recipes.length === 0 ? 'No recipes yet. Create one first!' : 'No matching recipes'}
                   </Text>

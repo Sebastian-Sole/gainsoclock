@@ -18,6 +18,7 @@ import {
   Circle,
   AlertTriangle,
 } from 'lucide-react-native';
+import { Icon } from '@/components/ui/icon';
 import * as DocumentPicker from 'expo-document-picker';
 import { format } from 'date-fns';
 
@@ -256,7 +257,7 @@ export default function FitNotesImportScreen() {
             router.back();
           }}
         >
-          <ArrowLeft size={24} className="text-foreground" />
+          <Icon as={ArrowLeft} size={24} className="text-foreground" />
         </Pressable>
         <Text className="text-3xl font-bold">FitNotes</Text>
       </View>
@@ -275,7 +276,6 @@ export default function FitNotesImportScreen() {
             summary={summary}
             options={options}
             allSelected={allSelected}
-            iconColor={iconColor}
             duplicateCount={duplicateCount}
             duplicateHandling={duplicateHandling}
             onSetDuplicateHandling={setDuplicateHandling}
@@ -296,7 +296,6 @@ export default function FitNotesImportScreen() {
           <CompleteStep
             importedCount={importedCount}
             skippedCount={skippedCount}
-            iconColor={iconColor}
             onDone={() => router.dismissAll()}
           />
         )}
@@ -344,7 +343,7 @@ function InstructionsStep({
           <ActivityIndicator color={iconColor} />
         ) : (
           <>
-            <FileUp size={32} color={iconColor} />
+            <Icon as={FileUp} size={32} className="text-primary" />
             <Text className="mt-3 font-medium">Select CSV File</Text>
             <Text className="mt-1 text-sm text-muted-foreground">
               Tap to choose your FitNotes export file
@@ -360,7 +359,6 @@ function OptionsStep({
   summary,
   options,
   allSelected,
-  iconColor,
   duplicateCount,
   duplicateHandling,
   onSetDuplicateHandling,
@@ -371,7 +369,6 @@ function OptionsStep({
   summary: FitNotesSummary;
   options: FitNotesImportOptions;
   allSelected: boolean;
-  iconColor: string;
   duplicateCount: number;
   duplicateHandling: DuplicateHandling;
   onSetDuplicateHandling: (handling: DuplicateHandling) => void;
@@ -416,7 +413,7 @@ function OptionsStep({
           </Text>
           <View className="rounded-xl bg-card px-4 py-4">
             <View className="flex-row items-center gap-3">
-              <AlertTriangle size={20} color="#f59e0b" />
+              <Icon as={AlertTriangle} size={20} className="text-yellow-500" />
               <Text className="flex-1 text-sm text-foreground">
                 {duplicateCount} workout{duplicateCount === 1 ? '' : 's'} already
                 exist{duplicateCount === 1 ? 's' : ''} in your history.
@@ -477,9 +474,9 @@ function OptionsStep({
           className="flex-row items-center gap-3 px-4 py-4"
         >
           {allSelected ? (
-            <CheckCircle size={22} color={iconColor} />
+            <Icon as={CheckCircle} size={22} className="text-primary" />
           ) : (
-            <Circle size={22} className="text-muted-foreground" />
+            <Icon as={Circle} size={22} className="text-muted-foreground" />
           )}
           <Text className="flex-1 font-bold">Import All</Text>
         </Pressable>
@@ -492,9 +489,9 @@ function OptionsStep({
               className="flex-row items-center gap-3 px-4 py-4"
             >
               {options[item.key] ? (
-                <CheckCircle size={22} color={iconColor} />
+                <Icon as={CheckCircle} size={22} className="text-primary" />
               ) : (
-                <Circle size={22} className="text-muted-foreground" />
+                <Icon as={Circle} size={22} className="text-muted-foreground" />
               )}
               <View className="flex-1">
                 <Text className="font-medium">{item.label}</Text>
@@ -540,17 +537,15 @@ function ImportingStep({
 function CompleteStep({
   importedCount,
   skippedCount,
-  iconColor,
   onDone,
 }: {
   importedCount: number;
   skippedCount: number;
-  iconColor: string;
   onDone: () => void;
 }) {
   return (
     <View className="mt-20 items-center">
-      <Check size={48} color={iconColor} />
+      <Icon as={Check} size={48} className="text-primary" />
       <Text className="mt-4 text-lg font-bold">Import Complete</Text>
       <Text className="mt-2 text-center text-muted-foreground">
         Successfully imported {importedCount} workout

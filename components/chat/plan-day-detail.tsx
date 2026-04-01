@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, ScrollView, Pressable, Modal, Animated, Dimensions, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { X, Play, Dumbbell, Check, Pencil, ChevronRight, Moon, ArrowRightLeft, Trash2 } from 'lucide-react-native';
+import { Icon } from '@/components/ui/icon';
 import { useColorScheme } from 'nativewind';
 import { useRouter } from 'expo-router';
 import { useMutation } from 'convex/react';
@@ -216,13 +217,13 @@ export function PlanDayDetail({
               </View>
               <Pressable onPress={handleToggleEdit} className="p-2">
                 {isEditing ? (
-                  <Check size={20} color={primaryColor} />
+                  <Icon as={Check} size={20} className="text-primary" />
                 ) : (
-                  <Pencil size={20} color={colorScheme === 'dark' ? '#9ca3af' : '#6b7280'} />
+                  <Icon as={Pencil} size={20} className="text-muted-foreground" />
                 )}
               </Pressable>
               <Pressable onPress={onClose} className="p-2">
-                <X size={20} color={colorScheme === 'dark' ? '#9ca3af' : '#6b7280'} />
+                <Icon as={X} size={20} className="text-muted-foreground" />
               </Pressable>
             </View>
 
@@ -263,7 +264,7 @@ export function PlanDayDetail({
                     <Text className={editTemplateId ? 'text-foreground' : 'text-muted-foreground'}>
                       {editTemplateName ?? 'No workout (Rest Day)'}
                     </Text>
-                    <ChevronRight size={16} color="#9ca3af" />
+                    <Icon as={ChevronRight} size={16} className="text-muted-foreground" />
                   </Pressable>
 
                   {editTemplateId && (
@@ -271,7 +272,7 @@ export function PlanDayDetail({
                       onPress={() => setEditTemplateId(undefined)}
                       className="flex-row items-center justify-center gap-2 rounded-xl border border-border bg-muted py-3"
                     >
-                      <Moon size={16} color={colorScheme === 'dark' ? '#9ca3af' : '#6b7280'} />
+                      <Icon as={Moon} size={16} className="text-muted-foreground" />
                       <Text className="text-sm font-medium text-muted-foreground">Set as Rest Day</Text>
                     </Pressable>
                   )}
@@ -328,7 +329,7 @@ export function PlanDayDetail({
                           className="mb-2 flex-row items-center gap-3 rounded-xl border border-border bg-card p-3"
                         >
                           <View className="h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                            <Dumbbell size={14} color={primaryColor} />
+                            <Icon as={Dumbbell} size={14} className="text-primary" />
                           </View>
                           <View className="flex-1">
                             <Text className="text-sm font-medium">{exercise.name}</Text>
@@ -357,7 +358,7 @@ export function PlanDayDetail({
                 {/* Completed indicator */}
                 {templateClientId && status === 'completed' && (
                   <View className="flex-row items-center justify-center gap-2 rounded-xl bg-green-500/10 py-4 mb-3">
-                    <Check size={18} color="#22c55e" />
+                    <Icon as={Check} size={18} className="text-green-500" />
                     <Text className="text-base font-semibold text-green-500">Workout Completed</Text>
                   </View>
                 )}
@@ -369,7 +370,7 @@ export function PlanDayDetail({
                     className="flex-row items-center justify-center gap-2 rounded-xl py-4 mb-3"
                     style={{ backgroundColor: primaryColor }}
                   >
-                    <Play size={18} color="#fff" />
+                    <Icon as={Play} size={18} className="text-primary-foreground" />
                     <Text className="text-base font-semibold text-white">Start Workout</Text>
                   </Pressable>
                 )}
@@ -382,7 +383,7 @@ export function PlanDayDetail({
                         onPress={() => onMoveDay(week, dayOfWeek)}
                         className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
                       >
-                        <ArrowRightLeft size={16} color={colorScheme === 'dark' ? '#9ca3af' : '#6b7280'} />
+                        <Icon as={ArrowRightLeft} size={16} className="text-muted-foreground" />
                         <Text className="text-sm font-medium text-muted-foreground">Move to...</Text>
                       </Pressable>
                     )}
@@ -390,7 +391,7 @@ export function PlanDayDetail({
                       onPress={handleRemoveWorkout}
                       className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-destructive/30 py-3"
                     >
-                      <Trash2 size={16} color="#ef4444" />
+                      <Icon as={Trash2} size={16} className="text-destructive" />
                       <Text className="text-sm font-medium text-destructive">Remove</Text>
                     </Pressable>
                   </View>

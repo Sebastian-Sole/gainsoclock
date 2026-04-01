@@ -3,6 +3,7 @@ import { Text } from '@/components/ui/text';
 import { isSameMonth, isToday } from 'date-fns';
 import { ChartNoAxesCombined } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
+import { Icon } from '@/components/ui/icon';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -69,7 +70,7 @@ export default function StatsScreen() {
       {isEmpty ? (
         <View className="flex-1 items-center justify-center px-4">
           <View className="items-center rounded-xl border border-dashed border-border px-8 py-12">
-            <ChartNoAxesCombined size={32} color={primaryColor} />
+            <Icon as={ChartNoAxesCombined} size={32} className="text-primary" />
             <Text className="mt-3 text-center text-muted-foreground">
               Complete your first workout to see stats
             </Text>

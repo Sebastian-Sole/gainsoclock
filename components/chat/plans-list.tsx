@@ -2,23 +2,20 @@ import React from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useRouter } from 'expo-router';
-import { useColorScheme } from 'nativewind';
 import { usePlanStore } from '@/stores/plan-store';
 import { Calendar, ChevronRight } from 'lucide-react-native';
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 
 export function PlansList() {
   const plans = usePlanStore((s) => s.plans);
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
 
   if (plans.length === 0) {
     return (
       <View className="flex-1 items-center justify-center px-4">
         <View className="items-center rounded-xl border border-dashed border-border px-8 py-12">
-          <Calendar size={32} color={primaryColor} />
+          <Icon as={Calendar} size={32} className="text-primary" />
           <Text className="mt-3 text-center text-muted-foreground">
             Create a workout plan through the chat to get started
           </Text>
@@ -43,9 +40,10 @@ export function PlansList() {
               item.status === 'active' ? 'bg-green-500/10' : 'bg-muted'
             )}
           >
-            <Calendar
+            <Icon
+              as={Calendar}
               size={20}
-              color={item.status === 'active' ? '#22c55e' : '#9ca3af'}
+              className={item.status === 'active' ? 'text-green-500' : 'text-muted-foreground'}
             />
           </View>
           <View className="flex-1">
@@ -58,7 +56,7 @@ export function PlansList() {
               {item.status === 'active' ? ' \u00b7 Active' : ''}
             </Text>
           </View>
-          <ChevronRight size={16} color="#9ca3af" />
+          <Icon as={ChevronRight} size={16} className="text-muted-foreground" />
         </Pressable>
       )}
     />

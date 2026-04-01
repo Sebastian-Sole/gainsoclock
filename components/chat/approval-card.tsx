@@ -7,6 +7,7 @@ import { api } from '@/convex/_generated/api';
 import { useColorScheme } from 'nativewind';
 import { Colors } from '@/constants/theme';
 import { Check, X, ChevronDown } from 'lucide-react-native';
+import { Icon } from '@/components/ui/icon';
 import { TemplatePreview } from './template-preview';
 import { PlanPreview } from './plan-preview';
 import { UpdatePlanPreview } from './update-plan-preview';
@@ -85,7 +86,7 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
           )}
           <View className="flex-row items-center justify-center gap-1 mt-2 pt-2 border-t border-border">
             <Text className="text-xs text-muted-foreground">Tap to view details</Text>
-            <ChevronDown size={12} color={colorScheme === 'dark' ? '#9ca3af' : '#6b7280'} />
+            <Icon as={ChevronDown} size={12} className="text-muted-foreground" />
           </View>
         </Pressable>
 
@@ -97,7 +98,7 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
               disabled={isProcessing}
               className="flex-1 flex-row items-center justify-center gap-2 border-r border-border bg-card py-3"
             >
-              <X size={16} color="#ef4444" />
+              <Icon as={X} size={16} className="text-destructive" />
               <Text className="text-sm font-medium text-destructive">Reject</Text>
             </Pressable>
             <Pressable
@@ -109,7 +110,7 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
                 <ActivityIndicator size="small" color={Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint} />
               ) : (
                 <>
-                  <Check size={16} color="#22c55e" />
+                  <Icon as={Check} size={16} className="text-green-500" />
                   <Text className="text-sm font-medium text-green-500">Approve</Text>
                 </>
               )}
@@ -119,14 +120,14 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
 
         {isApproved && (
           <View className="flex-row items-center justify-center gap-2 border-t border-border bg-green-500/10 py-2">
-            <Check size={14} color="#22c55e" />
+            <Icon as={Check} size={14} className="text-green-500" />
             <Text className="text-xs font-medium text-green-500">Approved & Saved</Text>
           </View>
         )}
 
         {isRejected && (
           <View className="flex-row items-center justify-center gap-2 border-t border-border bg-destructive/10 py-2">
-            <X size={14} color="#ef4444" />
+            <Icon as={X} size={14} className="text-destructive" />
             <Text className="text-xs font-medium text-destructive">Rejected</Text>
           </View>
         )}
@@ -138,7 +139,7 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
           <View className="flex-row items-center justify-between border-b border-border px-4 py-3">
             <Text className="text-lg font-bold">Details</Text>
             <Pressable onPress={() => setDetailOpen(false)} className="p-1">
-              <X size={24} color={colorScheme === 'dark' ? '#fff' : '#000'} />
+              <Icon as={X} size={24} className="text-foreground" />
             </Pressable>
           </View>
           <ScrollView className="flex-1 px-4 py-4">
@@ -164,7 +165,7 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
                 disabled={isProcessing}
                 className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
               >
-                <X size={16} color="#ef4444" />
+                <Icon as={X} size={16} className="text-destructive" />
                 <Text className="text-sm font-medium text-destructive">Reject</Text>
               </Pressable>
               <Pressable
@@ -176,7 +177,7 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <>
-                    <Check size={16} color="#fff" />
+                    <Icon as={Check} size={16} className="text-primary-foreground" />
                     <Text className="text-sm font-medium text-primary-foreground">Approve</Text>
                   </>
                 )}

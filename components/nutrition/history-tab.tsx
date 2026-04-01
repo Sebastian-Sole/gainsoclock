@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, UtensilsCrossed } from 'lucide-react-native'
 import { useColorScheme } from 'nativewind';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { Icon } from '@/components/ui/icon';
 import {
   startOfMonth,
   endOfMonth,
@@ -28,7 +29,6 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export function NutritionHistoryTab() {
   const { colorScheme } = useColorScheme();
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-  const mutedColor = colorScheme === 'dark' ? '#a8a29e' : '#78716c';
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -108,13 +108,13 @@ export function NutritionHistoryTab() {
         {/* Month Navigation */}
         <View className="flex-row items-center justify-between mb-3">
           <Pressable onPress={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2">
-            <ChevronLeft size={20} color={mutedColor} />
+            <Icon as={ChevronLeft} size={20} className="text-muted-foreground" />
           </Pressable>
           <Text className="text-base font-semibold">
             {format(currentMonth, 'MMMM yyyy')}
           </Text>
           <Pressable onPress={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2">
-            <ChevronRight size={20} color={mutedColor} />
+            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
           </Pressable>
         </View>
 
@@ -218,7 +218,7 @@ export function NutritionHistoryTab() {
             </>
           ) : (
             <View className="items-center rounded-xl border border-dashed border-border px-8 py-8">
-              <UtensilsCrossed size={24} color={primaryColor} />
+              <Icon as={UtensilsCrossed} size={24} className="text-primary" />
               <Text className="mt-2 text-sm text-center text-muted-foreground">
                 No meals logged
               </Text>

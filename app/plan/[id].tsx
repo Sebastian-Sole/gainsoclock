@@ -3,14 +3,13 @@ import { View, ScrollView, Pressable, Alert, TextInput } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Icon } from '@/components/ui/icon';
 import { ChevronLeft, Trash2, Pause, Play, Pencil, Plus, Minus, ArrowRightLeft, Check } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useWorkoutStore } from '@/stores/workout-store';
 import { useTemplateStore } from '@/stores/template-store';
 import { useSettingsStore } from '@/stores/settings-store';
-import { Colors } from '@/constants/theme';
 import { PlanCalendar } from '@/components/chat/plan-calendar';
 import { PlanDayDetail } from '@/components/chat/plan-day-detail';
 import { cn } from '@/lib/utils';
@@ -20,9 +19,6 @@ import { lightHaptic, mediumHaptic, heavyHaptic } from '@/lib/haptics';
 export default function PlanDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-
   const planData = useQuery(api.plans.getPlanWithDays, { clientId: id });
   const deletePlan = useMutation(api.plans.deletePlan);
   const updatePlanStatus = useMutation(api.plans.updatePlanStatus);
@@ -204,10 +200,7 @@ export default function PlanDetailScreen() {
       {/* Header */}
       <View className="flex-row items-center px-4 pb-2 pt-2">
         <Pressable onPress={() => router.back()} className="p-1 mr-2">
-          <ChevronLeft
-            size={24}
-            color={colorScheme === 'dark' ? '#fff' : '#000'}
-          />
+          <Icon as={ChevronLeft} size={24} className="text-foreground" />
         </Pressable>
         {isEditingName ? (
           <View className="flex-1 flex-row items-center">
@@ -221,7 +214,7 @@ export default function PlanDetailScreen() {
               textAlignVertical="center"
             />
             <Pressable onPress={handleSaveName} className="p-2 ml-1">
-              <Check size={20} color={primaryColor} />
+              <Icon as={Check} size={20} className="text-primary" />
             </Pressable>
           </View>
         ) : (
@@ -236,17 +229,17 @@ export default function PlanDetailScreen() {
               }}
               className="p-2"
             >
-              <Pencil size={16} color="#9ca3af" />
+              <Icon as={Pencil} size={16} className="text-muted-foreground" />
             </Pressable>
             <Pressable onPress={handleToggleStatus} className="p-2">
               {planData.status === 'active' ? (
-                <Pause size={20} color="#9ca3af" />
+                <Icon as={Pause} size={20} className="text-muted-foreground" />
               ) : (
-                <Play size={20} color="#22c55e" />
+                <Icon as={Play} size={20} className="text-green-500" />
               )}
             </Pressable>
             <Pressable onPress={handleDelete} className="p-2">
-              <Trash2 size={20} color="#ef4444" />
+              <Icon as={Trash2} size={20} className="text-destructive" />
             </Pressable>
           </>
         )}
@@ -310,7 +303,7 @@ export default function PlanDetailScreen() {
           )}
         >
           <View className="flex-row items-center gap-2">
-            <ArrowRightLeft size={16} color={swapMode ? primaryColor : (colorScheme === 'dark' ? '#9ca3af' : '#6b7280')} />
+            <Icon as={ArrowRightLeft} size={16} className={swapMode ? 'text-primary' : 'text-muted-foreground'} />
             <Text className={cn(
               'text-sm font-medium',
               swapMode ? 'text-primary' : 'text-muted-foreground'
@@ -344,7 +337,7 @@ export default function PlanDetailScreen() {
             onPress={handleAddWeek}
             className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-3"
           >
-            <Plus size={16} color={primaryColor} />
+            <Icon as={Plus} size={16} className="text-primary" />
             <Text className="text-sm font-medium text-primary">Add Week</Text>
           </Pressable>
 
@@ -365,7 +358,7 @@ export default function PlanDetailScreen() {
                   : 'border-dashed border-destructive/50 bg-accent'
               )}
             >
-              <Minus size={16} color="#ef4444" />
+              <Icon as={Minus} size={16} className="text-destructive" />
               <Text className="text-sm font-medium text-destructive">
                 {deleteWeekMode ? 'Tap a week' : 'Remove Week'}
               </Text>

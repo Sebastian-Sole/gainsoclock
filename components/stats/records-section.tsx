@@ -2,9 +2,8 @@ import React from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Calendar, CalendarDays, Star, Heart, Clock, Repeat } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import type { MonthRecord, YearRecord, FavoriteStats } from '@/lib/stats';
 
 interface RecordsSectionProps {
@@ -36,8 +35,6 @@ function RecordRow({ icon, label, value, subtitle }: RecordRowProps) {
 }
 
 export function RecordsSection({ bestMonth, bestYear, favorites }: RecordsSectionProps) {
-  const { colorScheme } = useColorScheme();
-  const iconColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const iconSize = 20;
 
   const rows: { key: string; icon: React.ReactNode; label: string; value: string; subtitle?: string }[] = [];
@@ -45,7 +42,7 @@ export function RecordsSection({ bestMonth, bestYear, favorites }: RecordsSectio
   if (bestMonth) {
     rows.push({
       key: 'best-month',
-      icon: <Calendar size={iconSize} color={iconColor} />,
+      icon: <Icon as={Calendar} size={iconSize} className="text-primary" />,
       label: 'Best Month',
       value: bestMonth.label,
       subtitle: `${bestMonth.workoutDays} workout days`,
@@ -55,7 +52,7 @@ export function RecordsSection({ bestMonth, bestYear, favorites }: RecordsSectio
   if (bestYear) {
     rows.push({
       key: 'best-year',
-      icon: <CalendarDays size={iconSize} color={iconColor} />,
+      icon: <Icon as={CalendarDays} size={iconSize} className="text-primary" />,
       label: 'Best Year',
       value: `${bestYear.year}`,
       subtitle: `${bestYear.workoutDays} workout days`,
@@ -65,7 +62,7 @@ export function RecordsSection({ bestMonth, bestYear, favorites }: RecordsSectio
   if (favorites.mostUsedExercise) {
     rows.push({
       key: 'most-used-exercise',
-      icon: <Star size={iconSize} color={iconColor} />,
+      icon: <Icon as={Star} size={iconSize} className="text-primary" />,
       label: 'Most Used Exercise',
       value: favorites.mostUsedExercise.name,
       subtitle: `${favorites.mostUsedExercise.count} sessions`,
@@ -75,7 +72,7 @@ export function RecordsSection({ bestMonth, bestYear, favorites }: RecordsSectio
   if (favorites.favoriteTemplate) {
     rows.push({
       key: 'favorite-template',
-      icon: <Heart size={iconSize} color={iconColor} />,
+      icon: <Icon as={Heart} size={iconSize} className="text-primary" />,
       label: 'Favorite Workout',
       value: favorites.favoriteTemplate.name,
       subtitle: `${favorites.favoriteTemplate.count} times`,
@@ -85,7 +82,7 @@ export function RecordsSection({ bestMonth, bestYear, favorites }: RecordsSectio
   if (favorites.mostActiveWeekday) {
     rows.push({
       key: 'most-active-day',
-      icon: <Repeat size={iconSize} color={iconColor} />,
+      icon: <Icon as={Repeat} size={iconSize} className="text-primary" />,
       label: 'Most Active Day',
       value: favorites.mostActiveWeekday.day,
       subtitle: `${favorites.mostActiveWeekday.count} workouts`,
@@ -95,7 +92,7 @@ export function RecordsSection({ bestMonth, bestYear, favorites }: RecordsSectio
   if (favorites.mostActiveHour) {
     rows.push({
       key: 'most-active-hour',
-      icon: <Clock size={iconSize} color={iconColor} />,
+      icon: <Icon as={Clock} size={iconSize} className="text-primary" />,
       label: 'Preferred Time',
       value: favorites.mostActiveHour.hour,
       subtitle: `${favorites.mostActiveHour.count} workouts`,

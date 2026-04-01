@@ -4,23 +4,19 @@ import { Text } from "@/components/ui/text";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Crown } from "lucide-react-native";
-import { useColorScheme } from "nativewind";
-import { Colors } from "@/constants/theme";
+import { Icon } from "@/components/ui/icon";
 import { PRO_FEATURES } from "@/constants/features";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function PurchaseSuccessScreen() {
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === "dark" ? "dark" : "light"].tint;
-
   return (
     <SafeAreaView className="flex-1 bg-background">
       <View className="flex-1 justify-between px-6 pb-8">
         {/* Header */}
         <Animated.View entering={FadeInDown.delay(100)} className="items-center pt-12">
           <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-            <Crown size={40} color={primaryColor} />
+            <Icon as={Crown} size={40} className="text-primary" />
           </View>
           <Text className="text-2xl font-bold">Welcome to Pro!</Text>
           <Text className="mt-2 text-center text-muted-foreground">
@@ -33,7 +29,7 @@ export default function PurchaseSuccessScreen() {
           {PRO_FEATURES.map((feature) => (
             <View key={feature.title} className="flex-row items-center gap-4">
               <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                <feature.icon size={20} color={primaryColor} />
+                <Icon as={feature.icon} size={20} className="text-primary" />
               </View>
               <View className="flex-1">
                 <Text className="font-medium">{feature.title}</Text>

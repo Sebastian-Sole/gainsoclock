@@ -2,8 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { ChefHat } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 
 interface RecipePreviewData {
   title: string;
@@ -22,13 +21,10 @@ interface RecipePreviewProps {
 }
 
 export function RecipePreview({ data, collapsed }: RecipePreviewProps) {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-
   return (
     <View>
       <View className="flex-row items-center gap-2 mb-1 pb-2 border-b border-border">
-        <ChefHat size={16} color={primaryColor} />
+        <Icon as={ChefHat} size={16} className="text-primary" />
         <Text className="font-semibold">Recipe Suggestion</Text>
       </View>
       <Text className="text-sm font-medium mt-2">{data.title}</Text>

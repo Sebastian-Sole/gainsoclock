@@ -2,12 +2,11 @@ import React from 'react';
 import { View, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { PinOff, Pin, Clock, Flame } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 import { useRouter } from 'expo-router';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import { RecipeCard } from './recipe-card';
 
 const SAMPLE_RECIPES = [
@@ -42,9 +41,6 @@ const SAMPLE_RECIPES = [
 ];
 
 export function MealsSection() {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-  const mutedColor = colorScheme === 'dark' ? '#a8a29e' : '#78716c';
   const router = useRouter();
 
   const savedRecipes = useQuery(api.recipes.listSavedRecipes) ?? [];
@@ -56,7 +52,7 @@ export function MealsSection() {
         <Text className="mb-3 text-sm font-medium text-muted-foreground">PINNED RECIPES</Text>
         {savedRecipes.length === 0 ? (
           <View className="items-center rounded-xl border border-dashed border-border px-8 py-10">
-            <PinOff size={28} color={primaryColor} />
+            <Icon as={PinOff} size={28} className="text-primary" />
             <Text className="mt-3 text-center text-muted-foreground">
               No pinned recipes yet
             </Text>
@@ -74,7 +70,7 @@ export function MealsSection() {
               >
                 <View className="flex-row items-start justify-between mb-1">
                   <Text className="flex-1 font-semibold">{recipe.title}</Text>
-                  <Pin size={16} color={primaryColor} fill={primaryColor} />
+                  <Icon as={Pin} size={16} className="text-primary fill-primary" />
                 </View>
                 <Text className="text-sm text-muted-foreground mb-2" numberOfLines={2}>
                   {recipe.description}
@@ -83,7 +79,7 @@ export function MealsSection() {
                   {recipe.macros && (
                     <>
                       <View className="flex-row items-center gap-1">
-                        <Flame size={12} color={mutedColor} />
+                        <Icon as={Flame} size={12} className="text-muted-foreground" />
                         <Text className="text-xs text-muted-foreground">
                           {recipe.macros.calories} cal
                         </Text>
@@ -95,7 +91,7 @@ export function MealsSection() {
                   )}
                   {recipe.prepTimeMinutes && (
                     <View className="flex-row items-center gap-1">
-                      <Clock size={12} color={mutedColor} />
+                      <Icon as={Clock} size={12} className="text-muted-foreground" />
                       <Text className="text-xs text-muted-foreground">
                         {recipe.prepTimeMinutes}min
                       </Text>

@@ -4,7 +4,7 @@ import { Text } from '@/components/ui/text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, ChevronLeft, Search } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
+import { Icon } from '@/components/ui/icon';
 import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 
 import { ExerciseTypeSelector } from '@/components/workout/exercise-type-selector';
@@ -27,9 +27,6 @@ const TOTAL_STEPS = 4;
 
 export default function CreateExerciseScreen() {
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const iconColor = isDark ? '#f2f2f2' : '#1c1008';
   const { source } = useLocalSearchParams<{ source?: string }>();
   const isActiveWorkout = source === 'active';
   const addTemplateExercise = useTemplateCreateStore((s) => s.addExercise);
@@ -152,7 +149,7 @@ export default function CreateExerciseScreen() {
           {/* Header */}
           <View className="flex-row items-center justify-between px-4 py-3">
             <Pressable onPress={() => router.back()} className="h-10 w-10 items-center justify-center">
-              <X size={24} color={iconColor} />
+              <Icon as={X} size={24} className="text-foreground" />
             </Pressable>
             <Text className="text-base font-semibold">Add Exercise</Text>
             <View className="w-10" />
@@ -161,7 +158,7 @@ export default function CreateExerciseScreen() {
           {/* Search */}
           <View className="px-4 pb-2">
             <View className="flex-row items-center rounded-xl border border-input bg-card px-3">
-              <Search size={18} color="#9ca3af" />
+              <Icon as={Search} size={18} className="text-muted-foreground" />
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -272,7 +269,7 @@ export default function CreateExerciseScreen() {
         {/* Header */}
         <View className="flex-row items-center justify-between px-4 py-3">
           <Pressable onPress={handleBack} className="h-10 w-10 items-center justify-center">
-            <ChevronLeft size={24} color={iconColor} />
+            <Icon as={ChevronLeft} size={24} className="text-foreground" />
           </Pressable>
           <StepIndicator totalSteps={TOTAL_STEPS} currentStep={step} />
           <View className="w-10" />

@@ -4,18 +4,14 @@ import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, Pin, Clock, Users, Pencil, Trash2, Sparkles } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import { useRecipeStore } from '@/stores/recipe-store';
 import { lightHaptic } from '@/lib/haptics';
 
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-  const mutedColor = colorScheme === 'dark' ? '#a8a29e' : '#78716c';
 
   const recipe = useRecipeStore((s) => s.getRecipe(id));
   const toggleSave = useRecipeStore((s) => s.toggleSaveRecipe);
@@ -51,10 +47,7 @@ export default function RecipeDetailScreen() {
       {/* Header */}
       <View className="flex-row items-center gap-2 px-4 pb-2 pt-2">
         <Pressable onPress={() => router.back()} className="p-1">
-          <ChevronLeft
-            size={24}
-            color={colorScheme === 'dark' ? '#fff' : '#000'}
-          />
+          <Icon as={ChevronLeft} size={24} className="text-foreground" />
         </Pressable>
         <Text className="flex-1 text-lg font-bold" numberOfLines={1}>
           {recipe.title}
@@ -63,7 +56,7 @@ export default function RecipeDetailScreen() {
           onPress={() => router.push(`/recipe/create?recipeId=${id}`)}
           className="p-2"
         >
-          <Pencil size={18} color={mutedColor} />
+          <Icon as={Pencil} size={18} className="text-muted-foreground" />
         </Pressable>
         <Pressable
           onPress={() => {
@@ -72,14 +65,14 @@ export default function RecipeDetailScreen() {
           }}
           className="p-2"
         >
-          <Pin
+          <Icon
+            as={Pin}
             size={20}
-            color={recipe.saved ? primaryColor : '#9ca3af'}
-            fill={recipe.saved ? primaryColor : 'none'}
+            className={recipe.saved ? 'text-primary fill-primary' : 'text-muted-foreground'}
           />
         </Pressable>
         <Pressable onPress={handleDelete} className="p-2">
-          <Trash2 size={18} color="#ef4444" />
+          <Icon as={Trash2} size={18} className="text-destructive" />
         </Pressable>
       </View>
 
@@ -100,7 +93,7 @@ export default function RecipeDetailScreen() {
         <View className="flex-row gap-3 mb-4 flex-wrap">
           {recipe.prepTimeMinutes ? (
             <View className="flex-row items-center gap-1.5 rounded-full bg-card border border-border px-3 py-1.5">
-              <Clock size={12} color="#9ca3af" />
+              <Icon as={Clock} size={12} className="text-muted-foreground" />
               <Text className="text-xs text-muted-foreground">
                 {recipe.prepTimeMinutes}min prep
               </Text>
@@ -108,7 +101,7 @@ export default function RecipeDetailScreen() {
           ) : null}
           {recipe.cookTimeMinutes ? (
             <View className="flex-row items-center gap-1.5 rounded-full bg-card border border-border px-3 py-1.5">
-              <Clock size={12} color="#9ca3af" />
+              <Icon as={Clock} size={12} className="text-muted-foreground" />
               <Text className="text-xs text-muted-foreground">
                 {recipe.cookTimeMinutes}min cook
               </Text>
@@ -116,7 +109,7 @@ export default function RecipeDetailScreen() {
           ) : null}
           {recipe.servings ? (
             <View className="flex-row items-center gap-1.5 rounded-full bg-card border border-border px-3 py-1.5">
-              <Users size={12} color="#9ca3af" />
+              <Icon as={Users} size={12} className="text-muted-foreground" />
               <Text className="text-xs text-muted-foreground">
                 {recipe.servings} servings
               </Text>
@@ -136,7 +129,7 @@ export default function RecipeDetailScreen() {
                 <Text className="text-xs text-muted-foreground">calories</Text>
               </View>
               <View className="items-center">
-                <Text className="text-lg font-bold" style={{ color: primaryColor }}>
+                <Text className="text-lg font-bold text-primary">
                   {recipe.macros.protein}g
                 </Text>
                 <Text className="text-xs text-muted-foreground">protein</Text>
@@ -162,7 +155,7 @@ export default function RecipeDetailScreen() {
             }}
             className="mb-4 flex-row items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 py-3"
           >
-            <Sparkles size={18} color={primaryColor} />
+            <Icon as={Sparkles} size={18} className="text-primary" />
             <Text className="font-medium text-primary">Generate Macros with AI</Text>
           </Pressable>
         )}
@@ -208,8 +201,7 @@ export default function RecipeDetailScreen() {
             {recipe.instructions.map((step, i) => (
               <View key={i} className="flex-row gap-3 mb-3">
                 <View
-                  className="h-6 w-6 items-center justify-center rounded-full"
-                  style={{ backgroundColor: primaryColor }}
+                  className="h-6 w-6 items-center justify-center rounded-full bg-primary"
                 >
                   <Text className="text-xs font-bold text-white">{i + 1}</Text>
                 </View>

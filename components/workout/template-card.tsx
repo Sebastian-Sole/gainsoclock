@@ -1,12 +1,12 @@
+import { Badge } from '@/components/ui/badge';
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
+import { exerciseTypeLabel } from '@/lib/format';
+import type { WorkoutTemplate } from '@/lib/types';
+import { MoreVertical, Play } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { Badge } from '@/components/ui/badge';
-import { Play, MoreVertical } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import type { WorkoutTemplate } from '@/lib/types';
-import { exerciseTypeLabel } from '@/lib/format';
 
 interface TemplateCardProps {
   template: WorkoutTemplate;
@@ -17,9 +17,6 @@ interface TemplateCardProps {
 }
 
 export function TemplateCard({ template, index, onPress, onStart, onLongPress }: TemplateCardProps) {
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   return (
     <Animated.View entering={FadeInDown.delay(index * 50).springify()}>
       <Pressable
@@ -43,10 +40,10 @@ export function TemplateCard({ template, index, onPress, onStart, onLongPress }:
               onPress={onStart}
               className="h-10 w-10 items-center justify-center rounded-full bg-primary"
             >
-              <Play size={18} color="white" fill="white" />
+              <Icon as={Play} size={18} className="text-primary-foreground fill-primary-foreground" />
             </Pressable>
             <Pressable onPress={onLongPress} className="h-10 w-10 items-center justify-center">
-              <MoreVertical size={18} color={isDark ? '#9BA1A6' : '#687076'} />
+              <Icon as={MoreVertical} size={18} className="text-muted-foreground" />
             </Pressable>
           </View>
         </View>

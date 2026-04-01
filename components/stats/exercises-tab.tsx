@@ -5,6 +5,7 @@ import { Search, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { format } from 'date-fns';
 
+import { Icon } from '@/components/ui/icon';
 import { Colors } from '@/constants/theme';
 import { formatWeight, formatDistance, formatTime } from '@/lib/format';
 import type { ExerciseStats } from '@/lib/stats';
@@ -40,7 +41,7 @@ export function ExercisesTab({ exerciseStats, weightUnit, distanceUnit }: Exerci
     <View className="gap-3">
       {/* Search */}
       <View className="flex-row items-center gap-2 rounded-xl border border-border bg-card px-3">
-        <Search size={18} color={mutedColor} />
+        <Icon as={Search} size={18} className="text-muted-foreground" />
         <TextInput
           placeholder="Search exercises..."
           placeholderTextColor={mutedColor}
@@ -73,7 +74,6 @@ export function ExercisesTab({ exerciseStats, weightUnit, distanceUnit }: Exerci
                   expandedId === exercise.exerciseId ? null : exercise.exerciseId
                 )
               }
-              mutedColor={mutedColor}
             />
           </View>
         ))}
@@ -93,14 +93,12 @@ function ExerciseRow({
   distanceUnit,
   isExpanded,
   onToggle,
-  mutedColor,
 }: {
   exercise: ExerciseStats;
   weightUnit: WeightUnit;
   distanceUnit: DistanceUnit;
   isExpanded: boolean;
   onToggle: () => void;
-  mutedColor: string;
 }) {
   // Build totals list based on what data exists
   const totals: { label: string; value: string }[] = [];
@@ -171,9 +169,9 @@ function ExerciseRow({
           </Text>
         </View>
         {isExpanded ? (
-          <ChevronUp size={18} color={mutedColor} />
+          <Icon as={ChevronUp} size={18} className="text-muted-foreground" />
         ) : (
-          <ChevronDown size={18} color={mutedColor} />
+          <Icon as={ChevronDown} size={18} className="text-muted-foreground" />
         )}
       </View>
 

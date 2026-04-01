@@ -6,6 +6,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
+import { Icon } from '@/components/ui/icon';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 
@@ -23,7 +24,6 @@ export default function EditLogScreen() {
   const router = useRouter();
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const iconColor = isDark ? '#f2f2f2' : '#1c1008';
   const weightUnit = useSettingsStore((s) => s.weightUnit);
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
 
@@ -333,7 +333,7 @@ export default function EditLogScreen() {
                     className="h-6 w-6 items-center justify-center"
                     style={{ opacity: exerciseIndex === 0 ? 0.25 : 1 }}
                   >
-                    <ChevronUp size={14} color={iconColor} />
+                    <Icon as={ChevronUp} size={14} className="text-foreground" />
                   </Pressable>
                   <Pressable
                     onPress={() => handleMoveExercise(exerciseIndex, 'down')}
@@ -341,7 +341,7 @@ export default function EditLogScreen() {
                     className="h-6 w-6 items-center justify-center"
                     style={{ opacity: exerciseIndex === editingLog.exercises.length - 1 ? 0.25 : 1 }}
                   >
-                    <ChevronDown size={14} color={iconColor} />
+                    <Icon as={ChevronDown} size={14} className="text-foreground" />
                   </Pressable>
                 </View>
                 <Text className="flex-1 text-base font-semibold" numberOfLines={1}>{exercise.name}</Text>
@@ -351,7 +351,7 @@ export default function EditLogScreen() {
                   onPress={() => handleAddSet(exercise)}
                   className="h-8 w-8 items-center justify-center rounded-md bg-secondary"
                 >
-                  <Plus size={14} color={iconColor} />
+                  <Icon as={Plus} size={14} className="text-foreground" />
                 </Pressable>
                 <Pressable
                   onPress={() => {
@@ -366,7 +366,7 @@ export default function EditLogScreen() {
                   }}
                   className="h-8 w-8 items-center justify-center"
                 >
-                  <X size={14} color="#ef4444" />
+                  <Icon as={X} size={14} className="text-destructive" />
                 </Pressable>
               </View>
             </View>
@@ -427,7 +427,7 @@ export default function EditLogScreen() {
           onPress={handleAddExercise}
           className="mt-6 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-4"
         >
-          <Plus size={20} color={isDark ? '#fb923c' : '#f97316'} />
+          <Icon as={Plus} size={20} className="text-primary" />
           <Text className="font-medium text-primary">Add Exercise</Text>
         </Pressable>
       </ScrollView>

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, ScrollView, Pressable, Modal, Animated, Dimensions, StyleSheet } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { X, Check, Dumbbell } from 'lucide-react-native';
+import { Icon } from '@/components/ui/icon';
 import { useColorScheme } from 'nativewind';
 import { Colors } from '@/constants/theme';
 import { useTemplateStore } from '@/stores/template-store';
@@ -57,7 +58,7 @@ export function TemplatePicker({ visible, onClose, onSelect, currentTemplateId }
           <View className="flex-row items-center justify-between px-6 pb-2 pt-6">
             <Text className="text-lg font-bold">Choose Workout</Text>
             <Pressable onPress={onClose} className="p-2">
-              <X size={20} color={colorScheme === 'dark' ? '#9ca3af' : '#6b7280'} />
+              <Icon as={X} size={20} className="text-muted-foreground" />
             </Pressable>
           </View>
 
@@ -81,7 +82,7 @@ export function TemplatePicker({ visible, onClose, onSelect, currentTemplateId }
                       className="h-10 w-10 items-center justify-center rounded-full"
                       style={{ backgroundColor: `${primaryColor}20` }}
                     >
-                      <Dumbbell size={18} color={primaryColor} />
+                      <Icon as={Dumbbell} size={18} className="text-primary" />
                     </View>
                     <View className="flex-1">
                       <Text className="text-base font-medium">{template.name}</Text>
@@ -89,7 +90,7 @@ export function TemplatePicker({ visible, onClose, onSelect, currentTemplateId }
                         {template.exercises.length} exercise{template.exercises.length !== 1 ? 's' : ''}
                       </Text>
                     </View>
-                    {isSelected && <Check size={20} color={primaryColor} />}
+                    {isSelected && <Icon as={Check} size={20} className="text-primary" />}
                   </Pressable>
                 );
               })

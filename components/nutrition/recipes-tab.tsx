@@ -6,6 +6,7 @@ import { useColorScheme } from 'nativewind';
 import { useRouter } from 'expo-router';
 
 import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import { Fab } from '@/components/shared/fab';
 import { useRecipeStore } from '@/stores/recipe-store';
 import { useGroceryStore } from '@/stores/grocery-store';
@@ -17,9 +18,6 @@ import type { RecipeFilters } from './recipe-filter-modal';
 import type { Recipe } from '@/lib/types';
 
 function RecipeListCard({ recipe }: { recipe: Recipe }) {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-  const mutedColor = colorScheme === 'dark' ? '#a8a29e' : '#78716c';
   const router = useRouter();
 
   return (
@@ -30,7 +28,7 @@ function RecipeListCard({ recipe }: { recipe: Recipe }) {
       <View className="flex-row items-start justify-between mb-1">
         <Text className="flex-1 font-semibold">{recipe.title}</Text>
         {recipe.saved && (
-          <Pin size={16} color={primaryColor} fill={primaryColor} />
+          <Icon as={Pin} size={16} className="text-primary fill-primary" />
         )}
       </View>
       {recipe.description ? (
@@ -42,7 +40,7 @@ function RecipeListCard({ recipe }: { recipe: Recipe }) {
         {recipe.macros && (
           <>
             <View className="flex-row items-center gap-1">
-              <Flame size={12} color={mutedColor} />
+              <Icon as={Flame} size={12} className="text-muted-foreground" />
               <Text className="text-xs text-muted-foreground">
                 {recipe.macros.calories} cal
               </Text>
@@ -54,7 +52,7 @@ function RecipeListCard({ recipe }: { recipe: Recipe }) {
         )}
         {recipe.prepTimeMinutes ? (
           <View className="flex-row items-center gap-1">
-            <Clock size={12} color={mutedColor} />
+            <Icon as={Clock} size={12} className="text-muted-foreground" />
             <Text className="text-xs text-muted-foreground">
               {recipe.prepTimeMinutes}min
             </Text>
@@ -113,7 +111,7 @@ export function RecipesTab() {
       {/* Search + Filter */}
       <View className="px-4 mb-3">
         <View className="flex-row items-center gap-2 rounded-xl border border-input bg-card px-3">
-          <Search size={18} color="#9ca3af" />
+          <Icon as={Search} size={18} className="text-muted-foreground" />
           <TextInput
             value={search}
             onChangeText={setSearch}
@@ -122,7 +120,7 @@ export function RecipesTab() {
             className="flex-1 py-3 text-foreground"
           />
           <Pressable onPress={() => setShowGroceryModal(true)} className="p-1.5 relative" hitSlop={8}>
-            <ShoppingCart size={18} color={groceryItemCount > 0 ? primaryColor : '#9ca3af'} />
+            <Icon as={ShoppingCart} size={18} className={groceryItemCount > 0 ? 'text-primary' : 'text-muted-foreground'} />
             {groceryItemCount > 0 && (
               <View
                 className="absolute -top-1 -right-1 h-4 min-w-[16px] items-center justify-center rounded-full px-1"
@@ -133,9 +131,10 @@ export function RecipesTab() {
             )}
           </Pressable>
           <Pressable onPress={() => setShowFilterModal(true)} className="p-1.5" hitSlop={8}>
-            <SlidersHorizontal
+            <Icon
+              as={SlidersHorizontal}
               size={18}
-              color={filtersActive ? primaryColor : '#9ca3af'}
+              className={filtersActive ? 'text-primary' : 'text-muted-foreground'}
             />
           </Pressable>
         </View>
@@ -144,7 +143,7 @@ export function RecipesTab() {
       {recipes.length === 0 && !search.trim() && !filtersActive ? (
         <View className="flex-1 items-center justify-center px-4">
           <View className="items-center rounded-xl border border-dashed border-border px-8 py-12">
-            <UtensilsCrossed size={32} color={primaryColor} />
+            <Icon as={UtensilsCrossed} size={32} className="text-primary" />
             <Text className="mt-3 text-center font-semibold">No Recipes Yet</Text>
             <Text className="mt-1 text-center text-sm text-muted-foreground">
               Create your first recipe or ask the AI coach for suggestions
@@ -153,7 +152,7 @@ export function RecipesTab() {
         </View>
       ) : filteredRecipes.length === 0 ? (
         <View className="flex-1 items-center justify-center px-4">
-          <UtensilsCrossed size={28} color={primaryColor} />
+          <Icon as={UtensilsCrossed} size={28} className="text-primary" />
           <Text className="mt-3 text-center text-muted-foreground">
             No matching recipes
           </Text>

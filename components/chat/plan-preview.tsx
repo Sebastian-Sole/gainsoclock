@@ -2,8 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Calendar } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 
 interface PlanPreviewData {
@@ -31,9 +30,6 @@ interface PlanPreviewProps {
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export function PlanPreview({ data, collapsed }: PlanPreviewProps) {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-
   // Build a map of week -> dayOfWeek -> day info
   const dayMap = new Map<string, { templateName?: string; label?: string }>();
   for (const day of data.days) {
@@ -47,7 +43,7 @@ export function PlanPreview({ data, collapsed }: PlanPreviewProps) {
   return (
     <View>
       <View className="flex-row items-center gap-2 mb-1 pb-2 border-b border-border">
-        <Calendar size={16} color={primaryColor} />
+        <Icon as={Calendar} size={16} className="text-primary" />
         <Text className="font-semibold">Workout Plan</Text>
       </View>
       <Text className="text-sm font-medium mt-2">{data.name}</Text>

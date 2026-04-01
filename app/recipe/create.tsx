@@ -10,9 +10,8 @@ import {
 } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
+import { Icon } from '@/components/ui/icon';
 import { Plus, Trash2, ChevronDown, ChevronUp, Lock } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
-
 import { lightHaptic } from '@/lib/haptics';
 import { useRecipeStore } from '@/stores/recipe-store';
 import type { Ingredient, Macros } from '@/lib/types';
@@ -36,11 +35,6 @@ function emptyIngredient(): IngredientDraft {
 export default function CreateRecipeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ recipeId?: string }>();
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const iconColor = isDark ? '#f2f2f2' : '#1c1008';
-  const primaryColor = isDark ? '#fb923c' : '#f97316';
-
   const addRecipe = useRecipeStore((s) => s.addRecipe);
   const updateRecipe = useRecipeStore((s) => s.updateRecipe);
   const getRecipe = useRecipeStore((s) => s.getRecipe);
@@ -314,7 +308,7 @@ export default function CreateRecipeScreen() {
                       className="flex-1 py-1.5 text-[16px] text-foreground"
                     />
                     <Pressable onPress={() => removeIngredient(index)} className="p-1">
-                      <Trash2 size={16} color="#ef4444" />
+                      <Icon as={Trash2} size={16} className="text-destructive" />
                     </Pressable>
                   </View>
                   <View className="flex-row items-center gap-2 mt-2">
@@ -340,9 +334,9 @@ export default function CreateRecipeScreen() {
                     className="flex-row items-center gap-1 mt-2"
                   >
                     {ing.showMacros ? (
-                      <ChevronUp size={14} color={primaryColor} />
+                      <Icon as={ChevronUp} size={14} className="text-primary" />
                     ) : (
-                      <ChevronDown size={14} color={primaryColor} />
+                      <Icon as={ChevronDown} size={14} className="text-primary" />
                     )}
                     <Text className="text-xs text-primary">
                       {ing.showMacros ? 'Hide macros' : 'Add macros'}
@@ -406,7 +400,7 @@ export default function CreateRecipeScreen() {
             onPress={addIngredientRow}
             className="mb-4 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-3"
           >
-            <Plus size={18} color={primaryColor} />
+            <Icon as={Plus} size={18} className="text-primary" />
             <Text className="font-medium text-primary">Add Ingredient</Text>
           </Pressable>
 
@@ -422,7 +416,7 @@ export default function CreateRecipeScreen() {
                   <Text className="text-xs text-muted-foreground">calories</Text>
                 </View>
                 <View className="items-center">
-                  <Text className="text-lg font-bold" style={{ color: primaryColor }}>
+                  <Text className="text-lg font-bold text-primary">
                     {calculatedMacros.protein}g
                   </Text>
                   <Text className="text-xs text-muted-foreground">protein</Text>
@@ -457,8 +451,7 @@ export default function CreateRecipeScreen() {
           {instructions.map((step, index) => (
             <View key={index} className="flex-row items-start gap-2 mb-2">
               <View
-                className="h-6 w-6 items-center justify-center rounded-full mt-3"
-                style={{ backgroundColor: primaryColor }}
+                className="h-6 w-6 items-center justify-center rounded-full mt-3 bg-primary"
               >
                 <Text className="text-xs font-bold text-white">{index + 1}</Text>
               </View>
@@ -479,7 +472,7 @@ export default function CreateRecipeScreen() {
                   onPress={() => removeInstructionStep(index)}
                   className="p-2 mt-2"
                 >
-                  <Trash2 size={16} color="#ef4444" />
+                  <Icon as={Trash2} size={16} className="text-destructive" />
                 </Pressable>
               )}
             </View>
@@ -489,7 +482,7 @@ export default function CreateRecipeScreen() {
             onPress={addInstructionStep}
             className="mb-4 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-3"
           >
-            <Plus size={18} color={primaryColor} />
+            <Icon as={Plus} size={18} className="text-primary" />
             <Text className="font-medium text-primary">Add Step</Text>
           </Pressable>
 
@@ -502,7 +495,7 @@ export default function CreateRecipeScreen() {
                 .filter((t) => SOURCE_TAGS.includes(t))
                 .map((tag) => (
                   <View key={tag} className="flex-row items-center gap-1 rounded-full bg-muted px-3 py-1">
-                    <Lock size={10} color="#9ca3af" />
+                    <Icon as={Lock} size={10} className="text-muted-foreground" />
                     <Text className="text-xs text-muted-foreground">{tag}</Text>
                   </View>
                 ))}

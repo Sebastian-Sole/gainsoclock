@@ -4,7 +4,7 @@ import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, CheckCheck } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
+import { Icon } from '@/components/ui/icon';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useChat } from '@/hooks/use-chat';
@@ -18,7 +18,6 @@ import type { Id } from '@/convex/_generated/dataModel';
 export default function ChatConversationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
   const { isOffline } = useNetwork();
   const flatListRef = useRef<FlatList>(null);
 
@@ -83,10 +82,7 @@ export default function ChatConversationScreen() {
       {/* Header */}
       <View className="flex-row items-center gap-2 border-b border-border px-4 pb-3 pt-2">
         <Pressable onPress={() => router.back()} className="p-1">
-          <ChevronLeft
-            size={24}
-            color={colorScheme === 'dark' ? '#fff' : '#000'}
-          />
+          <Icon as={ChevronLeft} size={24} className="text-foreground" />
         </Pressable>
         <Text className="flex-1 text-lg font-semibold" numberOfLines={1}>
           {conversation?.title ?? 'Chat'}
@@ -148,7 +144,7 @@ export default function ChatConversationScreen() {
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <>
-                <CheckCheck size={18} color="#fff" />
+                <Icon as={CheckCheck} size={18} className="text-primary-foreground" />
                 <Text className="font-semibold text-white">
                   {pendingApprovals.length === 1 ? 'Approve' : `Approve All (${pendingApprovals.length})`}
                 </Text>

@@ -3,10 +3,11 @@ import { View, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Menu, Plus, MessageCircle, CheckCheck } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
+
+import { Icon } from '@/components/ui/icon';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import { Colors } from '@/constants/theme';
+
 import {
   useChat,
   useChatConversations,
@@ -45,10 +46,6 @@ export default function ChatScreen() {
 }
 
 function ChatScreenContent() {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-  const iconColor = colorScheme === 'dark' ? '#fff' : '#000';
-
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const flatListRef = useRef<FlatList>(null);
@@ -97,14 +94,14 @@ function ChatScreenContent() {
       {/* Header */}
       <View className="flex-row items-center gap-2 px-4 pb-2 pt-2">
         <Pressable onPress={() => setSidebarOpen(true)} className="p-1">
-          <Menu size={24} color={iconColor} />
+          <Icon as={Menu} size={24} className="text-foreground" />
         </Pressable>
         <Text className="flex-1 text-lg font-bold" numberOfLines={1}>
           {activeConversation?.title ?? 'Chat'}
         </Text>
         <View className="flex-row items-center gap-1">
           <Pressable onPress={handleNewChat} className="p-1">
-            <Plus size={24} color={iconColor} />
+            <Icon as={Plus} size={24} className="text-foreground" />
           </Pressable>
           <SettingsHeaderButton />
         </View>
@@ -120,7 +117,6 @@ function ChatScreenContent() {
         />
       ) : (
         <EmptyChatView
-          primaryColor={primaryColor}
           onSend={handleSendFromEmpty}
         />
       )}
@@ -153,8 +149,6 @@ function ActiveChatView({
     content: string;
   } | null>;
 }) {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const { isOffline } = useNetwork();
   const { messages, sendMessage, isSending, isStreaming } = useChat(conversationId);
   const approveAction = useMutation(api.chat.approveAction);
@@ -261,7 +255,7 @@ function ActiveChatView({
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <>
-                <CheckCheck size={18} color="#fff" />
+                <Icon as={CheckCheck} size={18} className="text-primary-foreground" />
                 <Text className="font-semibold text-white">
                   {pendingApprovals.length === 1 ? 'Approve' : `Approve All (${pendingApprovals.length})`}
                 </Text>
@@ -279,10 +273,8 @@ function ActiveChatView({
 // ---------- Empty Chat View ----------
 
 function EmptyChatView({
-  primaryColor,
   onSend,
 }: {
-  primaryColor: string;
   onSend: (content: string) => void;
 }) {
   const { isOffline } = useNetwork();
@@ -292,7 +284,7 @@ function EmptyChatView({
       <View className="flex-1 items-center justify-center px-8">
         <View className="items-center">
           <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <MessageCircle size={32} color={primaryColor} />
+            <Icon as={MessageCircle} size={32} className="text-primary" />
           </View>
           <Text className="text-xl font-bold mb-2">Your AI Fitness Coach</Text>
           <Text className="text-sm text-muted-foreground text-center leading-5">

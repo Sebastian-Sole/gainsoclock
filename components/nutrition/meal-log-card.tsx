@@ -2,10 +2,9 @@ import React from 'react';
 import { View, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Trash2, UtensilsCrossed } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 import { useRouter } from 'expo-router';
 
-import { Colors } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
 import { useMealLogStore } from '@/stores/meal-log-store';
 import { lightHaptic, heavyHaptic } from '@/lib/haptics';
 import type { MealLog } from '@/lib/types';
@@ -15,9 +14,6 @@ interface MealLogCardProps {
 }
 
 export function MealLogCard({ meal }: MealLogCardProps) {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-  const mutedColor = colorScheme === 'dark' ? '#a8a29e' : '#78716c';
   const router = useRouter();
   const deleteMeal = useMealLogStore((s) => s.deleteMeal);
 
@@ -53,11 +49,8 @@ export function MealLogCard({ meal }: MealLogCardProps) {
       onLongPress={handleLongPress}
       className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-4"
     >
-      <View
-        className="h-10 w-10 items-center justify-center rounded-full"
-        style={{ backgroundColor: `${primaryColor}15` }}
-      >
-        <UtensilsCrossed size={18} color={primaryColor} />
+      <View className="h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+        <Icon as={UtensilsCrossed} size={18} className="text-primary" />
       </View>
 
       <View className="flex-1">

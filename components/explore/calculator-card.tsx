@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useColorScheme } from 'nativewind';
+import { Icon } from '@/components/ui/icon';
 
 interface CalculatorCardProps {
   icon: React.ReactNode;
@@ -14,8 +14,6 @@ interface CalculatorCardProps {
 
 export function CalculatorCard({ icon, title, description, href }: CalculatorCardProps) {
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const chevronColor = colorScheme === 'dark' ? '#a8a29e' : '#78716c';
 
   return (
     <Pressable
@@ -29,7 +27,7 @@ export function CalculatorCard({ icon, title, description, href }: CalculatorCar
         <Text className="font-medium">{title}</Text>
         <Text className="text-sm text-muted-foreground">{description}</Text>
       </View>
-      <ChevronRight size={18} color={chevronColor} />
+      <Icon as={ChevronRight} size={18} className="text-muted-foreground" />
     </Pressable>
   );
 }
