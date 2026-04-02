@@ -11,9 +11,10 @@ brew link node@20 --force --overwrite
 # Navigate to repository root
 cd "$CI_PRIMARY_REPOSITORY_PATH"
 
-# Install JS dependencies
-npm install --legacy-peer-deps
+# Install pnpm and JS dependencies
+npm install -g pnpm
+pnpm install --frozen-lockfile
 
 # Install CocoaPods dependencies
 cd ios
-pod install
+pod install --repo-update
