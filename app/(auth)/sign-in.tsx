@@ -13,6 +13,8 @@ import { Text } from "@/components/ui/text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { makeRedirectUri } from "expo-auth-session";
+import { openAuthSessionAsync } from "expo-web-browser";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -77,7 +79,15 @@ export default function SignInScreen() {
     setError("");
     setIsLoading(true);
     try {
-      await signIn(provider);
+      const redirectTo = makeRedirectUri();
+      const { redirect } = await signIn(provider, { redirectTo });
+      if (Platform.OS !== "web" && redirect) {
+        const result = await openAuthSessionAsync(redirect.toString(), redirectTo);
+        if (result.type === "success") {
+          const code = new URL(result.url).searchParams.get("code")!;
+          await signIn(provider, { code });
+        }
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Something went wrong. Please try again."

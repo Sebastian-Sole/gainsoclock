@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, TextInput, Pressable, Platform, KeyboardAvoidingView } from 'react-native';
 import { Send } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
 
 interface ChatInputProps {
@@ -12,6 +13,7 @@ interface ChatInputProps {
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [text, setText] = useState('');
   const { colorScheme } = useColorScheme();
+  const insets = useSafeAreaInsets();
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const canSend = text.trim().length > 0 && !disabled;
 
@@ -26,7 +28,10 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={90}
     >
-      <View className="flex-row items-end gap-2 border-t border-border bg-background px-4 pb-8 pt-3">
+      <View
+        className="flex-row items-end gap-2 border-t border-border bg-background px-4 pt-3"
+        style={{ paddingBottom: Math.max(insets.bottom, 8) }}
+      >
         <TextInput
           value={text}
           onChangeText={setText}
@@ -38,6 +43,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           editable={!disabled}
           onSubmitEditing={handleSend}
           blurOnSubmit={false}
+          autoFocus={false}
         />
         <Pressable
           onPress={handleSend}
@@ -48,6 +54,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           <Send
             size={20}
             color={canSend ? '#fff' : colorScheme === 'dark' ? '#4b5563' : '#d1d5db'}
+            fill={canSend ? '#fff' : 'none'}
           />
         </Pressable>
       </View>

@@ -207,6 +207,8 @@ function ActiveChatView({
         className="flex-1"
         data={messages}
         keyExtractor={(item) => item._id}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
         contentContainerClassName="px-4 py-4 gap-3"
         renderItem={({ item }) => (
           <View>
@@ -255,7 +257,7 @@ function ActiveChatView({
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <>
-                <Icon as={CheckCheck} size={18} className="text-primary-foreground" />
+                <Icon as={CheckCheck} size={18} className="text-white" />
                 <Text className="font-semibold text-white">
                   {pendingApprovals.length === 1 ? 'Approve' : `Approve All (${pendingApprovals.length})`}
                 </Text>

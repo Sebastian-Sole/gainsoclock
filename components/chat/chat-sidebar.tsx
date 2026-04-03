@@ -6,6 +6,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   interpolate,
+  Easing,
 } from 'react-native-reanimated';
 import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,12 +45,15 @@ export function ChatSidebar({
   const progress = useSharedValue(0);
 
   useEffect(() => {
-    progress.value = withTiming(open ? 1 : 0, { duration: 250 });
+    progress.value = withTiming(open ? 1 : 0, { duration: 300, easing: Easing.out(Easing.cubic) });
   }, [open]);
+
+  const containerStyle = useAnimatedStyle(() => ({
+    pointerEvents: progress.value > 0 ? 'auto' : 'none',
+  }));
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0, 1], [0, 1]),
-    pointerEvents: progress.value > 0 ? 'auto' : 'none',
   }));
 
   const panelStyle = useAnimatedStyle(() => ({
@@ -72,7 +76,7 @@ export function ChatSidebar({
   };
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents={open ? 'auto' : 'none'}>
+    <Animated.View style={[StyleSheet.absoluteFill, containerStyle]}>
       {/* Backdrop */}
       <Animated.View
         style={[StyleSheet.absoluteFill, backdropStyle]}
@@ -156,6 +160,6 @@ export function ChatSidebar({
         {/* Bottom safe area spacing */}
         <View style={{ height: insets.bottom + 8 }} />
       </Animated.View>
-    </View>
+    </Animated.View>
   );
 }

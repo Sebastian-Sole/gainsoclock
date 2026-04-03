@@ -49,7 +49,8 @@
           "NSHealthUpdateUsageDescription": "Fitbull saves your completed workouts to Apple Health.",
           "background": false
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
