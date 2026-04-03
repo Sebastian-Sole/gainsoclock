@@ -92,9 +92,11 @@ export function parseFitNotesCSV(csvString: string): ParsedFitNotesData {
   for (const row of rows) {
     workoutKeys.add(`${row.StartTime}|${row.EndTime}`);
     exerciseNames.add(row.Exercise);
-    const start = new Date(row.StartTime);
-    if (!earliest || start < earliest) earliest = start;
-    if (!latest || start > latest) latest = start;
+    const start = new Date(row.StartTime.replace(' ', 'T'));
+    if (!isNaN(start.getTime())) {
+      if (!earliest || start < earliest) earliest = start;
+      if (!latest || start > latest) latest = start;
+    }
   }
 
   return {
@@ -137,8 +139,8 @@ export function buildWorkoutLogs(
 
   for (const [, workoutRows] of workoutMap) {
     const first = workoutRows[0];
-    const startedAt = first.StartTime;
-    const completedAt = first.EndTime;
+    const startedAt = normalizeTimestamp(first.StartTime);
+    const completedAt = normalizeTimestamp(first.EndTime);
     const durationSeconds = Math.round(
       (new Date(completedAt).getTime() - new Date(startedAt).getTime()) / 1000
     );
@@ -198,6 +200,17 @@ export function buildWorkoutLogs(
   );
 
   return logs;
+}
+
+/**
+ * Normalise a FitNotes timestamp ("YYYY-MM-DD HH:MM:SS") to an ISO 8601
+ * string.  JavaScriptCore on iOS rejects the space-separated format.
+ */
+function normalizeTimestamp(ts: string): string {
+  // Replace first space between date and time with 'T'
+  const iso = ts.replace(' ', 'T');
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
 }
 
 /**

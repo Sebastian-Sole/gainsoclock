@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { View, ScrollView, Pressable, Alert, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Badge } from '@/components/ui/badge';
@@ -8,14 +8,13 @@ import { Plus, X, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 
 import { SetRow } from '@/components/workout/set-row';
-import { RestTimer } from '@/components/workout/rest-timer';
 import { useWorkoutStore } from '@/stores/workout-store';
 import { useHistoryStore } from '@/stores/history-store';
 import { useWorkoutTimer } from '@/hooks/use-workout-timer';
 import { useRestTimer } from '@/hooks/use-rest-timer';
 import { createDefaultSet } from '@/lib/defaults';
 import { generateId } from '@/lib/id';
-import { formatDuration } from '@/lib/format';
+import { formatDuration, formatTime } from '@/lib/format';
 import { mediumHaptic, successHaptic } from '@/lib/haptics';
 import { saveWorkoutToHealthKit } from '@/lib/healthkit';
 import { syncToConvex } from '@/lib/convex-sync';
@@ -84,7 +83,6 @@ export default function ActiveWorkoutScreen() {
 
   const elapsed = useWorkoutTimer(activeWorkout?.startedAt ?? null);
   const { isActive: isRestActive, remaining: restRemaining, stop: stopRest } = useRestTimer();
-  const [restTotal, setRestTotal] = useState(0);
 
   const handleToggleSet = useCallback((exerciseId: string, setId: string, exercise: Exercise) => {
     Keyboard.dismiss();
@@ -96,7 +94,6 @@ export default function ActiveWorkoutScreen() {
 
     // Start rest timer if set was just completed
     if (!wasCompleted && exercise.restTimeSeconds > 0) {
-      setRestTotal(exercise.restTimeSeconds);
       startRestTimer(exercise.restTimeSeconds);
     }
   }, [toggleSetComplete, startRestTimer]);
@@ -218,17 +215,31 @@ export default function ActiveWorkoutScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      {/* Header */}
-      <View className="flex-row items-center justify-between border-b border-border px-4 py-3">
-        <View className="flex-1">
-          <Text className="text-lg font-bold">{activeWorkout.templateName}</Text>
-          <Text className="text-sm text-primary font-medium">{formatDuration(elapsed)}</Text>
-        </View>
-        <View className="flex-row items-center gap-2">
-          <Badge variant="secondary">
-            <Text className="text-xs">{completedSets}/{totalSets} sets</Text>
-          </Badge>
-        </View>
+      {/* Header — fixed height so rest-timer swap doesn't shift layout */}
+      <View className={`h-16 flex-row items-center justify-between border-b px-4 ${isRestActive ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
+        {isRestActive ? (
+          <>
+            <View className="flex-1 flex-row items-center gap-3">
+              <Text className="text-2xl font-bold tabular-nums text-primary">{formatTime(restRemaining)}</Text>
+              <Text className="text-sm text-muted-foreground">rest</Text>
+            </View>
+            <Pressable onPress={stopRest} className="rounded-lg bg-secondary px-4 py-2">
+              <Text className="text-sm font-semibold text-secondary-foreground">Skip</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <View className="flex-1">
+              <Text className="text-lg font-bold" numberOfLines={1}>{activeWorkout.templateName}</Text>
+              <Text className="text-sm text-primary font-medium">{formatDuration(elapsed)}</Text>
+            </View>
+            <View className="flex-row items-center gap-2">
+              <Badge variant="secondary">
+                <Text className="text-xs">{completedSets}/{totalSets} sets</Text>
+              </Badge>
+            </View>
+          </>
+        )}
       </View>
 
       {/* Template notes */}
@@ -239,7 +250,7 @@ export default function ActiveWorkoutScreen() {
       )}
 
       {/* Body */}
-      <ScrollView className="flex-1" contentContainerClassName="px-4 pb-32" keyboardShouldPersistTaps="handled">
+      <ScrollView className="flex-1" contentContainerClassName="px-4 pb-32" keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         {activeWorkout.exercises.map((exercise, exerciseIndex) => (
           <View key={exercise.id} className="mt-6">
             {/* Exercise Header */}
@@ -361,14 +372,6 @@ export default function ActiveWorkoutScreen() {
         </Pressable>
       </View>
 
-      {/* Rest Timer Overlay */}
-      {isRestActive && (
-        <RestTimer
-          remaining={restRemaining}
-          total={restTotal}
-          onSkip={stopRest}
-        />
-      )}
     </SafeAreaView>
   );
 }

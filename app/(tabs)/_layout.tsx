@@ -28,6 +28,10 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
         headerShown: false,
         tabBarButton: HapticTab,
+        freezeOnBlur: true,
+        sceneStyle: {
+          backgroundColor: Colors[colorScheme ?? "light"].background,
+        },
       }}
     >
       <Tabs.Screen

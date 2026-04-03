@@ -1,8 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useConvexAuth } from 'convex/react';
+import { useConvexAuth, useQuery } from 'convex/react';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import { OnboardingOverlay } from '@/components/onboarding/onboarding-overlay';
 import type { TargetEntry } from '@/hooks/use-onboarding-target';
+import { api } from '@/convex/_generated/api';
 
 type RegistryListener = () => void;
 
@@ -77,6 +78,10 @@ function OnboardingTrigger({
   const isActive = useOnboardingStore((s) => s.isActive);
   const startOnboarding = useOnboardingStore((s) => s.startOnboarding);
 
+  // Only start spotlight tour after the subscription/onboarding screen is dismissed
+  const serverOnboarding = useQuery(api.user.getOnboardingStatus);
+  const serverOnboardingDone = serverOnboarding?.hasCompletedOnboarding ?? false;
+
   // Track whether the first spotlight target has been registered
   const [targetsReady, setTargetsReady] = useState(() => !!getTarget('tab-workouts'));
 
@@ -98,10 +103,10 @@ function OnboardingTrigger({
   }, [targetsReady, getTarget, subscribe]);
 
   useEffect(() => {
-    if (isAuthenticated && !hasCompleted && !isActive && targetsReady) {
+    if (isAuthenticated && serverOnboardingDone && !hasCompleted && !isActive && targetsReady) {
       startOnboarding();
     }
-  }, [isAuthenticated, hasCompleted, isActive, targetsReady, startOnboarding]);
+  }, [isAuthenticated, serverOnboardingDone, hasCompleted, isActive, targetsReady, startOnboarding]);
 
   return null;
 }

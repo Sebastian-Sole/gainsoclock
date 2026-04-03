@@ -22,6 +22,7 @@ import { useTemplateCreateStore } from '@/stores/exercise-draft-store';
 import { useWorkoutStore } from '@/stores/workout-store';
 import { useEditLogStore } from '@/stores/edit-log-store';
 import { useExerciseLibraryStore } from '@/stores/exercise-library-store';
+import { useSettingsStore } from '@/stores/settings-store';
 
 const TOTAL_STEPS = 4;
 
@@ -32,13 +33,14 @@ export default function CreateExerciseScreen() {
   const addTemplateExercise = useTemplateCreateStore((s) => s.addExercise);
   const allExercises = useExerciseLibraryStore((s) => s.exercises);
   const getOrCreate = useExerciseLibraryStore((s) => s.getOrCreate);
+  const userDefaultRestTime = useSettingsStore((s) => s.defaultRestTime);
 
   // -1 = picker, 0-3 = wizard steps
   const [step, setStep] = useState(allExercises.length > 0 ? -1 : 0);
   const [exerciseType, setExerciseType] = useState<ExerciseType | undefined>();
   const [name, setName] = useState('');
   const [setsCount, setSetsCount] = useState(3);
-  const [restTime, setRestTime] = useState(DEFAULT_REST_TIME);
+  const [restTime, setRestTime] = useState(userDefaultRestTime);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseDefinition | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -174,6 +176,7 @@ export default function CreateExerciseScreen() {
           <FlatList
             data={filteredExercises}
             keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
             contentContainerClassName="px-4 pb-24"
             ListHeaderComponent={
               <Pressable
