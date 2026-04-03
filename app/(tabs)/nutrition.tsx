@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
 import { RecipesTab } from '@/components/nutrition/recipes-tab';
@@ -12,8 +12,10 @@ import { NutritionHistoryTab } from '@/components/nutrition/history-tab';
 export default function NutritionScreen() {
   const [activeTab, setActiveTab] = useState('today');
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+    <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
         <Text className="text-3xl font-bold">Nutrition</Text>
         <SettingsHeaderButton />
@@ -52,6 +54,6 @@ export default function NutritionScreen() {
           </TabsContent>
         </Tabs>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

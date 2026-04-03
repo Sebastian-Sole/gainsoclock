@@ -1,7 +1,7 @@
 import React from "react";
 import { Alert, View, Pressable, ActivityIndicator } from "react-native";
 import { Text } from "@/components/ui/text";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Crown } from "lucide-react-native";
 import { Icon } from "@/components/ui/icon";
 import { useRouter } from "expo-router";
@@ -9,6 +9,7 @@ import { PRO_FEATURES } from "@/constants/features";
 import { usePurchases } from "@/hooks/use-purchases";
 
 export function Paywall() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { restore, presentPaywall, isLoading } = usePurchases();
 
@@ -41,7 +42,7 @@ export function Paywall() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
       <View className="flex-1 justify-between px-6 pb-8">
         {/* Header */}
         <View className="items-center pt-8">
@@ -98,6 +99,6 @@ export function Paywall() {
           </Pressable>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

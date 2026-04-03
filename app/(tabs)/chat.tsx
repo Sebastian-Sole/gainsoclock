@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Menu, Plus, MessageCircle, CheckCheck } from 'lucide-react-native';
 
 import { Icon } from '@/components/ui/icon';
@@ -34,8 +34,10 @@ export default function ChatScreen() {
   // state while the server query is still loading (undefined).
   const isActive = subscription ? subscription.isActive : cachedIsPro;
 
+  const insets = useSafeAreaInsets();
+
   if (!isOffline && subscription === undefined && !cachedIsPro) {
-    return <SafeAreaView className="flex-1 bg-background" edges={['top']} />;
+    return <View className="flex-1 bg-background" style={{ paddingTop: insets.top }} />;
   }
 
   if (!isActive) {
@@ -46,6 +48,7 @@ export default function ChatScreen() {
 }
 
 function ChatScreenContent() {
+  const insets = useSafeAreaInsets();
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const flatListRef = useRef<FlatList>(null);
@@ -88,7 +91,7 @@ function ChatScreenContent() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+    <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
       <OfflineBanner />
 
       {/* Header */}
@@ -131,7 +134,7 @@ function ChatScreenContent() {
         onNewChat={handleNewChat}
         onDeleteConversation={handleDeleteConversation}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

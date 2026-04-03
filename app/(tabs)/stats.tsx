@@ -6,7 +6,7 @@ import { useColorScheme } from 'nativewind';
 import { Icon } from '@/components/ui/icon';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
 import { DateRangePicker } from '@/components/stats/date-range-picker';
@@ -53,8 +53,10 @@ export default function StatsScreen() {
 
   const isEmpty = totalLogs === 0;
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+    <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
         <Text className="text-3xl font-bold">Stats</Text>
         <View className="flex-row items-center gap-2">
@@ -155,6 +157,6 @@ export default function StatsScreen() {
           </Tabs>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }

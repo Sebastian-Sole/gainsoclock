@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, ScrollView, Pressable, Alert, Modal, FlatList } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarDays, FileText, Plus, X } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { Icon } from '@/components/ui/icon';
@@ -16,6 +16,7 @@ import { useHistoryStore } from '@/stores/history-store';
 import { useTemplateStore } from '@/stores/template-store';
 
 export default function HistoryScreen() {
+  const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const router = useRouter();
@@ -77,7 +78,7 @@ export default function HistoryScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+    <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
       <View className="px-4 pb-2 pt-2">
         <Text className="text-3xl font-bold">History</Text>
       </View>
@@ -172,6 +173,6 @@ export default function HistoryScreen() {
           />
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }

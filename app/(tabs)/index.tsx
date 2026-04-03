@@ -10,7 +10,7 @@ import { Calendar, Play } from 'lucide-react-native';
 
 import React, { useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PlansList } from '@/components/chat/plans-list';
 import { Fab } from '@/components/shared/fab';
@@ -165,8 +165,10 @@ export default function WorkoutsScreen() {
     ]);
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+    <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
         <Text className="text-3xl font-bold">Workouts</Text>
         <SettingsHeaderButton />
@@ -252,6 +254,6 @@ export default function WorkoutsScreen() {
           <PlansList />
         </TabsContent>
       </Tabs>
-    </SafeAreaView>
+    </View>
   );
 }
