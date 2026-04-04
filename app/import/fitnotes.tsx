@@ -25,6 +25,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useHistoryStore } from '@/stores/history-store';
 import { useExerciseLibraryStore } from '@/stores/exercise-library-store';
+import { useTemplateStore } from '@/stores/template-store';
 import {
   parseFitNotesCSV,
   buildWorkoutLogs,
@@ -32,7 +33,8 @@ import {
   type FitNotesSummary,
   type FitNotesRow,
 } from '@/lib/import/fitnotes';
-import type { ExerciseType } from '@/lib/types';
+import type { ExerciseType, TemplateExercise } from '@/lib/types';
+import { generateId } from '@/lib/id';
 
 type Step = 'instructions' | 'options' | 'importing' | 'complete';
 type DuplicateHandling = 'skip' | 'replace';
@@ -66,6 +68,15 @@ const OPTION_ITEMS: OptionItem[] = [
   },
 ];
 
+type WorkoutLogForTemplate = ReturnType<typeof buildWorkoutLogs>[number];
+
+/** Normalise a raw FitNotes timestamp to ISO so it matches stored format. */
+function normaliseTs(ts: string): string {
+  const iso = ts.replace(' ', 'T');
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+
 export default function FitNotesImportScreen() {
   const router = useRouter();
   const { colorScheme } = useColorScheme();
@@ -76,6 +87,8 @@ export default function FitNotesImportScreen() {
   const updateLog = useHistoryStore((s) => s.updateLog);
   const existingLogs = useHistoryStore((s) => s.logs);
   const getOrCreate = useExerciseLibraryStore((s) => s.getOrCreate);
+  const addTemplate = useTemplateStore((s) => s.addTemplate);
+  const existingTemplates = useTemplateStore((s) => s.templates);
 
   const [step, setStep] = useState<Step>('instructions');
   const [parsedRows, setParsedRows] = useState<FitNotesRow[]>([]);
@@ -101,12 +114,15 @@ export default function FitNotesImportScreen() {
     return set;
   }, [existingLogs]);
 
-  // Count how many parsed workouts overlap with existing data
+  // Count how many parsed workouts overlap with existing data.
+  // Normalise raw FitNotes timestamps to ISO so they match the stored format.
   const duplicateCount = useMemo(() => {
     if (parsedRows.length === 0) return 0;
     const workoutKeys = new Set<string>();
     for (const row of parsedRows) {
-      workoutKeys.add(`${row.StartTime}|${row.EndTime}`);
+      const start = normaliseTs(row.StartTime);
+      const end = normaliseTs(row.EndTime);
+      workoutKeys.add(`${start}|${end}`);
     }
     let count = 0;
     for (const key of workoutKeys) {
@@ -233,6 +249,36 @@ export default function FitNotesImportScreen() {
       }
     }
 
+    // Create templates from unique workout names
+    const existingTemplateNames = new Set(
+      existingTemplates.map((t) => t.name.toLowerCase())
+    );
+    const templatesByName = new Map<string, WorkoutLogForTemplate>();
+    for (const log of logs) {
+      if (
+        log.templateName &&
+        !existingTemplateNames.has(log.templateName.toLowerCase()) &&
+        !templatesByName.has(log.templateName.toLowerCase())
+      ) {
+        templatesByName.set(log.templateName.toLowerCase(), log);
+      }
+    }
+
+    for (const [, log] of templatesByName) {
+      const templateExercises: TemplateExercise[] = log.exercises.map(
+        (ex, i) => ({
+          id: generateId(),
+          exerciseId: ex.exerciseId,
+          name: ex.name,
+          type: ex.type,
+          order: i,
+          restTimeSeconds: ex.restTimeSeconds,
+          defaultSetsCount: ex.sets.length || 3,
+        })
+      );
+      addTemplate(log.templateName, templateExercises);
+    }
+
     setImportedCount(imported);
     setSkippedCount(skipped);
     setStep('complete');
@@ -243,6 +289,8 @@ export default function FitNotesImportScreen() {
     addLog,
     updateLog,
     existingLogs,
+    existingTemplates,
+    addTemplate,
     duplicateHandling,
   ]);
 
