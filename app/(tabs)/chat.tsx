@@ -1,29 +1,29 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { CheckCheck, Menu, MessageCircle, Plus } from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Menu, Plus, MessageCircle, CheckCheck } from 'lucide-react-native';
 
 import { Icon } from '@/components/ui/icon';
-import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { useMutation, useQuery } from 'convex/react';
 
+import { ApprovalCard } from '@/components/chat/approval-card';
+import { ChatBubble, StreamingDots } from '@/components/chat/chat-bubble';
+import { ChatInput } from '@/components/chat/chat-input';
+import { ChatSidebar } from '@/components/chat/chat-sidebar';
+import { Paywall } from '@/components/paywall';
+import { OfflineBanner } from '@/components/shared/offline-banner';
+import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
+import type { Id } from '@/convex/_generated/dataModel';
 import {
   useChat,
   useChatConversations,
   useCreateConversation,
   useDeleteConversation,
 } from '@/hooks/use-chat';
-import { ChatBubble, StreamingDots } from '@/components/chat/chat-bubble';
-import { ChatInput } from '@/components/chat/chat-input';
-import { ApprovalCard } from '@/components/chat/approval-card';
-import { ChatSidebar } from '@/components/chat/chat-sidebar';
-import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
-import { OfflineBanner } from '@/components/shared/offline-banner';
-import { Paywall } from '@/components/paywall';
 import { useNetwork } from '@/hooks/use-network';
 import { useSubscriptionStore } from '@/stores/subscription-store';
-import type { Id } from '@/convex/_generated/dataModel';
 
 export default function ChatScreen() {
   const { isOffline } = useNetwork();
@@ -40,7 +40,7 @@ export default function ChatScreen() {
     return <View className="flex-1 bg-background" style={{ paddingTop: insets.top }} />;
   }
 
-  if (!isActive) {
+  if (!isActive && !__DEV__) {
     return <Paywall />;
   }
 
@@ -91,7 +91,12 @@ function ChatScreenContent() {
   );
 
   return (
-    <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
+    <KeyboardAvoidingView
+      className="flex-1 bg-background"
+      style={{ paddingTop: insets.top }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={-20}
+    >
       <OfflineBanner />
 
       {/* Header */}
@@ -134,7 +139,7 @@ function ChatScreenContent() {
         onNewChat={handleNewChat}
         onDeleteConversation={handleDeleteConversation}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -286,7 +291,7 @@ function EmptyChatView({
 
   return (
     <>
-      <View className="flex-1 items-center justify-center px-8">
+      <Pressable className="flex-1 items-center justify-center px-8" onPress={Keyboard.dismiss}>
         <View className="items-center">
           <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <Icon as={MessageCircle} size={32} className="text-primary" />
@@ -298,7 +303,7 @@ function EmptyChatView({
               : 'Ask me to create workout templates, build training plans, suggest meals, or answer any fitness question.'}
           </Text>
         </View>
-      </View>
+      </Pressable>
       <ChatInput onSend={onSend} disabled={isOffline} />
     </>
   );

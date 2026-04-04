@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Pressable, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, TextInput, Pressable } from 'react-native';
 import { Send } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,40 +24,35 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={90}
+    <View
+      className="flex-row items-end gap-2 border-t border-border bg-background px-4 pt-3"
+      style={{ paddingBottom: Math.max(insets.bottom, 8) }}
     >
-      <View
-        className="flex-row items-end gap-2 border-t border-border bg-background px-4 pt-3"
-        style={{ paddingBottom: Math.max(insets.bottom, 8) }}
+      <TextInput
+        value={text}
+        onChangeText={setText}
+        placeholder="Ask your fitness coach..."
+        placeholderTextColor={colorScheme === 'dark' ? '#6b7280' : '#9ca3af'}
+        multiline
+        maxLength={2000}
+        className="max-h-24 min-h-[44px] flex-1 rounded-2xl border border-input bg-card px-4 py-3 text-[15px] text-foreground"
+        editable={!disabled}
+        onSubmitEditing={handleSend}
+        blurOnSubmit={false}
+        autoFocus={false}
+      />
+      <Pressable
+        onPress={handleSend}
+        disabled={!canSend}
+        className="mb-0.5 h-11 w-11 items-center justify-center rounded-full"
+        style={{ backgroundColor: canSend ? primaryColor : 'transparent' }}
       >
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder="Ask your fitness coach..."
-          placeholderTextColor={colorScheme === 'dark' ? '#6b7280' : '#9ca3af'}
-          multiline
-          maxLength={2000}
-          className="max-h-24 min-h-[44px] flex-1 rounded-2xl border border-input bg-card px-4 py-3 text-[15px] text-foreground"
-          editable={!disabled}
-          onSubmitEditing={handleSend}
-          blurOnSubmit={false}
-          autoFocus={false}
+        <Send
+          size={20}
+          color={canSend ? '#fff' : colorScheme === 'dark' ? '#4b5563' : '#d1d5db'}
+          fill={canSend ? '#fff' : 'none'}
         />
-        <Pressable
-          onPress={handleSend}
-          disabled={!canSend}
-          className="mb-0.5 h-11 w-11 items-center justify-center rounded-full"
-          style={{ backgroundColor: canSend ? primaryColor : 'transparent' }}
-        >
-          <Send
-            size={20}
-            color={canSend ? '#fff' : colorScheme === 'dark' ? '#4b5563' : '#d1d5db'}
-            fill={canSend ? '#fff' : 'none'}
-          />
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+      </Pressable>
+    </View>
   );
 }

@@ -53,6 +53,8 @@ export const getStatus = query({
 export const checkSubscription = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
+    if (process.env.DEV_BYPASS_SUBSCRIPTION === "true") return true;
+
     const subscriptions = await ctx.db
       .query("userSubscriptions")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))

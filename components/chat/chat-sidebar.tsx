@@ -1,14 +1,6 @@
-import React, { useEffect } from 'react';
-import { View, FlatList, Pressable, StyleSheet, Alert } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, FlatList, Pressable, StyleSheet, Alert, Animated, Easing } from 'react-native';
 import { Text } from '@/components/ui/text';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  interpolate,
-  Easing,
-} from 'react-native-reanimated';
-import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus, Trash2 } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
@@ -41,28 +33,34 @@ export function ChatSidebar({
   onDeleteConversation,
 }: ChatSidebarProps) {
   const insets = useSafeAreaInsets();
-
-  const progress = useSharedValue(0);
+  const [visible, setVisible] = useState(false);
+  const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    progress.value = withTiming(open ? 1 : 0, { duration: 300, easing: Easing.out(Easing.cubic) });
+    if (open) {
+      setVisible(true);
+    }
+    Animated.timing(progress, {
+      toValue: open ? 1 : 0,
+      duration: 300,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished && !open) {
+        setVisible(false);
+      }
+    });
   }, [open]);
 
-  const containerStyle = useAnimatedStyle(() => ({
-    pointerEvents: progress.value > 0 ? 'auto' : 'none',
-  }));
+  const backdropOpacity = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
 
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 1], [0, 1]),
-  }));
-
-  const panelStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateX: interpolate(progress.value, [0, 1], [-SIDEBAR_WIDTH, 0]),
-      },
-    ],
-  }));
+  const panelTranslateX = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-SIDEBAR_WIDTH, 0],
+  });
 
   const handleDelete = (clientId: string, title: string) => {
     Alert.alert('Delete Chat', `Delete "${title}"?`, [
@@ -76,10 +74,10 @@ export function ChatSidebar({
   };
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, containerStyle]}>
+    <View style={StyleSheet.absoluteFill} pointerEvents={visible ? 'auto' : 'none'}>
       {/* Backdrop */}
       <Animated.View
-        style={[StyleSheet.absoluteFill, backdropStyle]}
+        style={[StyleSheet.absoluteFill, { opacity: backdropOpacity }]}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
           <View className="flex-1 bg-black/50" />
@@ -89,8 +87,8 @@ export function ChatSidebar({
       {/* Panel */}
       <Animated.View
         style={[
-          panelStyle,
           {
+            transform: [{ translateX: panelTranslateX }],
             position: 'absolute',
             top: 0,
             bottom: 0,
@@ -160,6 +158,6 @@ export function ChatSidebar({
         {/* Bottom safe area spacing */}
         <View style={{ height: insets.bottom + 8 }} />
       </Animated.View>
-    </Animated.View>
+    </View>
   );
 }

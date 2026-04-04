@@ -4,7 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { api } from "@/convex/_generated/api";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { useRouter } from "expo-router";
 import {
   ChevronLeft,
@@ -23,6 +23,7 @@ import {
 import { useColorScheme } from "nativewind";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   Modal,
@@ -55,9 +56,10 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { signOut } = useAuthActions();
 
-  const deleteAllData = useMutation(api.user.deleteAllData);
+  const deleteAllData = useAction(api.user.deleteAllData);
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
+  const [resetState, setResetState] = useState<"idle" | "loading" | "success" | "error">("idle");
 
   const isPro = useSubscriptionStore((s) => s.isPro);
   const resetSubscription = useSubscriptionStore((s) => s.reset);
@@ -117,25 +119,41 @@ export default function SettingsScreen() {
   };
 
   const handleResetData = async () => {
-    setResetModalVisible(false);
-    setResetConfirmText("");
+    setResetState("loading");
 
-    // Clear local stores
-    useHistoryStore.setState({ logs: [] });
-    useTemplateStore.setState({ templates: [] });
-    useExerciseLibraryStore.setState({ exercises: [] });
-    useRecipeStore.setState({ recipes: [] });
-    useMealLogStore.setState({ todayMeals: [] });
-    useNutritionGoalsStore.setState({ goals: { calories: 2000, protein: 150, carbs: 250, fat: 65 } });
-
-    // Clear server data
     try {
       await deleteAllData();
-    } catch {
-      // Server cleanup is best-effort
-    }
 
-    Alert.alert("Data Reset", "All your data has been deleted.");
+      // Clear local stores (both in-memory and persisted storage)
+      useHistoryStore.persist.clearStorage();
+      useHistoryStore.setState({ logs: [] });
+      useTemplateStore.persist.clearStorage();
+      useTemplateStore.setState({ templates: [] });
+      useExerciseLibraryStore.persist.clearStorage();
+      useExerciseLibraryStore.setState({ exercises: [] });
+      useRecipeStore.persist.clearStorage();
+      useRecipeStore.setState({ recipes: [] });
+      useMealLogStore.persist.clearStorage();
+      useMealLogStore.setState({ todayMeals: [] });
+      useNutritionGoalsStore.persist.clearStorage();
+      useNutritionGoalsStore.setState({ goals: { calories: 2000, protein: 150, carbs: 250, fat: 65 } });
+
+      setResetState("success");
+    } catch {
+      setResetState("error");
+    }
+  };
+
+  const handleDismissResetModal = () => {
+    if (resetState !== "idle") return;
+    setResetModalVisible(false);
+    setResetConfirmText("");
+  };
+
+  const handleCloseResetModal = () => {
+    setResetModalVisible(false);
+    setResetConfirmText("");
+    setResetState("idle");
   };
 
   const weightUnit = useSettingsStore((s) => s.weightUnit);
@@ -477,76 +495,117 @@ export default function SettingsScreen() {
         visible={resetModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => {
-          setResetModalVisible(false);
-          setResetConfirmText("");
-        }}
+        onRequestClose={handleDismissResetModal}
       >
         <Pressable
-          onPress={() => {
-            setResetModalVisible(false);
-            setResetConfirmText("");
-          }}
+          onPress={handleDismissResetModal}
           className="flex-1 items-center justify-center bg-black/50 px-6"
         >
-          <Pressable
-            onPress={() => {}}
+          <View
+            onStartShouldSetResponder={() => true}
             className="w-full rounded-2xl bg-card p-6"
           >
-            <Text className="text-lg font-bold text-destructive">
-              Reset Data
-            </Text>
-            <Text className="mt-3 leading-5 text-muted-foreground">
-              This will permanently delete all your data including workouts,
-              recipes, meals, and nutrition goals. This action cannot be undone.
-            </Text>
-            <Text className="mt-4 text-sm font-medium text-foreground">
-              Type <Text className="font-bold">delete my data</Text> to confirm
-            </Text>
-            <TextInput
-              value={resetConfirmText}
-              onChangeText={setResetConfirmText}
-              placeholder="delete my data"
-              placeholderTextColor={isDark ? "#555" : "#aaa"}
-              autoCapitalize="none"
-              autoCorrect={false}
-              className="mt-2 rounded-lg border border-border bg-background px-4 py-3 text-[16px] text-foreground"
-            />
-            <View className="mt-4 flex-row gap-3">
-              <Pressable
-                onPress={() => {
-                  setResetModalVisible(false);
-                  setResetConfirmText("");
-                }}
-                className="flex-1 items-center rounded-lg border border-border py-3"
-              >
-                <Text className="font-medium text-foreground">Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleResetData}
-                disabled={
-                  resetConfirmText.toLowerCase().trim() !== "delete my data"
-                }
-                className={cn(
-                  "flex-1 items-center rounded-lg py-3",
-                  resetConfirmText.toLowerCase().trim() === "delete my data"
-                    ? "bg-destructive"
-                    : "bg-destructive/30",
-                )}
-              >
-                <Text
-                  className={cn(
-                    "font-medium",
-                    resetConfirmText.toLowerCase().trim() === "delete my data"
-                      ? "text-white"
-                      : "text-white/50",
-                  )}
-                >
-                  Delete All Data
+            {resetState === "loading" ? (
+              <>
+                <Text className="text-lg font-bold text-foreground">
+                  Deleting Data...
                 </Text>
-              </Pressable>
-            </View>
-          </Pressable>
+                <Text className="mt-3 leading-5 text-muted-foreground">
+                  Please wait while we delete all your data. This may take a moment.
+                </Text>
+                <View className="mt-6 items-center py-4">
+                  <ActivityIndicator size="large" color={isDark ? "#fff" : "#000"} />
+                </View>
+              </>
+            ) : resetState === "success" ? (
+              <>
+                <Text className="text-lg font-bold text-foreground">
+                  Data Deleted
+                </Text>
+                <Text className="mt-3 leading-5 text-muted-foreground">
+                  All your data has been permanently deleted.
+                </Text>
+                <View className="mt-4">
+                  <Pressable
+                    onPress={handleCloseResetModal}
+                    className="items-center rounded-lg bg-primary py-3"
+                  >
+                    <Text className="font-medium text-primary-foreground">Done</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : resetState === "error" ? (
+              <>
+                <Text className="text-lg font-bold text-destructive">
+                  Something Went Wrong
+                </Text>
+                <Text className="mt-3 leading-5 text-muted-foreground">
+                  Failed to delete your data. Please try again.
+                </Text>
+                <View className="mt-4">
+                  <Pressable
+                    onPress={handleCloseResetModal}
+                    className="items-center rounded-lg border border-border py-3"
+                  >
+                    <Text className="font-medium text-foreground">Close</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text className="text-lg font-bold text-destructive">
+                  Reset Data
+                </Text>
+                <Text className="mt-3 leading-5 text-muted-foreground">
+                  This will permanently delete all your data including workouts,
+                  recipes, meals, and nutrition goals. This action cannot be undone.
+                </Text>
+                <Text className="mt-4 text-sm font-medium text-foreground">
+                  Type <Text className="font-bold">delete my data</Text> to confirm
+                </Text>
+                <TextInput
+                  value={resetConfirmText}
+                  onChangeText={setResetConfirmText}
+                  placeholder="delete my data"
+                  placeholderTextColor={isDark ? "#555" : "#aaa"}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  className="mt-2 rounded-lg border border-border bg-background px-4 py-3 text-[16px] text-foreground"
+                />
+                <View className="mt-4 flex-row gap-3">
+                  <Pressable
+                    onPress={handleDismissResetModal}
+                    className="flex-1 items-center rounded-lg border border-border py-3"
+                  >
+                    <Text className="font-medium text-foreground">Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleResetData}
+                    disabled={
+                      resetConfirmText.toLowerCase().trim() !== "delete my data"
+                    }
+                    className={cn(
+                      "flex-1 items-center rounded-lg py-3",
+                      resetConfirmText.toLowerCase().trim() === "delete my data"
+                        ? "bg-destructive"
+                        : "bg-destructive/30",
+                    )}
+                  >
+                    <Text
+                      className={cn(
+                        "font-medium",
+                        resetConfirmText.toLowerCase().trim() === "delete my data"
+                          ? "text-white"
+                          : "text-white/50",
+                      )}
+                    >
+                      Delete All Data
+                    </Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </View>
         </Pressable>
       </Modal>
     </SafeAreaView>

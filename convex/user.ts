@@ -1,5 +1,13 @@
-import { mutation, query } from "./_generated/server";
+import {
+  mutation,
+  query,
+  internalMutation,
+  internalQuery,
+  action,
+} from "./_generated/server";
+import { internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
 
 export const me = query({
   args: {},
@@ -92,17 +100,37 @@ export const completeOnboarding = mutation({
   },
 });
 
-export const deleteAllData = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+// Internal mutation that deletes a batch of documents from a table.
+// Returns true if there are more documents to delete.
+export const deleteUserDataBatch = internalMutation({
+  args: {
+    userId: v.id("users"),
+    table: v.string(),
+    indexName: v.string(),
+  },
+  handler: async (ctx, { userId, table, indexName }) => {
+    const BATCH_SIZE = 500;
+    const docs = await (ctx.db as any)
+      .query(table)
+      .withIndex(indexName, (q: any) => q.eq("userId", userId))
+      .take(BATCH_SIZE);
+    for (const doc of docs) {
+      await ctx.db.delete(doc._id);
+    }
+    return docs.length === BATCH_SIZE;
+  },
+});
 
-    // Delete workout sets via their exercise references
+// Internal mutation to delete workout sets for a batch of exercises.
+export const deleteWorkoutSetsBatch = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const BATCH_SIZE = 200;
     const logExercises = await ctx.db
       .query("workoutLogExercises")
       .withIndex("by_workout", (q) => q.eq("userId", userId))
-      .collect();
+      .take(BATCH_SIZE);
+
     for (const le of logExercises) {
       const sets = await ctx.db
         .query("workoutSets")
@@ -115,95 +143,59 @@ export const deleteAllData = mutation({
       }
       await ctx.db.delete(le._id);
     }
+    return logExercises.length === BATCH_SIZE;
+  },
+});
 
-    // Delete workout logs
-    const logs = await ctx.db
-      .query("workoutLogs")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const doc of logs) {
-      await ctx.db.delete(doc._id);
+export const getAuthUser = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await getAuthUserId(ctx);
+  },
+});
+
+// Public action that orchestrates batched deletion across all tables.
+export const deleteAllData = action({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await ctx.runQuery(internal.user.getAuthUser);
+    if (!userId) throw new Error("Not authenticated");
+
+    // Delete workout sets + exercises first (nested relationship)
+    let hasMore = true;
+    while (hasMore) {
+      hasMore = await ctx.runMutation(internal.user.deleteWorkoutSetsBatch, {
+        userId,
+      });
     }
 
-    // Delete template exercises
-    const templateExercises = await ctx.db
-      .query("templateExercises")
-      .withIndex("by_template", (q) => q.eq("userId", userId))
-      .collect();
-    for (const doc of templateExercises) {
-      await ctx.db.delete(doc._id);
-    }
+    // Tables to delete with their index names
+    const tables: { table: string; indexName: string }[] = [
+      { table: "workoutLogs", indexName: "by_user" },
+      { table: "templateExercises", indexName: "by_template" },
+      { table: "templates", indexName: "by_user" },
+      { table: "exercises", indexName: "by_user" },
+      { table: "userSettings", indexName: "by_user" },
+      { table: "recipes", indexName: "by_user" },
+      { table: "mealLogs", indexName: "by_user" },
+      { table: "nutritionGoals", indexName: "by_user" },
+      { table: "userOnboarding", indexName: "by_user" },
+      { table: "userSubscriptions", indexName: "by_user" },
+      { table: "chatMessages", indexName: "by_conversation" },
+      { table: "chatConversations", indexName: "by_user" },
+      { table: "workoutPlans", indexName: "by_user" },
+      { table: "planDays", indexName: "by_plan" },
+    ];
 
-    // Delete templates
-    const templates = await ctx.db
-      .query("templates")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const doc of templates) {
-      await ctx.db.delete(doc._id);
-    }
-
-    // Delete exercises
-    const exercises = await ctx.db
-      .query("exercises")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const doc of exercises) {
-      await ctx.db.delete(doc._id);
-    }
-
-    // Delete user settings
-    const settings = await ctx.db
-      .query("userSettings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const doc of settings) {
-      await ctx.db.delete(doc._id);
-    }
-
-    // Delete recipes
-    const recipes = await ctx.db
-      .query("recipes")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const doc of recipes) {
-      await ctx.db.delete(doc._id);
-    }
-
-    // Delete meal logs
-    const mealLogs = await ctx.db
-      .query("mealLogs")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const doc of mealLogs) {
-      await ctx.db.delete(doc._id);
-    }
-
-    // Delete nutrition goals
-    const nutritionGoals = await ctx.db
-      .query("nutritionGoals")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const doc of nutritionGoals) {
-      await ctx.db.delete(doc._id);
-    }
-
-    // Delete onboarding state
-    const onboarding = await ctx.db
-      .query("userOnboarding")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const doc of onboarding) {
-      await ctx.db.delete(doc._id);
-    }
-
-    // Delete subscription records
-    const subscriptions = await ctx.db
-      .query("userSubscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const doc of subscriptions) {
-      await ctx.db.delete(doc._id);
+    for (const { table, indexName } of tables) {
+      let hasMore = true;
+      while (hasMore) {
+        hasMore = await ctx.runMutation(internal.user.deleteUserDataBatch, {
+          userId,
+          table,
+          indexName,
+        });
+      }
     }
   },
 });
