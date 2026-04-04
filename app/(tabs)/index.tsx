@@ -19,6 +19,7 @@ import { EmptyState } from '@/components/workout/empty-state';
 import { TemplateCard } from '@/components/workout/template-card';
 import { useOnboardingTarget } from '@/hooks/use-onboarding-target';
 import { heavyHaptic, mediumHaptic } from '@/lib/haptics';
+import { useHistoryStore } from '@/stores/history-store';
 import { useTemplateStore } from '@/stores/template-store';
 import { useWorkoutStore } from '@/stores/workout-store';
 
@@ -35,6 +36,8 @@ export default function WorkoutsScreen() {
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
   const startEmptyWorkout = useWorkoutStore((s) => s.startEmptyWorkout);
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
+  const getLastLogForTemplate = useHistoryStore((s) => s.getLastLogForTemplate);
+  const prefillFromLastWorkout = useSettingsStore((s) => s.prefillFromLastWorkout);
 
   const weekStartDay = useSettingsStore((s) => s.weekStartDay);
   const activePlanData = usePlanStore((s) => s.activePlanWithDays);
@@ -53,6 +56,8 @@ export default function WorkoutsScreen() {
     const template = templates.find((t) => t.id === templateId);
     if (!template) return;
 
+    const previousLog = prefillFromLastWorkout ? getLastLogForTemplate(templateId) : undefined;
+
     if (activeWorkout) {
       Alert.alert(
         'Workout in Progress',
@@ -63,7 +68,7 @@ export default function WorkoutsScreen() {
             text: 'Discard & Start New',
             style: 'destructive',
             onPress: () => {
-              startWorkout(template.name, template.exercises, template.id);
+              startWorkout(template.name, template.exercises, template.id, undefined, previousLog);
               mediumHaptic();
               router.push('/workout/active');
             },
@@ -73,7 +78,7 @@ export default function WorkoutsScreen() {
       return;
     }
 
-    startWorkout(template.name, template.exercises, template.id);
+    startWorkout(template.name, template.exercises, template.id, undefined, previousLog);
     mediumHaptic();
     router.push('/workout/active');
   };
@@ -110,6 +115,7 @@ export default function WorkoutsScreen() {
     if (!template) return;
 
     const planDayId = `${activePlanData.id}:${todayPlanDay.week}:${todayPlanDay.dayOfWeek}`;
+    const previousLog = prefillFromLastWorkout ? getLastLogForTemplate(template.id) : undefined;
 
     if (activeWorkout) {
       Alert.alert(
@@ -121,7 +127,7 @@ export default function WorkoutsScreen() {
             text: 'Discard & Start New',
             style: 'destructive',
             onPress: () => {
-              startWorkout(template.name, template.exercises, template.id, planDayId);
+              startWorkout(template.name, template.exercises, template.id, planDayId, previousLog);
               mediumHaptic();
               router.push('/workout/active');
             },
@@ -131,7 +137,7 @@ export default function WorkoutsScreen() {
       return;
     }
 
-    startWorkout(template.name, template.exercises, template.id, planDayId);
+    startWorkout(template.name, template.exercises, template.id, planDayId, previousLog);
     mediumHaptic();
     router.push('/workout/active');
   };

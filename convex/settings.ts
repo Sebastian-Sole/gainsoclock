@@ -22,6 +22,7 @@ export const upsert = mutation({
     defaultRestTime: v.number(),
     hapticsEnabled: v.boolean(),
     weekStartDay: v.optional(weekStartDayValidator),
+    prefillFromLastWorkout: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);

@@ -16,6 +16,7 @@ interface SettingsState {
   hapticsEnabled: boolean;
   healthKitEnabled: boolean;
   weekStartDay: WeekStartDay;
+  prefillFromLastWorkout: boolean;
   customRangeFrom: string | null; // ISO string
   customRangeTo: string | null;   // ISO string
 
@@ -25,8 +26,9 @@ interface SettingsState {
   setHapticsEnabled: (enabled: boolean) => void;
   setHealthKitEnabled: (enabled: boolean) => void;
   setWeekStartDay: (day: WeekStartDay) => void;
+  setPrefillFromLastWorkout: (enabled: boolean) => void;
   setCustomRange: (from: Date, to: Date | null) => void;
-  hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string }) => void;
+  hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string; prefillFromLastWorkout?: boolean }) => void;
 }
 
 function syncSettings(state: SettingsState) {
@@ -36,6 +38,7 @@ function syncSettings(state: SettingsState) {
     defaultRestTime: state.defaultRestTime,
     hapticsEnabled: state.hapticsEnabled,
     weekStartDay: state.weekStartDay,
+    prefillFromLastWorkout: state.prefillFromLastWorkout,
   });
 }
 
@@ -47,6 +50,7 @@ export const useSettingsStore = create<SettingsState>()(
       defaultRestTime: 90,
       hapticsEnabled: true,
       healthKitEnabled: false,
+      prefillFromLastWorkout: true,
       weekStartDay: 'monday' as WeekStartDay,
       customRangeFrom: null,
       customRangeTo: null,
@@ -76,6 +80,11 @@ export const useSettingsStore = create<SettingsState>()(
         // Not synced to Convex — Apple Health is a per-device setting
       },
 
+      setPrefillFromLastWorkout: (enabled) => {
+        set({ prefillFromLastWorkout: enabled });
+        syncSettings(get());
+      },
+
       setWeekStartDay: (day) => {
         set({ weekStartDay: day });
         syncSettings(get());
@@ -96,6 +105,7 @@ export const useSettingsStore = create<SettingsState>()(
           defaultRestTime: serverSettings.defaultRestTime,
           hapticsEnabled: serverSettings.hapticsEnabled,
           weekStartDay: (serverSettings.weekStartDay as WeekStartDay) ?? 'monday',
+          prefillFromLastWorkout: serverSettings.prefillFromLastWorkout ?? true,
         });
       },
     }),

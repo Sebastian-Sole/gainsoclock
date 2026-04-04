@@ -125,6 +125,7 @@ export default defineSchema({
     defaultRestTime: v.number(),
     hapticsEnabled: v.boolean(),
     weekStartDay: v.optional(weekStartDayValidator),
+    prefillFromLastWorkout: v.optional(v.boolean()),
   }).index("by_user", ["userId"]),
 
   // Onboarding status

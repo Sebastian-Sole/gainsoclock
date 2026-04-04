@@ -12,6 +12,7 @@ import {
   Crown,
   Download,
   Heart,
+  History,
   LogOut,
   RotateCcw,
   Ruler,
@@ -156,6 +157,8 @@ export default function SettingsScreen() {
     setResetState("idle");
   };
 
+  const prefillFromLastWorkout = useSettingsStore((s) => s.prefillFromLastWorkout);
+  const setPrefillFromLastWorkout = useSettingsStore((s) => s.setPrefillFromLastWorkout);
   const weightUnit = useSettingsStore((s) => s.weightUnit);
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
   const defaultRestTime = useSettingsStore((s) => s.defaultRestTime);
@@ -334,6 +337,22 @@ export default function SettingsScreen() {
             <Switch
               checked={hapticsEnabled}
               onCheckedChange={setHapticsEnabled}
+            />
+          </View>
+
+          <Separator />
+
+          <View className="flex-row items-center gap-3 px-4 py-4">
+            <Icon as={History} size={20} className="text-primary" />
+            <View className="flex-1">
+              <Text className="font-medium">Prefill Last Workout</Text>
+              <Text className="text-sm text-muted-foreground">
+                Use previous weights & reps when starting a template
+              </Text>
+            </View>
+            <Switch
+              checked={prefillFromLastWorkout}
+              onCheckedChange={setPrefillFromLastWorkout}
             />
           </View>
         </View>
