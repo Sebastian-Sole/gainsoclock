@@ -1,5 +1,4 @@
 import { Text } from '@/components/ui/text';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { CheckCheck, Menu, MessageCircle, Plus } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
@@ -50,7 +49,6 @@ export default function ChatScreen() {
 
 function ChatScreenContent() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const flatListRef = useRef<FlatList>(null);
