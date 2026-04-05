@@ -1,27 +1,29 @@
-import * as Notifications from 'expo-notifications';
-import { Alert, Linking } from 'react-native';
-import { useSettingsStore } from '@/stores/settings-store';
-import { formatDuration } from '@/lib/format';
+import { formatDuration } from "@/lib/format";
+import { useSettingsStore } from "@/stores/settings-store";
+import * as Notifications from "expo-notifications";
+import { Alert, Linking } from "react-native";
 
 // Fixed identifiers for managing notification lifecycle
 const IDENTIFIERS = {
-  REST_TIMER: 'rest-timer',
-  POST_WORKOUT: 'post-workout',
-  DAILY_REMINDER: 'daily-reminder',
-  MORNING_PLAN: 'morning-plan',
+  REST_TIMER: "rest-timer",
+  POST_WORKOUT: "post-workout",
+  DAILY_REMINDER: "daily-reminder",
+  MORNING_PLAN: "morning-plan",
 } as const;
 
 // --- Permissions ---
 
 export async function requestPermissions(): Promise<boolean> {
   const { status: existing } = await Notifications.getPermissionsAsync();
-  if (existing === 'granted') return true;
+  if (existing === "granted") return true;
 
   const { status } = await Notifications.requestPermissionsAsync();
-  return status === 'granted';
+  return status === "granted";
 }
 
-export async function getPermissionStatus(): Promise<'granted' | 'denied' | 'undetermined'> {
+export async function getPermissionStatus(): Promise<
+  "granted" | "denied" | "undetermined"
+> {
   const { status } = await Notifications.getPermissionsAsync();
   return status;
 }
@@ -31,8 +33,8 @@ export async function getPermissionStatus(): Promise<'granted' | 'denied' | 'und
  */
 async function ensureGranted(): Promise<boolean> {
   const status = await getPermissionStatus();
-  if (status === 'granted') return true;
-  if (status === 'undetermined') return requestPermissions();
+  if (status === "granted") return true;
+  if (status === "undetermined") return requestPermissions();
   return false;
 }
 
@@ -43,16 +45,16 @@ async function ensureGranted(): Promise<boolean> {
 export async function ensurePermission(): Promise<boolean> {
   const status = await getPermissionStatus();
 
-  if (status === 'granted') return true;
+  if (status === "granted") return true;
 
-  if (status === 'denied') {
+  if (status === "denied") {
     Alert.alert(
-      'Notifications Disabled',
-      'Enable notifications in your device settings to receive workout reminders.',
+      "Notifications Disabled",
+      "Enable notifications in your device settings to receive workout reminders.",
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Open Settings', onPress: () => Linking.openSettings() },
-      ]
+        { text: "Cancel", style: "cancel" },
+        { text: "Open Settings", onPress: () => Linking.openSettings() },
+      ],
     );
     return false;
   }
@@ -62,43 +64,51 @@ export async function ensurePermission(): Promise<boolean> {
 
 // --- Rest Timer (Type 1) ---
 
-export async function scheduleRestTimerNotification(seconds: number): Promise<string | null> {
+export async function scheduleRestTimerNotification(
+  seconds: number,
+): Promise<string | null> {
   const { notificationsRestTimerEnabled } = useSettingsStore.getState();
-  console.log('[Notif] scheduleRestTimer called', { seconds, notificationsRestTimerEnabled });
   if (!notificationsRestTimerEnabled) return null;
 
   const granted = await ensureGranted();
-  console.log('[Notif] permission granted:', granted);
   if (!granted) return null;
 
   // Cancel any existing rest timer notification
-  await Notifications.cancelScheduledNotificationAsync(IDENTIFIERS.REST_TIMER).catch(() => {});
+  await Notifications.cancelScheduledNotificationAsync(
+    IDENTIFIERS.REST_TIMER,
+  ).catch(() => {});
 
   try {
     const id = await Notifications.scheduleNotificationAsync({
       identifier: IDENTIFIERS.REST_TIMER,
       content: {
-        title: 'Rest Complete',
-        body: 'Time to start your next set!',
-        sound: 'default',
+        title: "Rest Complete",
+        body: "Time to start your next set!",
+        sound: "default",
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds,
       },
     });
-    console.log('[Notif] scheduled rest timer notification:', id);
+    console.log("[Notif] scheduled rest timer notification:", id);
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-    console.log('[Notif] all scheduled notifications:', scheduled.length, scheduled.map(n => n.identifier));
+    console.log(
+      "[Notif] all scheduled notifications:",
+      scheduled.length,
+      scheduled.map((n) => n.identifier),
+    );
     return id;
   } catch (err) {
-    console.error('[Notif] failed to schedule:', err);
+    console.error("[Notif] failed to schedule:", err);
     return null;
   }
 }
 
 export async function cancelRestTimerNotification(): Promise<void> {
-  await Notifications.cancelScheduledNotificationAsync(IDENTIFIERS.REST_TIMER).catch(() => {});
+  await Notifications.cancelScheduledNotificationAsync(
+    IDENTIFIERS.REST_TIMER,
+  ).catch(() => {});
 }
 
 // --- Post-Workout Summary (Type 2) ---
@@ -111,23 +121,27 @@ interface PostWorkoutParams {
   delayMinutes: number;
 }
 
-export async function schedulePostWorkoutNotification(params: PostWorkoutParams): Promise<string | null> {
+export async function schedulePostWorkoutNotification(
+  params: PostWorkoutParams,
+): Promise<string | null> {
   const { notificationsPostWorkoutEnabled } = useSettingsStore.getState();
   if (!notificationsPostWorkoutEnabled) return null;
 
   if (!(await ensureGranted())) return null;
 
   // Cancel any existing post-workout notification
-  await Notifications.cancelScheduledNotificationAsync(IDENTIFIERS.POST_WORKOUT).catch(() => {});
+  await Notifications.cancelScheduledNotificationAsync(
+    IDENTIFIERS.POST_WORKOUT,
+  ).catch(() => {});
 
   const duration = formatDuration(params.durationSeconds);
 
   return Notifications.scheduleNotificationAsync({
     identifier: IDENTIFIERS.POST_WORKOUT,
     content: {
-      title: 'Great workout! 💪',
+      title: "Great workout! 💪",
       body: `${params.templateName}: ${params.completedSets} sets across ${params.exerciseCount} exercises in ${duration}`,
-      sound: 'default',
+      sound: "default",
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -138,7 +152,10 @@ export async function schedulePostWorkoutNotification(params: PostWorkoutParams)
 
 // --- Daily Workout Reminder (Type 3) ---
 
-export async function scheduleDailyWorkoutReminder(hour: number, minute: number): Promise<void> {
+export async function scheduleDailyWorkoutReminder(
+  hour: number,
+  minute: number,
+): Promise<void> {
   const { notificationsReminderEnabled } = useSettingsStore.getState();
   if (!notificationsReminderEnabled) return;
 
@@ -152,7 +169,7 @@ export async function scheduleDailyWorkoutReminder(hour: number, minute: number)
     content: {
       title: "Don't forget your workout!",
       body: "You haven't logged a workout today. Let's go!",
-      sound: 'default',
+      sound: "default",
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -163,7 +180,9 @@ export async function scheduleDailyWorkoutReminder(hour: number, minute: number)
 }
 
 export async function cancelDailyWorkoutReminder(): Promise<void> {
-  await Notifications.cancelScheduledNotificationAsync(IDENTIFIERS.DAILY_REMINDER).catch(() => {});
+  await Notifications.cancelScheduledNotificationAsync(
+    IDENTIFIERS.DAILY_REMINDER,
+  ).catch(() => {});
 }
 
 /**
@@ -171,10 +190,11 @@ export async function cancelDailyWorkoutReminder(): Promise<void> {
  * The rescheduled notification won't fire today since the trigger time has passed.
  */
 export async function rescheduleReminderAfterWorkout(): Promise<void> {
-  const { notificationsReminderEnabled, notificationsReminderTime } = useSettingsStore.getState();
+  const { notificationsReminderEnabled, notificationsReminderTime } =
+    useSettingsStore.getState();
   if (!notificationsReminderEnabled) return;
 
-  const [hour, minute] = notificationsReminderTime.split(':').map(Number);
+  const [hour, minute] = notificationsReminderTime.split(":").map(Number);
   if (hour === undefined || minute === undefined) return;
 
   await cancelDailyWorkoutReminder();
@@ -189,7 +209,9 @@ interface MorningPlanParams {
   workoutLabel: string;
 }
 
-export async function scheduleMorningPlanNotification(params: MorningPlanParams): Promise<void> {
+export async function scheduleMorningPlanNotification(
+  params: MorningPlanParams,
+): Promise<void> {
   const { notificationsMorningPlanEnabled } = useSettingsStore.getState();
   if (!notificationsMorningPlanEnabled) return;
 
@@ -207,14 +229,17 @@ export async function scheduleMorningPlanNotification(params: MorningPlanParams)
     target.setDate(target.getDate() + 1);
   }
 
-  const secondsUntil = Math.max(1, Math.floor((target.getTime() - now.getTime()) / 1000));
+  const secondsUntil = Math.max(
+    1,
+    Math.floor((target.getTime() - now.getTime()) / 1000),
+  );
 
   await Notifications.scheduleNotificationAsync({
     identifier: IDENTIFIERS.MORNING_PLAN,
     content: {
-      title: "Today's Workout",
-      body: `${params.workoutLabel} is on the schedule today`,
-      sound: 'default',
+      title: "Today's Workout 💪",
+      body: `${params.workoutLabel} is on the schedule today. You got this!`,
+      sound: "default",
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -224,7 +249,9 @@ export async function scheduleMorningPlanNotification(params: MorningPlanParams)
 }
 
 export async function cancelMorningPlanNotification(): Promise<void> {
-  await Notifications.cancelScheduledNotificationAsync(IDENTIFIERS.MORNING_PLAN).catch(() => {});
+  await Notifications.cancelScheduledNotificationAsync(
+    IDENTIFIERS.MORNING_PLAN,
+  ).catch(() => {});
 }
 
 // --- Utility ---
