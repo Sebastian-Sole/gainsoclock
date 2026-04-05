@@ -4,7 +4,7 @@ import * as Notifications from "expo-notifications";
 import { Alert, Linking } from "react-native";
 
 // Fixed identifiers for managing notification lifecycle
-const IDENTIFIERS = {
+export const IDENTIFIERS = {
   REST_TIMER: "rest-timer",
   POST_WORKOUT: "post-workout",
   DAILY_REMINDER: "daily-reminder",
@@ -91,13 +91,6 @@ export async function scheduleRestTimerNotification(
         seconds,
       },
     });
-    console.log("[Notif] scheduled rest timer notification:", id);
-    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-    console.log(
-      "[Notif] all scheduled notifications:",
-      scheduled.length,
-      scheduled.map((n) => n.identifier),
-    );
     return id;
   } catch (err) {
     console.error("[Notif] failed to schedule:", err);
@@ -186,8 +179,8 @@ export async function cancelDailyWorkoutReminder(): Promise<void> {
 }
 
 /**
- * Cancel and reschedule the daily reminder after a workout is logged.
- * The rescheduled notification won't fire today since the trigger time has passed.
+ * Cancel the daily reminder for the rest of today and reschedule it starting tomorrow.
+ * This prevents a "you haven't worked out" reminder on days the user already worked out.
  */
 export async function rescheduleReminderAfterWorkout(): Promise<void> {
   const { notificationsReminderEnabled, notificationsReminderTime } =
@@ -195,10 +188,33 @@ export async function rescheduleReminderAfterWorkout(): Promise<void> {
   if (!notificationsReminderEnabled) return;
 
   const [hour, minute] = notificationsReminderTime.split(":").map(Number);
-  if (hour === undefined || minute === undefined) return;
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return;
 
   await cancelDailyWorkoutReminder();
-  await scheduleDailyWorkoutReminder(hour, minute);
+
+  // Schedule a one-shot for tomorrow's reminder time, then restore the daily trigger
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(hour, minute, 0, 0);
+  const secondsUntilTomorrow = Math.max(
+    1,
+    Math.floor((tomorrow.getTime() - now.getTime()) / 1000),
+  );
+
+  // One-shot timer that fires tomorrow at the configured time
+  await Notifications.scheduleNotificationAsync({
+    identifier: IDENTIFIERS.DAILY_REMINDER,
+    content: {
+      title: "Don't forget your workout!",
+      body: "You haven't logged a workout today. Let's go!",
+      sound: "default",
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: secondsUntilTomorrow,
+    },
+  });
 }
 
 // --- Morning Plan Notification (Type 4) ---
@@ -207,6 +223,8 @@ interface MorningPlanParams {
   hour: number;
   minute: number;
   workoutLabel: string;
+  /** The date the workout is scheduled for, used to compute the correct fire time */
+  targetDate: Date;
 }
 
 export async function scheduleMorningPlanNotification(
@@ -219,15 +237,13 @@ export async function scheduleMorningPlanNotification(
 
   await cancelMorningPlanNotification();
 
-  // Determine if we should schedule for today or tomorrow
+  // Schedule for the morning of the target date
   const now = new Date();
-  const target = new Date();
+  const target = new Date(params.targetDate);
   target.setHours(params.hour, params.minute, 0, 0);
 
-  if (target <= now) {
-    // Time already passed today, schedule for tomorrow
-    target.setDate(target.getDate() + 1);
-  }
+  // If the target time is in the past, skip scheduling
+  if (target <= now) return;
 
   const secondsUntil = Math.max(
     1,

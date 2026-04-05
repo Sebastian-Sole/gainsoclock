@@ -136,7 +136,7 @@ function SyncEngine() {
         })),
       });
     }
-  }, [exercises]);
+  }, [exercises, templates, logs]);
 
   // Hydrate template store from server
   useEffect(() => {

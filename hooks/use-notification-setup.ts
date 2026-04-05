@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { useSettingsStore } from '@/stores/settings-store';
 import { usePlanStore } from '@/stores/plan-store';
 import {
+  IDENTIFIERS,
   scheduleDailyWorkoutReminder,
   cancelDailyWorkoutReminder,
   scheduleMorningPlanNotification,
@@ -15,7 +16,7 @@ Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const id = notification.request.identifier;
     // Suppress rest timer notifications when app is in foreground (user can see the timer UI)
-    const show = id !== 'rest-timer';
+    const show = id !== IDENTIFIERS.REST_TIMER;
     return {
       shouldShowAlert: show,
       shouldPlaySound: show,
@@ -50,7 +51,7 @@ export function useNotificationSetup() {
       }
 
       const [hour, minute] = time.split(':').map(Number);
-      if (hour !== undefined && minute !== undefined) {
+      if (Number.isFinite(hour) && Number.isFinite(minute)) {
         scheduleDailyWorkoutReminder(hour, minute);
       }
     });
@@ -74,25 +75,27 @@ export function useNotificationSetup() {
         return;
       }
 
-      // Find today's or tomorrow's pending workout day
+      // Find today's or tomorrow's pending workout day, tracking the actual date
       let targetDay = null;
+      let targetDate: Date | null = null;
       for (const day of activePlan.days) {
         if (day.status !== 'pending' || !day.templateClientId) continue;
         const date = getPlanDayDate(activePlan.startDate, day.week, day.dayOfWeek, weekStartDay);
         if (isToday(date) || isTomorrow(date)) {
           targetDay = day;
+          targetDate = date;
           break;
         }
       }
 
-      if (!targetDay?.label) {
+      if (!targetDay?.label || !targetDate) {
         cancelMorningPlanNotification();
         return;
       }
 
       const [hour, minute] = notificationsMorningPlanTime.split(':').map(Number);
-      if (hour !== undefined && minute !== undefined) {
-        scheduleMorningPlanNotification({ hour, minute, workoutLabel: targetDay.label });
+      if (Number.isFinite(hour) && Number.isFinite(minute)) {
+        scheduleMorningPlanNotification({ hour, minute, workoutLabel: targetDay.label, targetDate });
       }
     };
 
@@ -125,7 +128,7 @@ export function useNotificationSetup() {
 
     if (notificationsReminderEnabled) {
       const [hour, minute] = notificationsReminderTime.split(':').map(Number);
-      if (hour !== undefined && minute !== undefined) {
+      if (Number.isFinite(hour) && Number.isFinite(minute)) {
         scheduleDailyWorkoutReminder(hour, minute);
       }
     }

@@ -78,7 +78,9 @@ export default function SettingsScreen() {
         onPress: () => {
           resetSubscription();
           clearAuthCache();
-          cancelAllNotifications();
+          void cancelAllNotifications().catch((err: unknown) =>
+            console.warn("[Notifications] cancelAllNotifications failed:", err)
+          );
           if (Platform.OS !== "web") {
             try {
               // eslint-disable-next-line @typescript-eslint/no-require-imports
