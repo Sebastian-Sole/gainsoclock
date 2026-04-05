@@ -22,6 +22,14 @@ export const upsert = mutation({
     defaultRestTime: v.number(),
     hapticsEnabled: v.boolean(),
     weekStartDay: v.optional(weekStartDayValidator),
+    prefillFromLastWorkout: v.optional(v.boolean()),
+    notificationsRestTimerEnabled: v.optional(v.boolean()),
+    notificationsPostWorkoutEnabled: v.optional(v.boolean()),
+    notificationsPostWorkoutDelay: v.optional(v.number()),
+    notificationsReminderEnabled: v.optional(v.boolean()),
+    notificationsReminderTime: v.optional(v.string()),
+    notificationsMorningPlanEnabled: v.optional(v.boolean()),
+    notificationsMorningPlanTime: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);

@@ -16,8 +16,18 @@ interface SettingsState {
   hapticsEnabled: boolean;
   healthKitEnabled: boolean;
   weekStartDay: WeekStartDay;
+  prefillFromLastWorkout: boolean;
   customRangeFrom: string | null; // ISO string
   customRangeTo: string | null;   // ISO string
+
+  // Notification settings
+  notificationsRestTimerEnabled: boolean;
+  notificationsPostWorkoutEnabled: boolean;
+  notificationsPostWorkoutDelay: number; // minutes
+  notificationsReminderEnabled: boolean;
+  notificationsReminderTime: string; // "HH:mm"
+  notificationsMorningPlanEnabled: boolean;
+  notificationsMorningPlanTime: string; // "HH:mm"
 
   setWeightUnit: (unit: WeightUnit) => void;
   setDistanceUnit: (unit: DistanceUnit) => void;
@@ -25,8 +35,16 @@ interface SettingsState {
   setHapticsEnabled: (enabled: boolean) => void;
   setHealthKitEnabled: (enabled: boolean) => void;
   setWeekStartDay: (day: WeekStartDay) => void;
+  setPrefillFromLastWorkout: (enabled: boolean) => void;
   setCustomRange: (from: Date, to: Date | null) => void;
-  hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string }) => void;
+  setNotificationsRestTimerEnabled: (enabled: boolean) => void;
+  setNotificationsPostWorkoutEnabled: (enabled: boolean) => void;
+  setNotificationsPostWorkoutDelay: (minutes: number) => void;
+  setNotificationsReminderEnabled: (enabled: boolean) => void;
+  setNotificationsReminderTime: (time: string) => void;
+  setNotificationsMorningPlanEnabled: (enabled: boolean) => void;
+  setNotificationsMorningPlanTime: (time: string) => void;
+  hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string; prefillFromLastWorkout?: boolean; notificationsRestTimerEnabled?: boolean; notificationsPostWorkoutEnabled?: boolean; notificationsPostWorkoutDelay?: number; notificationsReminderEnabled?: boolean; notificationsReminderTime?: string; notificationsMorningPlanEnabled?: boolean; notificationsMorningPlanTime?: string }) => void;
 }
 
 function syncSettings(state: SettingsState) {
@@ -36,6 +54,14 @@ function syncSettings(state: SettingsState) {
     defaultRestTime: state.defaultRestTime,
     hapticsEnabled: state.hapticsEnabled,
     weekStartDay: state.weekStartDay,
+    prefillFromLastWorkout: state.prefillFromLastWorkout,
+    notificationsRestTimerEnabled: state.notificationsRestTimerEnabled,
+    notificationsPostWorkoutEnabled: state.notificationsPostWorkoutEnabled,
+    notificationsPostWorkoutDelay: state.notificationsPostWorkoutDelay,
+    notificationsReminderEnabled: state.notificationsReminderEnabled,
+    notificationsReminderTime: state.notificationsReminderTime,
+    notificationsMorningPlanEnabled: state.notificationsMorningPlanEnabled,
+    notificationsMorningPlanTime: state.notificationsMorningPlanTime,
   });
 }
 
@@ -47,9 +73,17 @@ export const useSettingsStore = create<SettingsState>()(
       defaultRestTime: 90,
       hapticsEnabled: true,
       healthKitEnabled: false,
+      prefillFromLastWorkout: true,
       weekStartDay: 'monday' as WeekStartDay,
       customRangeFrom: null,
       customRangeTo: null,
+      notificationsRestTimerEnabled: true,
+      notificationsPostWorkoutEnabled: true,
+      notificationsPostWorkoutDelay: 30,
+      notificationsReminderEnabled: true,
+      notificationsReminderTime: '18:00',
+      notificationsMorningPlanEnabled: true,
+      notificationsMorningPlanTime: '07:00',
 
       setWeightUnit: (unit) => {
         set({ weightUnit: unit });
@@ -76,8 +110,48 @@ export const useSettingsStore = create<SettingsState>()(
         // Not synced to Convex — Apple Health is a per-device setting
       },
 
+      setPrefillFromLastWorkout: (enabled) => {
+        set({ prefillFromLastWorkout: enabled });
+        syncSettings(get());
+      },
+
       setWeekStartDay: (day) => {
         set({ weekStartDay: day });
+        syncSettings(get());
+      },
+
+      setNotificationsRestTimerEnabled: (enabled) => {
+        set({ notificationsRestTimerEnabled: enabled });
+        syncSettings(get());
+      },
+
+      setNotificationsPostWorkoutEnabled: (enabled) => {
+        set({ notificationsPostWorkoutEnabled: enabled });
+        syncSettings(get());
+      },
+
+      setNotificationsPostWorkoutDelay: (minutes) => {
+        set({ notificationsPostWorkoutDelay: minutes });
+        syncSettings(get());
+      },
+
+      setNotificationsReminderEnabled: (enabled) => {
+        set({ notificationsReminderEnabled: enabled });
+        syncSettings(get());
+      },
+
+      setNotificationsReminderTime: (time) => {
+        set({ notificationsReminderTime: time });
+        syncSettings(get());
+      },
+
+      setNotificationsMorningPlanEnabled: (enabled) => {
+        set({ notificationsMorningPlanEnabled: enabled });
+        syncSettings(get());
+      },
+
+      setNotificationsMorningPlanTime: (time) => {
+        set({ notificationsMorningPlanTime: time });
         syncSettings(get());
       },
 
@@ -96,6 +170,14 @@ export const useSettingsStore = create<SettingsState>()(
           defaultRestTime: serverSettings.defaultRestTime,
           hapticsEnabled: serverSettings.hapticsEnabled,
           weekStartDay: (serverSettings.weekStartDay as WeekStartDay) ?? 'monday',
+          prefillFromLastWorkout: serverSettings.prefillFromLastWorkout ?? true,
+          notificationsRestTimerEnabled: serverSettings.notificationsRestTimerEnabled ?? true,
+          notificationsPostWorkoutEnabled: serverSettings.notificationsPostWorkoutEnabled ?? true,
+          notificationsPostWorkoutDelay: serverSettings.notificationsPostWorkoutDelay ?? 30,
+          notificationsReminderEnabled: serverSettings.notificationsReminderEnabled ?? true,
+          notificationsReminderTime: serverSettings.notificationsReminderTime ?? '18:00',
+          notificationsMorningPlanEnabled: serverSettings.notificationsMorningPlanEnabled ?? true,
+          notificationsMorningPlanTime: serverSettings.notificationsMorningPlanTime ?? '07:00',
         });
       },
     }),

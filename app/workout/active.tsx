@@ -20,6 +20,7 @@ import { saveWorkoutToHealthKit } from '@/lib/healthkit';
 import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
 import type { Exercise, WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
+import { schedulePostWorkoutNotification, rescheduleReminderAfterWorkout } from '@/lib/notifications';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useTemplateStore } from '@/stores/template-store';
 
@@ -180,6 +181,18 @@ export default function ActiveWorkoutScreen() {
             addLog(log);
             saveWorkoutToHealthKit(log);
 
+            // Schedule post-workout summary notification
+            schedulePostWorkoutNotification({
+              templateName: log.templateName,
+              exerciseCount: log.exercises.length,
+              completedSets,
+              durationSeconds: log.durationSeconds,
+              delayMinutes: useSettingsStore.getState().notificationsPostWorkoutDelay,
+            });
+
+            // Cancel today's workout reminder (workout done)
+            rescheduleReminderAfterWorkout();
+
             // Update plan day status if workout was started from a plan
             if (workout.planDayId) {
               const parts = workout.planDayId.split(':');
@@ -219,7 +232,7 @@ export default function ActiveWorkoutScreen() {
       <View className={`h-16 flex-row items-center justify-between border-b px-4 ${isRestActive ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
         {isRestActive ? (
           <>
-            <View className="flex-1 flex-row items-center gap-3">
+            <View key="rest-header" className="flex-1 flex-row items-center gap-3">
               <Text className="text-2xl font-bold tabular-nums text-primary">{formatTime(restRemaining)}</Text>
               <Text className="text-sm text-muted-foreground">rest</Text>
             </View>
@@ -229,7 +242,7 @@ export default function ActiveWorkoutScreen() {
           </>
         ) : (
           <>
-            <View className="flex-1">
+            <View key="workout-header" className="flex-1">
               <Text className="text-lg font-bold" numberOfLines={1}>{activeWorkout.templateName}</Text>
               <Text className="text-sm text-primary font-medium">{formatDuration(elapsed)}</Text>
             </View>

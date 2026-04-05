@@ -1,12 +1,12 @@
 import { create } from 'zustand';
-import type { ActiveWorkout, Exercise, TemplateExercise, WorkoutSet } from '@/lib/types';
+import type { ActiveWorkout, Exercise, TemplateExercise, WorkoutLog, WorkoutSet } from '@/lib/types';
 import { generateId } from '@/lib/id';
 import { createDefaultSets } from '@/lib/defaults';
 
 interface WorkoutState {
   activeWorkout: ActiveWorkout | null;
 
-  startWorkout: (templateName: string, exercises: TemplateExercise[], templateId?: string, planDayId?: string) => void;
+  startWorkout: (templateName: string, exercises: TemplateExercise[], templateId?: string, planDayId?: string, previousLog?: WorkoutLog) => void;
   startEmptyWorkout: () => void;
   endWorkout: () => ActiveWorkout | null;
   discardWorkout: () => void;
@@ -31,20 +31,47 @@ interface WorkoutState {
 export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
   activeWorkout: null,
 
-  startWorkout: (templateName, templateExercises, templateId, planDayId) => {
-    const exercises: Exercise[] = templateExercises.map((te) => ({
-      id: generateId(),
-      exerciseId: te.exerciseId,
-      name: te.name,
-      type: te.type,
-      sets: createDefaultSets(te.type, te.defaultSetsCount, {
-        suggestedReps: te.suggestedReps,
-        suggestedWeight: te.suggestedWeight,
-        suggestedTime: te.suggestedTime,
-        suggestedDistance: te.suggestedDistance,
-      }),
-      restTimeSeconds: te.restTimeSeconds,
-    }));
+  startWorkout: (templateName, templateExercises, templateId, planDayId, previousLog) => {
+    // Build a lookup of previous exercises by exerciseId for prefilling
+    const prevByExerciseId = new Map(
+      previousLog?.exercises.map((e) => [e.exerciseId, e]) ?? []
+    );
+
+    const exercises: Exercise[] = templateExercises.map((te) => {
+      const prevExercise = prevByExerciseId.get(te.exerciseId);
+
+      // If we have previous data, clone its sets (with new IDs, uncompleted)
+      if (prevExercise && prevExercise.sets.length > 0) {
+        const sets: WorkoutSet[] = prevExercise.sets.map((s) => ({
+          ...s,
+          id: generateId(),
+          completed: false,
+        }));
+        return {
+          id: generateId(),
+          exerciseId: te.exerciseId,
+          name: te.name,
+          type: te.type,
+          sets,
+          restTimeSeconds: te.restTimeSeconds,
+        };
+      }
+
+      // Fallback to template defaults
+      return {
+        id: generateId(),
+        exerciseId: te.exerciseId,
+        name: te.name,
+        type: te.type,
+        sets: createDefaultSets(te.type, te.defaultSetsCount, {
+          suggestedReps: te.suggestedReps,
+          suggestedWeight: te.suggestedWeight,
+          suggestedTime: te.suggestedTime,
+          suggestedDistance: te.suggestedDistance,
+        }),
+        restTimeSeconds: te.restTimeSeconds,
+      };
+    });
 
     const workout: ActiveWorkout = {
       id: generateId(),
@@ -187,6 +214,7 @@ export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
           ...state.activeWorkout,
           isRestTimerActive: true,
           restTimeRemaining: seconds,
+          restTimerEndsAt: Date.now() + seconds * 1000,
         },
       };
     }),
@@ -194,13 +222,16 @@ export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
   tickRestTimer: () =>
     set((state) => {
       if (!state.activeWorkout || !state.activeWorkout.isRestTimerActive) return state;
-      const remaining = state.activeWorkout.restTimeRemaining - 1;
+      // Calculate remaining from real clock so it survives backgrounding
+      const endsAt = state.activeWorkout.restTimerEndsAt ?? 0;
+      const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
       if (remaining <= 0) {
         return {
           activeWorkout: {
             ...state.activeWorkout,
             isRestTimerActive: false,
             restTimeRemaining: 0,
+            restTimerEndsAt: undefined,
           },
         };
       }
@@ -220,6 +251,7 @@ export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
           ...state.activeWorkout,
           isRestTimerActive: false,
           restTimeRemaining: 0,
+          restTimerEndsAt: undefined,
         },
       };
     }),

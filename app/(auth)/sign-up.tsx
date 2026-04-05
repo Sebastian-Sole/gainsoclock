@@ -167,7 +167,7 @@ export default function SignUpScreen() {
             <Text className="text-muted-foreground">
               Already have an account?
             </Text>
-            <Pressable onPress={() => router.back()}>
+            <Pressable onPress={() => router.push("/(auth)/sign-in" as never)}>
               <Text className="font-semibold text-primary">Sign In</Text>
             </Pressable>
           </View>

@@ -25,6 +25,7 @@ interface HistoryState {
   addLog: (log: WorkoutLog) => void;
   updateLog: (id: string, updates: Partial<Omit<WorkoutLog, 'id'>>) => void;
   deleteLog: (id: string) => void;
+  getLastLogForTemplate: (templateId: string) => WorkoutLog | undefined;
   getLogsForDate: (date: Date) => WorkoutLog[];
   getDatesWithWorkouts: (year: number, month: number) => Set<string>;
   hydrateFromServer: (serverLogs: Array<{
@@ -114,6 +115,11 @@ export const useHistoryStore = create<HistoryState>()(
         }));
 
         syncToConvex(api.workoutLogs.remove, { clientId: id });
+      },
+
+      getLastLogForTemplate: (templateId) => {
+        // Logs are sorted most-recent first
+        return get().logs.find((log) => log.templateId === templateId);
       },
 
       getLogsForDate: (date) => {

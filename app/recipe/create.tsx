@@ -210,6 +210,8 @@ export default function CreateRecipeScreen() {
           className="flex-1 px-4 pt-4"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          keyboardDismissMode="interactive"
+          contentContainerStyle={{ paddingBottom: 120 }}
         >
           {/* Title */}
           <Text className="mb-2 text-sm font-medium text-muted-foreground">TITLE</Text>
@@ -509,8 +511,6 @@ export default function CreateRecipeScreen() {
             className="mb-8 rounded-xl border border-input bg-card px-4 py-3 text-foreground"
           />
 
-          {/* Bottom padding */}
-          <View className="h-8" />
         </ScrollView>
       </KeyboardAvoidingView>
     </>
