@@ -214,6 +214,7 @@ export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
           ...state.activeWorkout,
           isRestTimerActive: true,
           restTimeRemaining: seconds,
+          restTimerEndsAt: Date.now() + seconds * 1000,
         },
       };
     }),
@@ -221,13 +222,16 @@ export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
   tickRestTimer: () =>
     set((state) => {
       if (!state.activeWorkout || !state.activeWorkout.isRestTimerActive) return state;
-      const remaining = state.activeWorkout.restTimeRemaining - 1;
+      // Calculate remaining from real clock so it survives backgrounding
+      const endsAt = state.activeWorkout.restTimerEndsAt ?? 0;
+      const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
       if (remaining <= 0) {
         return {
           activeWorkout: {
             ...state.activeWorkout,
             isRestTimerActive: false,
             restTimeRemaining: 0,
+            restTimerEndsAt: undefined,
           },
         };
       }
@@ -247,6 +251,7 @@ export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
           ...state.activeWorkout,
           isRestTimerActive: false,
           restTimeRemaining: 0,
+          restTimerEndsAt: undefined,
         },
       };
     }),

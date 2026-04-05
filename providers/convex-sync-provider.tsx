@@ -10,10 +10,12 @@ import { useRecipeStore } from "@/stores/recipe-store";
 import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useSubscriptionStore } from "@/stores/subscription-store";
 import { usePlanStore } from "@/stores/plan-store";
-import { setConvexClient } from "@/lib/convex-sync";
+import { setConvexClient, syncToConvex } from "@/lib/convex-sync";
+import type { ExerciseType } from "@/lib/types";
 import { useDataMigration } from "@/hooks/use-data-migration";
 import { configurePurchases } from "@/hooks/use-purchases";
 import { useNetwork } from "@/hooks/use-network";
+import { useNotificationSetup } from "@/hooks/use-notification-setup";
 
 // Lazy-load Purchases to avoid crash when native module isn't linked
 let Purchases: any = null;
@@ -63,6 +65,9 @@ function SyncEngine() {
   // Run one-time migration of local data to Convex
   useDataMigration();
 
+  // Set up notification scheduling (recurring reminders, morning plan alerts)
+  useNotificationSetup();
+
   // Initialize RevenueCat SDK
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -77,10 +82,60 @@ function SyncEngine() {
       .catch((err: unknown) => console.warn("[Purchases] logIn failed:", err));
   }, [registerCurrentUser, userId, isOffline]);
 
-  // Hydrate exercise library from server
+  // Hydrate exercise library from server, supplementing with exercises found in templates/logs
   useEffect(() => {
     if (exercises === undefined) return;
-    useExerciseLibraryStore.getState().hydrateFromServer(exercises);
+
+    const knownIds = new Set(exercises.map((e) => e.clientId));
+    const extras: Array<{ clientId: string; name: string; type: ExerciseType; createdAt: string }> = [];
+
+    // Extract exercises embedded in local templates that may not exist in the exercises table
+    const localTemplates = useTemplateStore.getState().templates;
+    for (const t of localTemplates) {
+      for (const e of t.exercises) {
+        if (!knownIds.has(e.exerciseId)) {
+          knownIds.add(e.exerciseId);
+          extras.push({
+            clientId: e.exerciseId,
+            name: e.name,
+            type: e.type,
+            createdAt: t.createdAt,
+          });
+        }
+      }
+    }
+
+    // Extract exercises embedded in local workout logs
+    const localLogs = useHistoryStore.getState().logs;
+    for (const log of localLogs) {
+      if (!log.exercises) continue;
+      for (const e of log.exercises) {
+        if (!knownIds.has(e.exerciseId)) {
+          knownIds.add(e.exerciseId);
+          extras.push({
+            clientId: e.exerciseId,
+            name: e.name,
+            type: e.type,
+            createdAt: log.completedAt,
+          });
+        }
+      }
+    }
+
+    const allExercises = [...exercises, ...extras];
+    useExerciseLibraryStore.getState().hydrateFromServer(allExercises);
+
+    // Backfill any missing exercises to Convex so they persist
+    if (extras.length > 0) {
+      syncToConvex(api.exercises.bulkUpsert, {
+        exercises: extras.map((e) => ({
+          clientId: e.clientId,
+          name: e.name,
+          type: e.type,
+          createdAt: e.createdAt,
+        })),
+      });
+    }
   }, [exercises]);
 
   // Hydrate template store from server

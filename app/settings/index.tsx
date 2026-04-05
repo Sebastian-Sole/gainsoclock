@@ -7,6 +7,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction } from "convex/react";
 import { useRouter } from "expo-router";
 import {
+  Bell,
   ChevronLeft,
   ChevronRight,
   Crown,
@@ -41,6 +42,7 @@ import { usePurchases } from "@/hooks/use-purchases";
 import { REST_TIME_PRESETS } from "@/lib/constants";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { cancelAllNotifications } from "@/lib/notifications";
 import { useExerciseLibraryStore } from "@/stores/exercise-library-store";
 import { useHistoryStore } from "@/stores/history-store";
 import { useRecipeStore } from "@/stores/recipe-store";
@@ -76,6 +78,7 @@ export default function SettingsScreen() {
         onPress: () => {
           resetSubscription();
           clearAuthCache();
+          cancelAllNotifications();
           if (Platform.OS !== "web") {
             try {
               // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -138,6 +141,7 @@ export default function SettingsScreen() {
       useMealLogStore.setState({ todayMeals: [] });
       useNutritionGoalsStore.persist.clearStorage();
       useNutritionGoalsStore.setState({ goals: { calories: 2000, protein: 150, carbs: 250, fat: 65 } });
+      await cancelAllNotifications();
 
       setResetState("success");
     } catch {
@@ -355,6 +359,26 @@ export default function SettingsScreen() {
               onCheckedChange={setPrefillFromLastWorkout}
             />
           </View>
+        </View>
+
+        {/* Notifications */}
+        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+          NOTIFICATIONS
+        </Text>
+        <View className="rounded-xl bg-card">
+          <Pressable
+            onPress={() => router.push("/settings/notifications")}
+            className="flex-row items-center gap-3 px-4 py-4"
+          >
+            <Icon as={Bell} size={20} className="text-primary" />
+            <View className="flex-1">
+              <Text className="font-medium">Notifications</Text>
+              <Text className="text-sm text-muted-foreground">
+                Reminders, alerts & summaries
+              </Text>
+            </View>
+            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
+          </Pressable>
         </View>
 
         {/* Apple Health Section - iOS only */}
