@@ -240,6 +240,7 @@ export default function EditLogScreen() {
         className="flex-1 bg-background"
         contentContainerClassName="px-4 pb-32"
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
       >
         {/* Workout Name */}
         <Text className="mb-2 mt-4 text-sm font-medium text-muted-foreground">

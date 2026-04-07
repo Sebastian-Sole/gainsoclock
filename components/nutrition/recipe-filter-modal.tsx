@@ -125,7 +125,7 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
           </Pressable>
         </View>
 
-        <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
+        <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* Saved / Favorited */}
           <Text className="mb-2 mt-4 text-sm font-medium text-muted-foreground">PINNED</Text>
           <ToggleChip

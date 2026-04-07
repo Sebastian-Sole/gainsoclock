@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { zustandStorage } from '@/lib/storage';
 import type { ActiveWorkout, Exercise, TemplateExercise, WorkoutLog, WorkoutSet } from '@/lib/types';
 import { generateId } from '@/lib/id';
 import { createDefaultSets } from '@/lib/defaults';
@@ -30,7 +32,9 @@ interface WorkoutState {
   stopRestTimer: () => void;
 }
 
-export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
+export const useWorkoutStore = create<WorkoutState>()(
+  persist(
+  (set, get) => ({
   activeWorkout: null,
 
   startWorkout: (templateName, templateExercises, templateId, planDayId, previousLog) => {
@@ -295,4 +299,11 @@ export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
         },
       };
     }),
-}));
+}),
+    {
+      name: 'workout-storage',
+      storage: zustandStorage,
+      partialize: (state) => ({ activeWorkout: state.activeWorkout }),
+    }
+  )
+);
