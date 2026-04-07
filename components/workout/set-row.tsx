@@ -46,6 +46,7 @@ export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggl
               onValueChange={(weight) => onUpdate({ weight } as Partial<WorkoutSet>)}
               placeholder="0"
               className="flex-1"
+              allowDecimals
             />
             <SetInput
               value={set.reps}
@@ -92,6 +93,7 @@ export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggl
               onValueChange={(distance) => onUpdate({ distance } as Partial<WorkoutSet>)}
               placeholder="0"
               className="flex-1"
+              allowDecimals
             />
           </>
         );

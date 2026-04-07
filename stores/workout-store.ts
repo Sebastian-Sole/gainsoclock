@@ -20,6 +20,8 @@ interface WorkoutState {
   addSet: (exerciseId: string, set: WorkoutSet) => void;
   removeSet: (exerciseId: string, setId: string) => void;
   updateSet: (exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => void;
+  updateAllSets: (exerciseId: string, updates: Partial<WorkoutSet>) => void;
+  updateSetsFromIndex: (exerciseId: string, fromIndex: number, updates: Partial<WorkoutSet>) => void;
   toggleSetComplete: (exerciseId: string, setId: string) => void;
 
   // Rest timer
@@ -178,6 +180,44 @@ export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
                   ...e,
                   sets: e.sets.map((s) =>
                     s.id === setId ? ({ ...s, ...updates } as WorkoutSet) : s
+                  ),
+                }
+              : e
+          ),
+        },
+      };
+    }),
+
+  updateAllSets: (exerciseId, updates) =>
+    set((state) => {
+      if (!state.activeWorkout) return state;
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          exercises: state.activeWorkout.exercises.map((e) =>
+            e.id === exerciseId
+              ? {
+                  ...e,
+                  sets: e.sets.map((s) => ({ ...s, ...updates } as WorkoutSet)),
+                }
+              : e
+          ),
+        },
+      };
+    }),
+
+  updateSetsFromIndex: (exerciseId, fromIndex, updates) =>
+    set((state) => {
+      if (!state.activeWorkout) return state;
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          exercises: state.activeWorkout.exercises.map((e) =>
+            e.id === exerciseId
+              ? {
+                  ...e,
+                  sets: e.sets.map((s, i) =>
+                    i >= fromIndex ? ({ ...s, ...updates } as WorkoutSet) : s
                   ),
                 }
               : e

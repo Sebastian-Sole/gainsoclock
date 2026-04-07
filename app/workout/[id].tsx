@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { Icon } from '@/components/ui/icon';
+import Animated, { FadeInDown, FadeOutDown, Layout } from 'react-native-reanimated';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 
@@ -17,7 +18,7 @@ import { useSettingsStore } from '@/stores/settings-store';
 import { createDefaultSet, createEmptyLog, createLogFromTemplate } from '@/lib/defaults';
 import { lightHaptic, mediumHaptic, successHaptic } from '@/lib/haptics';
 import { useTemplateStore } from '@/stores/template-store';
-import type { WorkoutLogExercise } from '@/lib/types';
+import type { WorkoutLogExercise, WorkoutSet } from '@/lib/types';
 
 export default function EditLogScreen() {
   const { id, date, templateId } = useLocalSearchParams<{ id: string; date?: string; templateId?: string }>();
@@ -46,7 +47,17 @@ export default function EditLogScreen() {
   const addSet = useEditLogStore((s) => s.addSet);
   const removeSet = useEditLogStore((s) => s.removeSet);
   const updateSet = useEditLogStore((s) => s.updateSet);
+  const updateSetsFromIndex = useEditLogStore((s) => s.updateSetsFromIndex);
   const toggleSetComplete = useEditLogStore((s) => s.toggleSetComplete);
+
+  // "Apply to all below" prompt — shown when user edits any set
+  const [applyAllPrompt, setApplyAllPrompt] = useState<{
+    exerciseId: string;
+    setIndex: number;
+    field: string;
+    value: number;
+    label: string;
+  } | null>(null);
 
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showCompletedPicker, setShowCompletedPicker] = useState(false);
@@ -404,21 +415,60 @@ export default function EditLogScreen() {
             </View>
 
             {/* Set rows */}
-            <View className="gap-1">
+            <Animated.View className="gap-1">
               {exercise.sets.map((set, setIndex) => (
-                <SetRow
-                  key={set.id}
-                  set={set}
-                  index={setIndex}
-                  onUpdate={(updates) => updateSet(exercise.id, set.id, updates)}
-                  onToggleComplete={() => {
-                    toggleSetComplete(exercise.id, set.id);
-                    lightHaptic();
-                  }}
-                  onRemove={() => removeSet(exercise.id, set.id)}
-                />
+                <Animated.View key={set.id} layout={Layout.duration(200)}>
+                  <SetRow
+                    set={set}
+                    index={setIndex}
+                    onUpdate={(updates) => {
+                      updateSet(exercise.id, set.id, updates);
+                      // Show "Apply to all below" when editing a set that has sets after it
+                      if (setIndex >= exercise.sets.length - 1) return;
+                      if ('weight' in updates && updates.weight !== undefined) {
+                        setApplyAllPrompt({ exerciseId: exercise.id, setIndex, field: 'weight', value: updates.weight, label: `${updates.weight} ${weightUnit}` });
+                      } else if ('reps' in updates && updates.reps !== undefined) {
+                        setApplyAllPrompt({ exerciseId: exercise.id, setIndex, field: 'reps', value: updates.reps, label: `${updates.reps} reps` });
+                      } else if ('distance' in updates && updates.distance !== undefined) {
+                        setApplyAllPrompt({ exerciseId: exercise.id, setIndex, field: 'distance', value: updates.distance, label: `${updates.distance} ${distanceUnit}` });
+                      }
+                    }}
+                    onToggleComplete={() => {
+                      toggleSetComplete(exercise.id, set.id);
+                      lightHaptic();
+                    }}
+                    onRemove={() => removeSet(exercise.id, set.id)}
+                  />
+                  {applyAllPrompt?.exerciseId === exercise.id && applyAllPrompt.setIndex === setIndex && (
+                    <Animated.View
+                      entering={FadeInDown.duration(200)}
+                      exiting={FadeOutDown.duration(150)}
+                      layout={Layout.duration(200)}
+                      className="mx-3 my-1 flex-row items-center rounded-lg border border-primary bg-primary/10"
+                    >
+                      <Pressable
+                        onPress={() => {
+                          updateSetsFromIndex(exercise.id, applyAllPrompt.setIndex, { [applyAllPrompt.field]: applyAllPrompt.value } as Partial<WorkoutSet>);
+                          setApplyAllPrompt(null);
+                        }}
+                        className="flex-1 items-center py-2"
+                      >
+                        <Text className="text-sm font-semibold text-primary">
+                          Apply {applyAllPrompt.label} to all sets below
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setApplyAllPrompt(null)}
+                        className="aspect-square items-center justify-center self-stretch"
+                        style={{ minWidth: 40 }}
+                      >
+                        <Icon as={X} size={14} className="text-primary" />
+                      </Pressable>
+                    </Animated.View>
+                  )}
+                </Animated.View>
               ))}
-            </View>
+            </Animated.View>
           </View>
         ))}
 
@@ -431,6 +481,7 @@ export default function EditLogScreen() {
           <Text className="font-medium text-primary">Add Exercise</Text>
         </Pressable>
       </ScrollView>
+
     </>
   );
 }

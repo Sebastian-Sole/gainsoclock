@@ -35,12 +35,15 @@ export default function CreateExerciseScreen() {
   const allExercises = useExerciseLibraryStore((s) => s.exercises);
   const getOrCreate = useExerciseLibraryStore((s) => s.getOrCreate);
   const userDefaultRestTime = useSettingsStore((s) => s.defaultRestTime);
+  const userDefaultSetsCount = useSettingsStore((s) => s.defaultSetsCount);
+  const userDefaultRepsCount = useSettingsStore((s) => s.defaultRepsCount);
 
   // -1 = picker, 0-3 = wizard steps
   const [step, setStep] = useState(-1);
   const [exerciseType, setExerciseType] = useState<ExerciseType | undefined>();
   const [name, setName] = useState('');
-  const [setsCount, setSetsCount] = useState(3);
+  const [setsCount, setSetsCount] = useState(userDefaultSetsCount);
+  const [repsCount, setRepsCount] = useState(userDefaultRepsCount);
   const [restTime, setRestTime] = useState(userDefaultRestTime);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseDefinition | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,13 +127,16 @@ export default function CreateExerciseScreen() {
     // Ensure exercise exists in the library
     const exerciseDef = getOrCreate(trimmedName, exerciseType);
 
+    const hasReps = exerciseType === 'reps_weight' || exerciseType === 'reps_time' || exerciseType === 'reps_only';
+    const suggested = hasReps ? { suggestedReps: repsCount } : undefined;
+
     if (isActiveWorkout || source === 'edit-log') {
       const exercise: Exercise = {
         id: generateId(),
         exerciseId: exerciseDef.id,
         name: trimmedName,
         type: exerciseType,
-        sets: createDefaultSets(exerciseType, setsCount),
+        sets: createDefaultSets(exerciseType, setsCount, suggested),
         restTimeSeconds: restTime,
       };
       if (isActiveWorkout) {
@@ -147,6 +153,7 @@ export default function CreateExerciseScreen() {
         order: useTemplateCreateStore.getState().exercises.length,
         restTimeSeconds: restTime,
         defaultSetsCount: setsCount,
+        ...(hasReps ? { suggestedReps: repsCount } : {}),
       };
       addTemplateExercise(templateExercise);
     }
@@ -255,16 +262,29 @@ export default function CreateExerciseScreen() {
             />
           </Animated.View>
         );
-      case 2:
+      case 2: {
+        const hasReps = exerciseType === 'reps_weight' || exerciseType === 'reps_time' || exerciseType === 'reps_only';
         return (
           <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-2" className="flex-1">
-            <Text className="mb-2 text-2xl font-bold">Number of Sets</Text>
-            <Text className="mb-6 text-muted-foreground">How many sets for this exercise?</Text>
-            <View className="items-center">
-              <NumericInput value={setsCount} onValueChange={setSetsCount} min={1} max={20} />
+            <Text className="mb-2 text-2xl font-bold">Sets{hasReps ? ' & Reps' : ''}</Text>
+            <Text className="mb-6 text-muted-foreground">
+              {hasReps ? 'Configure sets and default reps' : 'How many sets for this exercise?'}
+            </Text>
+            <View className="gap-6">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-base font-medium">Sets</Text>
+                <NumericInput value={setsCount} onValueChange={setSetsCount} min={1} max={20} />
+              </View>
+              {hasReps && (
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-base font-medium">Reps</Text>
+                  <NumericInput value={repsCount} onValueChange={setRepsCount} min={1} max={100} />
+                </View>
+              )}
             </View>
           </Animated.View>
         );
+      }
       case 3:
         return (
           <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-3" className="flex-1">
