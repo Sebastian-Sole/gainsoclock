@@ -126,6 +126,8 @@ export default defineSchema({
     hapticsEnabled: v.boolean(),
     weekStartDay: v.optional(weekStartDayValidator),
     prefillFromLastWorkout: v.optional(v.boolean()),
+    defaultSetsCount: v.optional(v.number()),
+    defaultRepsCount: v.optional(v.number()),
     notificationsRestTimerEnabled: v.optional(v.boolean()),
     notificationsPostWorkoutEnabled: v.optional(v.boolean()),
     notificationsPostWorkoutDelay: v.optional(v.number()),

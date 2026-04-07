@@ -17,6 +17,8 @@ interface SettingsState {
   healthKitEnabled: boolean;
   weekStartDay: WeekStartDay;
   prefillFromLastWorkout: boolean;
+  defaultSetsCount: number;
+  defaultRepsCount: number;
   customRangeFrom: string | null; // ISO string
   customRangeTo: string | null;   // ISO string
 
@@ -36,6 +38,8 @@ interface SettingsState {
   setHealthKitEnabled: (enabled: boolean) => void;
   setWeekStartDay: (day: WeekStartDay) => void;
   setPrefillFromLastWorkout: (enabled: boolean) => void;
+  setDefaultSetsCount: (count: number) => void;
+  setDefaultRepsCount: (count: number) => void;
   setCustomRange: (from: Date, to: Date | null) => void;
   setNotificationsRestTimerEnabled: (enabled: boolean) => void;
   setNotificationsPostWorkoutEnabled: (enabled: boolean) => void;
@@ -44,7 +48,7 @@ interface SettingsState {
   setNotificationsReminderTime: (time: string) => void;
   setNotificationsMorningPlanEnabled: (enabled: boolean) => void;
   setNotificationsMorningPlanTime: (time: string) => void;
-  hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string; prefillFromLastWorkout?: boolean; notificationsRestTimerEnabled?: boolean; notificationsPostWorkoutEnabled?: boolean; notificationsPostWorkoutDelay?: number; notificationsReminderEnabled?: boolean; notificationsReminderTime?: string; notificationsMorningPlanEnabled?: boolean; notificationsMorningPlanTime?: string }) => void;
+  hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string; prefillFromLastWorkout?: boolean; defaultSetsCount?: number; defaultRepsCount?: number; notificationsRestTimerEnabled?: boolean; notificationsPostWorkoutEnabled?: boolean; notificationsPostWorkoutDelay?: number; notificationsReminderEnabled?: boolean; notificationsReminderTime?: string; notificationsMorningPlanEnabled?: boolean; notificationsMorningPlanTime?: string }) => void;
 }
 
 function syncSettings(state: SettingsState) {
@@ -55,6 +59,8 @@ function syncSettings(state: SettingsState) {
     hapticsEnabled: state.hapticsEnabled,
     weekStartDay: state.weekStartDay,
     prefillFromLastWorkout: state.prefillFromLastWorkout,
+    defaultSetsCount: state.defaultSetsCount,
+    defaultRepsCount: state.defaultRepsCount,
     notificationsRestTimerEnabled: state.notificationsRestTimerEnabled,
     notificationsPostWorkoutEnabled: state.notificationsPostWorkoutEnabled,
     notificationsPostWorkoutDelay: state.notificationsPostWorkoutDelay,
@@ -74,6 +80,8 @@ export const useSettingsStore = create<SettingsState>()(
       hapticsEnabled: true,
       healthKitEnabled: false,
       prefillFromLastWorkout: true,
+      defaultSetsCount: 3,
+      defaultRepsCount: 10,
       weekStartDay: 'monday' as WeekStartDay,
       customRangeFrom: null,
       customRangeTo: null,
@@ -112,6 +120,16 @@ export const useSettingsStore = create<SettingsState>()(
 
       setPrefillFromLastWorkout: (enabled) => {
         set({ prefillFromLastWorkout: enabled });
+        syncSettings(get());
+      },
+
+      setDefaultSetsCount: (count) => {
+        set({ defaultSetsCount: count });
+        syncSettings(get());
+      },
+
+      setDefaultRepsCount: (count) => {
+        set({ defaultRepsCount: count });
         syncSettings(get());
       },
 
@@ -171,6 +189,8 @@ export const useSettingsStore = create<SettingsState>()(
           hapticsEnabled: serverSettings.hapticsEnabled,
           weekStartDay: (serverSettings.weekStartDay as WeekStartDay) ?? 'monday',
           prefillFromLastWorkout: serverSettings.prefillFromLastWorkout ?? true,
+          defaultSetsCount: serverSettings.defaultSetsCount ?? 3,
+          defaultRepsCount: serverSettings.defaultRepsCount ?? 10,
           notificationsRestTimerEnabled: serverSettings.notificationsRestTimerEnabled ?? true,
           notificationsPostWorkoutEnabled: serverSettings.notificationsPostWorkoutEnabled ?? true,
           notificationsPostWorkoutDelay: serverSettings.notificationsPostWorkoutDelay ?? 30,

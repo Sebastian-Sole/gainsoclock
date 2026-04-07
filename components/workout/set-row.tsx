@@ -46,6 +46,7 @@ export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggl
               onValueChange={(weight) => onUpdate({ weight } as Partial<WorkoutSet>)}
               placeholder="0"
               className="flex-1"
+              allowDecimals
             />
             <SetInput
               value={set.reps}
@@ -92,6 +93,7 @@ export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggl
               onValueChange={(distance) => onUpdate({ distance } as Partial<WorkoutSet>)}
               placeholder="0"
               className="flex-1"
+              allowDecimals
             />
           </>
         );
@@ -107,15 +109,30 @@ export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggl
     }
   };
 
+  const handleVariantToggle = () => {
+    if (!editable) return;
+    const next = set.variant === 'work' ? 'rest' : set.variant === 'rest' ? undefined : 'work';
+    onUpdate({ variant: next } as Partial<WorkoutSet>);
+  };
+
   return (
     <Animated.View
       style={animatedStyle}
       className={cn(
         'flex-row items-center gap-2 rounded-lg px-3 py-2',
-        set.completed && 'bg-primary/10'
+        set.completed && 'bg-primary/10',
+        set.variant === 'rest' && 'opacity-60'
       )}
     >
-      <Text className="w-8 text-center text-sm text-muted-foreground">{index + 1}</Text>
+      <Pressable onLongPress={handleVariantToggle} className="w-8 items-center" hitSlop={8}>
+        {set.variant ? (
+          <Text className={cn('text-xs font-bold', set.variant === 'work' ? 'text-green-500' : 'text-yellow-500')}>
+            {set.variant === 'work' ? 'W' : 'R'}
+          </Text>
+        ) : (
+          <Text className="text-sm text-muted-foreground">{index + 1}</Text>
+        )}
+      </Pressable>
       <View className="flex-1 flex-row items-center gap-2">
         {renderInputs()}
       </View>

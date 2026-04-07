@@ -162,6 +162,7 @@ export function RecipesTab() {
           data={filteredRecipes}
           keyExtractor={(item) => item.id}
           contentContainerClassName="px-4 pb-24 gap-3"
+          keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => (
             <SwipeableRecipeCard recipe={item}>
               <RecipeListCard recipe={item} />

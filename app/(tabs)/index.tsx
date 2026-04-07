@@ -6,7 +6,7 @@ import { getPlanDayDate, isToday } from '@/lib/plan-dates';
 import { usePlanStore } from '@/stores/plan-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useRouter } from 'expo-router';
-import { Calendar, Play } from 'lucide-react-native';
+import { Calendar, Play, ChevronRight } from 'lucide-react-native';
 
 import React, { useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, View } from 'react-native';
@@ -197,6 +197,25 @@ export default function WorkoutsScreen() {
         </View>
 
         <TabsContent value="templates" className="flex-1">
+          {/* Resume Active Workout */}
+          {activeWorkout && (
+            <Pressable
+              onPress={() => router.push('/workout/active')}
+              className="mx-4 mb-3 flex-row items-center justify-between rounded-xl border border-green-500/30 bg-green-500/10 p-4"
+            >
+              <View className="flex-1">
+                <Text className="text-sm font-semibold text-green-600 dark:text-green-400">Workout in Progress</Text>
+                <Text className="text-base font-bold" numberOfLines={1}>{activeWorkout.templateName}</Text>
+                <Text className="text-xs text-muted-foreground">
+                  {activeWorkout.exercises.length} exercise{activeWorkout.exercises.length !== 1 ? 's' : ''} ·{' '}
+                  {activeWorkout.exercises.reduce((t, e) => t + e.sets.filter((s) => s.completed).length, 0)}/
+                  {activeWorkout.exercises.reduce((t, e) => t + e.sets.length, 0)} sets done
+                </Text>
+              </View>
+              <Icon as={ChevronRight} size={20} className="text-green-600 dark:text-green-400" />
+            </Pressable>
+          )}
+
           {/* Today's Workout */}
           {todayPlanDay && (
             <Pressable

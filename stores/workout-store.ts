@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { zustandStorage } from '@/lib/storage';
 import type { ActiveWorkout, Exercise, TemplateExercise, WorkoutLog, WorkoutSet } from '@/lib/types';
 import { generateId } from '@/lib/id';
 import { createDefaultSets } from '@/lib/defaults';
@@ -20,6 +22,8 @@ interface WorkoutState {
   addSet: (exerciseId: string, set: WorkoutSet) => void;
   removeSet: (exerciseId: string, setId: string) => void;
   updateSet: (exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => void;
+  updateAllSets: (exerciseId: string, updates: Partial<WorkoutSet>) => void;
+  updateSetsFromIndex: (exerciseId: string, fromIndex: number, updates: Partial<WorkoutSet>) => void;
   toggleSetComplete: (exerciseId: string, setId: string) => void;
 
   // Rest timer
@@ -28,7 +32,9 @@ interface WorkoutState {
   stopRestTimer: () => void;
 }
 
-export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
+export const useWorkoutStore = create<WorkoutState>()(
+  persist(
+  (set, get) => ({
   activeWorkout: null,
 
   startWorkout: (templateName, templateExercises, templateId, planDayId, previousLog) => {
@@ -186,6 +192,44 @@ export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
       };
     }),
 
+  updateAllSets: (exerciseId, updates) =>
+    set((state) => {
+      if (!state.activeWorkout) return state;
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          exercises: state.activeWorkout.exercises.map((e) =>
+            e.id === exerciseId
+              ? {
+                  ...e,
+                  sets: e.sets.map((s) => ({ ...s, ...updates } as WorkoutSet)),
+                }
+              : e
+          ),
+        },
+      };
+    }),
+
+  updateSetsFromIndex: (exerciseId, fromIndex, updates) =>
+    set((state) => {
+      if (!state.activeWorkout) return state;
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          exercises: state.activeWorkout.exercises.map((e) =>
+            e.id === exerciseId
+              ? {
+                  ...e,
+                  sets: e.sets.map((s, i) =>
+                    i >= fromIndex ? ({ ...s, ...updates } as WorkoutSet) : s
+                  ),
+                }
+              : e
+          ),
+        },
+      };
+    }),
+
   toggleSetComplete: (exerciseId, setId) =>
     set((state) => {
       if (!state.activeWorkout) return state;
@@ -255,4 +299,11 @@ export const useWorkoutStore = create<WorkoutState>()((set, get) => ({
         },
       };
     }),
-}));
+}),
+    {
+      name: 'workout-storage',
+      storage: zustandStorage,
+      partialize: (state) => ({ activeWorkout: state.activeWorkout }),
+    }
+  )
+);

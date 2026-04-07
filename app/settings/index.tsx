@@ -39,6 +39,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useHealthKit } from "@/hooks/use-healthkit";
 import { usePurchases } from "@/hooks/use-purchases";
+import { NumericInput } from "@/components/shared/numeric-input";
 import { REST_TIME_PRESETS } from "@/lib/constants";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -165,6 +166,10 @@ export default function SettingsScreen() {
 
   const prefillFromLastWorkout = useSettingsStore((s) => s.prefillFromLastWorkout);
   const setPrefillFromLastWorkout = useSettingsStore((s) => s.setPrefillFromLastWorkout);
+  const defaultSetsCount = useSettingsStore((s) => s.defaultSetsCount);
+  const setDefaultSetsCount = useSettingsStore((s) => s.setDefaultSetsCount);
+  const defaultRepsCount = useSettingsStore((s) => s.defaultRepsCount);
+  const setDefaultRepsCount = useSettingsStore((s) => s.setDefaultRepsCount);
   const weightUnit = useSettingsStore((s) => s.weightUnit);
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
   const defaultRestTime = useSettingsStore((s) => s.defaultRestTime);
@@ -324,6 +329,32 @@ export default function SettingsScreen() {
                 </Text>
               </Pressable>
             ))}
+          </View>
+        </View>
+
+        {/* Exercise Defaults Section */}
+        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+          EXERCISE DEFAULTS
+        </Text>
+        <View className="rounded-xl bg-card">
+          <View className="flex-row items-center gap-3 px-4 py-4">
+            <View className="flex-1">
+              <Text className="font-medium">Default Sets</Text>
+              <Text className="text-sm text-muted-foreground">
+                Sets per exercise when adding
+              </Text>
+            </View>
+            <NumericInput value={defaultSetsCount} onValueChange={setDefaultSetsCount} min={1} max={20} />
+          </View>
+          <Separator />
+          <View className="flex-row items-center gap-3 px-4 py-4">
+            <View className="flex-1">
+              <Text className="font-medium">Default Reps</Text>
+              <Text className="text-sm text-muted-foreground">
+                Reps per set when adding
+              </Text>
+            </View>
+            <NumericInput value={defaultRepsCount} onValueChange={setDefaultRepsCount} min={1} max={100} />
           </View>
         </View>
 

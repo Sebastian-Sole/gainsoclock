@@ -10,6 +10,7 @@ export type ExerciseType =
 interface BaseSet {
   id: string;
   completed: boolean;
+  variant?: 'work' | 'rest';
 }
 
 export interface RepsWeightSet extends BaseSet {
