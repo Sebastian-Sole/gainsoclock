@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, FlatList } from 'react-native';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, FlatList, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, ChevronLeft, Search } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
@@ -28,21 +28,38 @@ const TOTAL_STEPS = 4;
 
 export default function CreateExerciseScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { source } = useLocalSearchParams<{ source?: string }>();
   const isActiveWorkout = source === 'active';
   const addTemplateExercise = useTemplateCreateStore((s) => s.addExercise);
   const allExercises = useExerciseLibraryStore((s) => s.exercises);
   const getOrCreate = useExerciseLibraryStore((s) => s.getOrCreate);
   const userDefaultRestTime = useSettingsStore((s) => s.defaultRestTime);
+  const userDefaultSetsCount = useSettingsStore((s) => s.defaultSetsCount);
+  const userDefaultRepsCount = useSettingsStore((s) => s.defaultRepsCount);
 
   // -1 = picker, 0-3 = wizard steps
-  const [step, setStep] = useState(allExercises.length > 0 ? -1 : 0);
+  const [step, setStep] = useState(-1);
   const [exerciseType, setExerciseType] = useState<ExerciseType | undefined>();
   const [name, setName] = useState('');
-  const [setsCount, setSetsCount] = useState(3);
+  const [setsCount, setSetsCount] = useState(userDefaultSetsCount);
+  const [repsCount, setRepsCount] = useState(userDefaultRepsCount);
   const [restTime, setRestTime] = useState(userDefaultRestTime);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseDefinition | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   const filteredExercises = useMemo(() => {
     if (!searchQuery) return allExercises;
@@ -91,11 +108,7 @@ export default function CreateExerciseScreen() {
     if (step === -1) {
       router.back();
     } else if (step === 0) {
-      if (allExercises.length > 0) {
-        setStep(-1);
-      } else {
-        router.back();
-      }
+      setStep(-1);
     } else if (selectedExercise && step === 2) {
       // Came from picker, go back to picker
       setSelectedExercise(null);
@@ -114,13 +127,16 @@ export default function CreateExerciseScreen() {
     // Ensure exercise exists in the library
     const exerciseDef = getOrCreate(trimmedName, exerciseType);
 
+    const hasReps = exerciseType === 'reps_weight' || exerciseType === 'reps_time' || exerciseType === 'reps_only';
+    const suggested = hasReps ? { suggestedReps: repsCount } : undefined;
+
     if (isActiveWorkout || source === 'edit-log') {
       const exercise: Exercise = {
         id: generateId(),
         exerciseId: exerciseDef.id,
         name: trimmedName,
         type: exerciseType,
-        sets: createDefaultSets(exerciseType, setsCount),
+        sets: createDefaultSets(exerciseType, setsCount, suggested),
         restTimeSeconds: restTime,
       };
       if (isActiveWorkout) {
@@ -137,6 +153,7 @@ export default function CreateExerciseScreen() {
         order: useTemplateCreateStore.getState().exercises.length,
         restTimeSeconds: restTime,
         defaultSetsCount: setsCount,
+        ...(hasReps ? { suggestedReps: repsCount } : {}),
       };
       addTemplateExercise(templateExercise);
     }
@@ -245,16 +262,29 @@ export default function CreateExerciseScreen() {
             />
           </Animated.View>
         );
-      case 2:
+      case 2: {
+        const hasReps = exerciseType === 'reps_weight' || exerciseType === 'reps_time' || exerciseType === 'reps_only';
         return (
           <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-2" className="flex-1">
-            <Text className="mb-2 text-2xl font-bold">Number of Sets</Text>
-            <Text className="mb-6 text-muted-foreground">How many sets for this exercise?</Text>
-            <View className="items-center">
-              <NumericInput value={setsCount} onValueChange={setSetsCount} min={1} max={20} />
+            <Text className="mb-2 text-2xl font-bold">Sets{hasReps ? ' & Reps' : ''}</Text>
+            <Text className="mb-6 text-muted-foreground">
+              {hasReps ? 'Configure sets and default reps' : 'How many sets for this exercise?'}
+            </Text>
+            <View className="gap-6">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-base font-medium">Sets</Text>
+                <NumericInput value={setsCount} onValueChange={setSetsCount} min={1} max={20} />
+              </View>
+              {hasReps && (
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-base font-medium">Reps</Text>
+                  <NumericInput value={repsCount} onValueChange={setRepsCount} min={1} max={100} />
+                </View>
+              )}
             </View>
           </Animated.View>
         );
+      }
       case 3:
         return (
           <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-3" className="flex-1">
@@ -268,40 +298,38 @@ export default function CreateExerciseScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-4 py-3">
-          <Pressable onPress={handleBack} className="h-10 w-10 items-center justify-center">
-            <Icon as={ChevronLeft} size={24} className="text-foreground" />
-          </Pressable>
-          <StepIndicator totalSteps={TOTAL_STEPS} currentStep={step} />
-          <View className="w-10" />
-        </View>
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-4 py-3">
+        <Pressable onPress={handleBack} className="h-10 w-10 items-center justify-center">
+          <Icon as={ChevronLeft} size={24} className="text-foreground" />
+        </Pressable>
+        <StepIndicator totalSteps={TOTAL_STEPS} currentStep={step} />
+        <View className="w-10" />
+      </View>
 
-        {/* Content */}
-        <ScrollView className="flex-1 px-6 pt-4" keyboardShouldPersistTaps="handled">
-          {renderStep()}
-        </ScrollView>
+      {/* Content */}
+      <ScrollView className="flex-1 px-6 pt-4" keyboardShouldPersistTaps="handled">
+        {renderStep()}
+      </ScrollView>
 
-        {/* Footer */}
-        <View className="px-6 pb-4">
-          <Pressable
-            onPress={handleNext}
-            disabled={!canProceed()}
-            className={`items-center rounded-xl py-4 ${
-              canProceed() ? 'bg-primary' : 'bg-muted'
+      {/* Footer */}
+      <View style={{ paddingBottom: keyboardHeight > 0 ? keyboardHeight - insets.bottom + 16 : 16 }} className="px-6">
+        <Pressable
+          onPress={handleNext}
+          disabled={!canProceed()}
+          className={`items-center rounded-xl py-4 ${
+            canProceed() ? 'bg-primary' : 'bg-muted'
+          }`}
+        >
+          <Text
+            className={`text-base font-semibold ${
+              canProceed() ? 'text-primary-foreground' : 'text-muted-foreground'
             }`}
           >
-            <Text
-              className={`text-base font-semibold ${
-                canProceed() ? 'text-primary-foreground' : 'text-muted-foreground'
-              }`}
-            >
-              {step === TOTAL_STEPS - 1 ? 'Add Exercise' : 'Next'}
-            </Text>
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
+            {step === TOTAL_STEPS - 1 ? 'Add Exercise' : 'Next'}
+          </Text>
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }

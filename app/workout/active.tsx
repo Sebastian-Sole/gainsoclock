@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
+import Animated, { FadeInDown, FadeOutDown, Layout } from 'react-native-reanimated';
 
 import { SetRow } from '@/components/workout/set-row';
 import { useWorkoutStore } from '@/stores/workout-store';
@@ -20,6 +21,7 @@ import { saveWorkoutToHealthKit } from '@/lib/healthkit';
 import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
 import type { Exercise, WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
+import { schedulePostWorkoutNotification, rescheduleReminderAfterWorkout } from '@/lib/notifications';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useTemplateStore } from '@/stores/template-store';
 
@@ -65,6 +67,7 @@ export default function ActiveWorkoutScreen() {
 
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
   const updateSet = useWorkoutStore((s) => s.updateSet);
+  const updateSetsFromIndex = useWorkoutStore((s) => s.updateSetsFromIndex);
   const toggleSetComplete = useWorkoutStore((s) => s.toggleSetComplete);
   const addSet = useWorkoutStore((s) => s.addSet);
   const removeSet = useWorkoutStore((s) => s.removeSet);
@@ -83,6 +86,15 @@ export default function ActiveWorkoutScreen() {
 
   const elapsed = useWorkoutTimer(activeWorkout?.startedAt ?? null);
   const { isActive: isRestActive, remaining: restRemaining, stop: stopRest } = useRestTimer();
+
+  // "Apply to all below" prompt — shown when user edits any set
+  const [applyAllPrompt, setApplyAllPrompt] = React.useState<{
+    exerciseId: string;
+    setIndex: number;
+    field: string;
+    value: number;
+    label: string;
+  } | null>(null);
 
   const handleToggleSet = useCallback((exerciseId: string, setId: string, exercise: Exercise) => {
     Keyboard.dismiss();
@@ -122,7 +134,21 @@ export default function ActiveWorkoutScreen() {
 
   const handleUpdateSet = useCallback((exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => {
     updateSet(exerciseId, setId, updates);
-  }, [updateSet]);
+
+    // Show "Apply to all below" when editing a set that has sets after it
+    const exercise = activeWorkout?.exercises.find((e) => e.id === exerciseId);
+    if (!exercise) return;
+    const setIndex = exercise.sets.findIndex((s) => s.id === setId);
+    if (setIndex === -1 || setIndex >= exercise.sets.length - 1) return; // no sets below
+
+    if ('weight' in updates && updates.weight !== undefined) {
+      setApplyAllPrompt({ exerciseId, setIndex, field: 'weight', value: updates.weight, label: `${updates.weight} ${weightUnit}` });
+    } else if ('reps' in updates && updates.reps !== undefined) {
+      setApplyAllPrompt({ exerciseId, setIndex, field: 'reps', value: updates.reps, label: `${updates.reps} reps` });
+    } else if ('distance' in updates && updates.distance !== undefined) {
+      setApplyAllPrompt({ exerciseId, setIndex, field: 'distance', value: updates.distance, label: `${updates.distance} ${distanceUnit}` });
+    }
+  }, [updateSet, activeWorkout, weightUnit, distanceUnit]);
 
   const handleRemoveSet = useCallback((exerciseId: string, setId: string) => {
     removeSet(exerciseId, setId);
@@ -180,6 +206,18 @@ export default function ActiveWorkoutScreen() {
             addLog(log);
             saveWorkoutToHealthKit(log);
 
+            // Schedule post-workout summary notification
+            schedulePostWorkoutNotification({
+              templateName: log.templateName,
+              exerciseCount: log.exercises.length,
+              completedSets,
+              durationSeconds: log.durationSeconds,
+              delayMinutes: useSettingsStore.getState().notificationsPostWorkoutDelay,
+            });
+
+            // Cancel today's workout reminder (workout done)
+            rescheduleReminderAfterWorkout();
+
             // Update plan day status if workout was started from a plan
             if (workout.planDayId) {
               const parts = workout.planDayId.split(':');
@@ -219,7 +257,7 @@ export default function ActiveWorkoutScreen() {
       <View className={`h-16 flex-row items-center justify-between border-b px-4 ${isRestActive ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
         {isRestActive ? (
           <>
-            <View className="flex-1 flex-row items-center gap-3">
+            <View key="rest-header" className="flex-1 flex-row items-center gap-3">
               <Text className="text-2xl font-bold tabular-nums text-primary">{formatTime(restRemaining)}</Text>
               <Text className="text-sm text-muted-foreground">rest</Text>
             </View>
@@ -229,7 +267,7 @@ export default function ActiveWorkoutScreen() {
           </>
         ) : (
           <>
-            <View className="flex-1">
+            <View key="workout-header" className="flex-1">
               <Text className="text-lg font-bold" numberOfLines={1}>{activeWorkout.templateName}</Text>
               <Text className="text-sm text-primary font-medium">{formatDuration(elapsed)}</Text>
             </View>
@@ -335,20 +373,48 @@ export default function ActiveWorkoutScreen() {
             </View>
 
             {/* Set rows */}
-            <View className="gap-1">
+            <Animated.View className="gap-1">
               {exercise.sets.map((set, setIndex) => (
-                <MemoizedSetRow
-                  key={set.id}
-                  set={set}
-                  index={setIndex}
-                  exerciseId={exercise.id}
-                  exercise={exercise}
-                  onUpdateSet={handleUpdateSet}
-                  onToggleSet={handleToggleSet}
-                  onRemoveSet={handleRemoveSet}
-                />
+                <Animated.View key={set.id} layout={Layout.duration(200)}>
+                  <MemoizedSetRow
+                    set={set}
+                    index={setIndex}
+                    exerciseId={exercise.id}
+                    exercise={exercise}
+                    onUpdateSet={handleUpdateSet}
+                    onToggleSet={handleToggleSet}
+                    onRemoveSet={handleRemoveSet}
+                  />
+                  {applyAllPrompt?.exerciseId === exercise.id && applyAllPrompt.setIndex === setIndex && (
+                    <Animated.View
+                      entering={FadeInDown.duration(200)}
+                      exiting={FadeOutDown.duration(150)}
+                      layout={Layout.duration(200)}
+                      className="mx-3 my-1 flex-row items-center rounded-lg border border-primary bg-primary/10"
+                    >
+                      <Pressable
+                        onPress={() => {
+                          updateSetsFromIndex(exercise.id, applyAllPrompt.setIndex, { [applyAllPrompt.field]: applyAllPrompt.value } as Partial<WorkoutSet>);
+                          setApplyAllPrompt(null);
+                        }}
+                        className="flex-1 items-center py-2"
+                      >
+                        <Text className="text-sm font-semibold text-primary">
+                          Apply {applyAllPrompt.label} to all sets below
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setApplyAllPrompt(null)}
+                        className="aspect-square items-center justify-center self-stretch"
+                        style={{ minWidth: 40 }}
+                      >
+                        <Icon as={X} size={14} className="text-primary" />
+                      </Pressable>
+                    </Animated.View>
+                  )}
+                </Animated.View>
               ))}
-            </View>
+            </Animated.View>
           </View>
         ))}
 

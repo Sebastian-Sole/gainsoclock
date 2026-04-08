@@ -5,6 +5,8 @@ import {
   Pressable,
   TextInput,
   ScrollView,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { X, Check } from 'lucide-react-native';
@@ -82,10 +84,23 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
   const primaryColor = Colors[isDark ? 'dark' : 'light'].tint;
 
   const [local, setLocal] = useState<RecipeFilters>(filters);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     if (visible) setLocal(filters);
   }, [visible]);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   const handleApply = () => {
     lightHaptic();
@@ -110,7 +125,7 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
           </Pressable>
         </View>
 
-        <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
+        <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* Saved / Favorited */}
           <Text className="mb-2 mt-4 text-sm font-medium text-muted-foreground">PINNED</Text>
           <ToggleChip
@@ -219,7 +234,10 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
         </ScrollView>
 
         {/* Bottom Actions */}
-        <View className="flex-row gap-3 px-4 pb-8 pt-3 border-t border-border">
+        <View
+          className="flex-row gap-3 px-4 pt-3 border-t border-border"
+          style={{ paddingBottom: keyboardHeight > 0 ? keyboardHeight + 16 : 32 }}
+        >
           <Pressable
             onPress={handleReset}
             className="flex-1 items-center rounded-xl border border-border py-4"

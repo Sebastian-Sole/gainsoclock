@@ -53,7 +53,7 @@ export function useAuthGuard() {
 
     if (!effectiveAuthenticated && !inAuthGroup) {
       // Cast needed: (auth) routes are new and typed routes haven't regenerated yet
-      router.replace("/(auth)/sign-in" as never);
+      router.replace("/(auth)/sign-up" as never);
       return;
     }
 

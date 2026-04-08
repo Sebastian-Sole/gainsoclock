@@ -36,6 +36,17 @@ export function isToday(date: Date): boolean {
   );
 }
 
+/** Check if a date is tomorrow (local time) */
+export function isTomorrow(date: Date): boolean {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return (
+    date.getFullYear() === tomorrow.getFullYear() &&
+    date.getMonth() === tomorrow.getMonth() &&
+    date.getDate() === tomorrow.getDate()
+  );
+}
+
 /** Check if a date is in the past (before today, local time) */
 export function isPast(date: Date): boolean {
   const now = new Date();

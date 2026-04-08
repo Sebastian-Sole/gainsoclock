@@ -279,6 +279,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
                   data={filteredRecipes}
                   keyExtractor={(item) => item.id}
                   contentContainerClassName="px-4 pb-8 gap-2"
+                  keyboardShouldPersistTaps="handled"
                   renderItem={({ item }) => (
                     <Pressable
                       onPress={() => setSelectedRecipe(item)}
