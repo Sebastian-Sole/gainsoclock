@@ -52,7 +52,11 @@ function SyncEngine() {
   const { isOffline } = useNetwork();
   const exercises = useQuery(api.exercises.list);
   const templates = useQuery(api.templates.listWithExercises);
-  const logs = useQuery(api.workoutLogs.listMeta);
+  const loadedRange = useHistoryStore((s) => s.loadedRange);
+  const logs = useQuery(api.workoutLogs.listMeta, {
+    from: loadedRange.from,
+    to: loadedRange.to,
+  });
   const settings = useQuery(api.settings.get);
   const recipes = useQuery(api.recipes.listRecipes);
   const nutritionGoals = useQuery(api.nutritionGoals.get);
@@ -148,6 +152,7 @@ function SyncEngine() {
   useEffect(() => {
     if (logs === undefined) return;
     useHistoryStore.getState().hydrateFromServer(logs);
+    useHistoryStore.getState().setIsLoadingMore(false);
   }, [logs]);
 
   // Hydrate settings store from server

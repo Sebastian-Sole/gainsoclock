@@ -220,7 +220,8 @@ export default defineSchema({
     updatedAt: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
-    .index("by_user_clientId", ["userId", "clientId"]),
+    .index("by_user_clientId", ["userId", "clientId"])
+    .index("by_user_saved", ["userId", "saved"]),
 
   // Meal log entries
   mealLogs: defineTable({

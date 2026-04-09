@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, ScrollView, Pressable, Alert, Modal, FlatList } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +25,8 @@ export default function HistoryScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const logs = useHistoryStore((s) => s.logs);
+  const extendRange = useHistoryStore((s) => s.extendRange);
+  const isLoadingMore = useHistoryStore((s) => s.isLoadingMore);
   const templates = useTemplateStore((s) => s.templates);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
@@ -89,8 +91,14 @@ export default function HistoryScreen() {
           currentMonth={currentMonth}
           selectedDate={selectedDate}
           workoutDates={workoutDates}
+          isLoadingMore={isLoadingMore}
           onSelectDate={setSelectedDate}
-          onPrevMonth={() => setCurrentMonth(subMonths(currentMonth, 1))}
+          onPrevMonth={() => {
+            const prev = subMonths(currentMonth, 1);
+            setCurrentMonth(prev);
+            // Pre-fetch one month ahead of where the user is going
+            extendRange(subMonths(prev, 1));
+          }}
           onNextMonth={() => setCurrentMonth(addMonths(currentMonth, 1))}
         />
 

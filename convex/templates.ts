@@ -37,18 +37,24 @@ export const listWithExercises = query({
       allExercises.map((e) => [e.clientId, e])
     );
 
-    const result = [];
-    for (const template of templates) {
-      const templateExercises = await ctx.db
-        .query("templateExercises")
-        .withIndex("by_template", (q) =>
-          q.eq("userId", userId).eq("templateClientId", template.clientId)
-        )
-        .collect();
+    // Batch-fetch all templateExercises for this user (avoids N+1)
+    const allTemplateExercises = await ctx.db
+      .query("templateExercises")
+      .withIndex("by_template", (q) => q.eq("userId", userId))
+      .collect();
 
+    const exercisesByTemplate = new Map<string, typeof allTemplateExercises>();
+    for (const te of allTemplateExercises) {
+      const group = exercisesByTemplate.get(te.templateClientId);
+      if (group) group.push(te);
+      else exercisesByTemplate.set(te.templateClientId, [te]);
+    }
+
+    return templates.map((template) => {
+      const templateExercises = exercisesByTemplate.get(template.clientId) ?? [];
       templateExercises.sort((a, b) => a.order - b.order);
 
-      result.push({
+      return {
         ...template,
         exercises: templateExercises.map((te) => {
           const exercise = exerciseMap.get(te.exerciseClientId);
@@ -66,10 +72,8 @@ export const listWithExercises = query({
             suggestedDistance: te.suggestedDistance,
           };
         }),
-      });
-    }
-
-    return result;
+      };
+    });
   },
 });
 

@@ -13,7 +13,7 @@ import {
   subMonths,
 } from 'date-fns';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, View, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native';
+import { ActivityIndicator, ScrollView, View, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native';
 import { CalendarDay } from './calendar-day';
 import { CalendarHeader } from './calendar-header';
 
@@ -26,6 +26,7 @@ interface CalendarProps {
   currentMonth: Date;
   selectedDate: Date;
   workoutDates: Set<string>;
+  isLoadingMore?: boolean;
   onSelectDate: (date: Date) => void;
   onPrevMonth: () => void;
   onNextMonth: () => void;
@@ -51,6 +52,7 @@ export function Calendar({
   currentMonth,
   selectedDate,
   workoutDates,
+  isLoadingMore,
   onSelectDate,
   onPrevMonth,
   onNextMonth,
@@ -124,6 +126,12 @@ export function Calendar({
         onPrevMonth={onPrevMonth}
         onNextMonth={onNextMonth}
       />
+
+      {isLoadingMore && (
+        <View className="absolute right-3 top-4 z-10">
+          <ActivityIndicator size="small" />
+        </View>
+      )}
 
       {/* Weekday headers */}
       <View className="flex-row">
