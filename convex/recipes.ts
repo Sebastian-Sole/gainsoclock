@@ -34,15 +34,15 @@ export const listSavedRecipes = query({
 
     const recipes = await ctx.db
       .query("recipes")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_saved", (q) =>
+        q.eq("userId", userId).eq("saved", true)
+      )
       .collect();
 
-    return recipes
-      .filter((r) => r.saved)
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+    return recipes.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   },
 });
 

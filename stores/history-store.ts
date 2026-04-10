@@ -4,7 +4,7 @@ import { zustandStorage } from '@/lib/storage';
 import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
 import type { WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, startOfMonth, subMonths } from 'date-fns';
 
 function flattenSet(s: WorkoutSet) {
   return {
@@ -19,8 +19,26 @@ function flattenSet(s: WorkoutSet) {
   };
 }
 
+function getDefaultRange() {
+  const now = new Date();
+  const from = startOfMonth(subMonths(now, 4)).toISOString();
+  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
+  return { from, to };
+}
+
+/** Ensure the persisted range covers at least the current 5-month window. */
+function ensureCurrentRange(persisted: { from: string; to: string }) {
+  const fresh = getDefaultRange();
+  return {
+    from: persisted.from < fresh.from ? persisted.from : fresh.from,
+    to: persisted.to > fresh.to ? persisted.to : fresh.to,
+  };
+}
+
 interface HistoryState {
   logs: WorkoutLog[];
+  loadedRange: { from: string; to: string };
+  isLoadingRange: boolean;
 
   addLog: (log: WorkoutLog) => void;
   updateLog: (id: string, updates: Partial<Omit<WorkoutLog, 'id'>>) => void;
@@ -28,6 +46,8 @@ interface HistoryState {
   getLastLogForTemplate: (templateId: string) => WorkoutLog | undefined;
   getLogsForDate: (date: Date) => WorkoutLog[];
   getDatesWithWorkouts: (year: number, month: number) => Set<string>;
+  extendRange: (viewingMonth: Date) => void;
+  setIsLoadingRange: (loading: boolean) => void;
   hydrateFromServer: (serverLogs: Array<{
     clientId: string;
     templateId?: string;
@@ -59,6 +79,18 @@ export const useHistoryStore = create<HistoryState>()(
   persist(
     (set, get) => ({
       logs: [],
+      loadedRange: getDefaultRange(),
+      isLoadingRange: false,
+
+      extendRange: (viewingMonth: Date) => {
+        const needed = startOfMonth(subMonths(viewingMonth, 4)).toISOString();
+        const { loadedRange } = get();
+        if (needed < loadedRange.from) {
+          set({ loadedRange: { ...loadedRange, from: needed }, isLoadingRange: true });
+        }
+      },
+
+      setIsLoadingRange: (loading: boolean) => set({ isLoadingRange: loading }),
 
       addLog: (log) => {
         set((state) => ({ logs: [log, ...state.logs] }));
@@ -200,10 +232,28 @@ export const useHistoryStore = create<HistoryState>()(
     {
       name: 'history-storage',
       storage: zustandStorage,
-      version: 2,
-      migrate: () => {
-        // Old format data is incompatible — start fresh (server will re-hydrate)
-        return { logs: [] };
+      version: 5,
+      migrate: (persisted: any, version: number) => {
+        if (version < 5) {
+          // v4→v5: start persisting loadedRange; old data may lack it
+          return {
+            logs: persisted?.logs ?? [],
+            loadedRange: getDefaultRange(),
+          };
+        }
+        return persisted as any;
+      },
+      partialize: (state) => ({
+        logs: state.logs,
+        loadedRange: state.loadedRange,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // Ensure the persisted range covers the current 5-month window
+        const updated = ensureCurrentRange(state.loadedRange);
+        if (updated.from !== state.loadedRange.from || updated.to !== state.loadedRange.to) {
+          useHistoryStore.setState({ loadedRange: updated });
+        }
       },
     }
   )

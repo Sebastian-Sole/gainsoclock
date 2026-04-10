@@ -14,6 +14,7 @@ import {
 } from 'date-fns';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, View, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { CalendarDay } from './calendar-day';
 import { CalendarHeader } from './calendar-header';
 
@@ -26,6 +27,7 @@ interface CalendarProps {
   currentMonth: Date;
   selectedDate: Date;
   workoutDates: Set<string>;
+  isLoading?: boolean;
   onSelectDate: (date: Date) => void;
   onPrevMonth: () => void;
   onNextMonth: () => void;
@@ -47,10 +49,38 @@ function getWeeks(days: Date[]) {
   return result;
 }
 
+function CalendarSkeleton() {
+  const opacity = useSharedValue(0.3);
+
+  useEffect(() => {
+    opacity.value = withRepeat(withTiming(1, { duration: 800 }), -1, true);
+  }, [opacity]);
+
+  const animStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <View style={{ height: GRID_HEIGHT }} className="absolute inset-0 z-10">
+      {Array.from({ length: MAX_WEEKS }).map((_, row) => (
+        <View key={row} className="flex-row" style={{ height: ROW_HEIGHT }}>
+          {Array.from({ length: 7 }).map((_, col) => (
+            <View key={col} className="flex-1 items-center justify-center">
+              <Animated.View
+                style={[{ width: 32, height: 32, borderRadius: 16 }, animStyle]}
+                className="bg-muted"
+              />
+            </View>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function Calendar({
   currentMonth,
   selectedDate,
   workoutDates,
+  isLoading,
   onSelectDate,
   onPrevMonth,
   onNextMonth,
@@ -136,9 +166,10 @@ export function Calendar({
 
       {/* Swipeable day grid */}
       <View
-        style={{ overflow: 'hidden', height: GRID_HEIGHT }}
+        style={{ overflow: 'hidden', height: GRID_HEIGHT, position: 'relative' }}
         onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}
       >
+        {isLoading && <CalendarSkeleton />}
         {gridWidth > 0 && (
           <ScrollView
             ref={scrollRef}

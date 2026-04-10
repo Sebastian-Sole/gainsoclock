@@ -15,16 +15,24 @@ const exercisePayload = v.object({
 // Full exercise/set data lives in the local Zustand store (synced via create mutation).
 // This keeps the query fast and well within Convex read limits for any data size.
 export const listMeta = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    from: v.string(),
+    to: v.string(),
+  },
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
     return await ctx.db
       .query("workoutLogs")
-      .withIndex("by_user_completedAt", (q) => q.eq("userId", userId))
+      .withIndex("by_user_completedAt", (q) =>
+        q
+          .eq("userId", userId)
+          .gte("completedAt", args.from)
+          .lte("completedAt", args.to)
+      )
       .order("desc")
-      .take(200);
+      .collect();
   },
 });
 
@@ -50,61 +58,70 @@ export const listFull = query({
       exerciseDefs.map((e) => [e.clientId, { name: e.name, type: e.type }])
     );
 
-    return await Promise.all(
-      logs.map(async (log) => {
-        const exercises = await ctx.db
-          .query("workoutLogExercises")
-          .withIndex("by_workout", (q) =>
-            q.eq("userId", userId).eq("workoutLogClientId", log.clientId)
-          )
-          .collect();
+    // Batch-fetch all log exercises and sets for this user (avoids N+1)
+    const allLogExercises = await ctx.db
+      .query("workoutLogExercises")
+      .withIndex("by_workout", (q) => q.eq("userId", userId))
+      .collect();
 
-        const exercisesWithSets = await Promise.all(
-          exercises.map(async (ex) => {
-            const sets = await ctx.db
-              .query("workoutSets")
-              .withIndex("by_workout_exercise", (q) =>
-                q
-                  .eq("userId", userId)
-                  .eq("workoutLogExerciseClientId", ex.clientId)
-              )
-              .collect();
+    const allSets = await ctx.db
+      .query("workoutSets")
+      .withIndex("by_workout_exercise", (q) => q.eq("userId", userId))
+      .collect();
 
-            const def = exerciseMap.get(ex.exerciseClientId);
+    // Group by parent keys in memory
+    const exercisesByLog = new Map<string, typeof allLogExercises>();
+    for (const ex of allLogExercises) {
+      const group = exercisesByLog.get(ex.workoutLogClientId);
+      if (group) group.push(ex);
+      else exercisesByLog.set(ex.workoutLogClientId, [ex]);
+    }
 
-            return {
-              clientId: ex.clientId,
-              exerciseClientId: ex.exerciseClientId,
-              name: def?.name ?? "Unknown",
-              type: def?.type ?? ("reps_weight" as const),
-              order: ex.order,
-              restTimeSeconds: ex.restTimeSeconds,
-              sets: sets
-                .sort((a, b) => a.order - b.order)
-                .map((s) => ({
-                  clientId: s.clientId,
-                  completed: s.completed,
-                  type: s.type,
-                  ...(s.reps !== undefined && { reps: s.reps }),
-                  ...(s.weight !== undefined && { weight: s.weight }),
-                  ...(s.time !== undefined && { time: s.time }),
-                  ...(s.distance !== undefined && { distance: s.distance }),
-                })),
-            };
-          })
-        );
+    const setsByExercise = new Map<string, typeof allSets>();
+    for (const s of allSets) {
+      const group = setsByExercise.get(s.workoutLogExerciseClientId);
+      if (group) group.push(s);
+      else setsByExercise.set(s.workoutLogExerciseClientId, [s]);
+    }
+
+    return logs.map((log) => {
+      const exercises = exercisesByLog.get(log.clientId) ?? [];
+
+      const exercisesWithSets = exercises.map((ex) => {
+        const sets = setsByExercise.get(ex.clientId) ?? [];
+        const def = exerciseMap.get(ex.exerciseClientId);
 
         return {
-          clientId: log.clientId,
-          templateId: log.templateId,
-          templateName: log.templateName,
-          startedAt: log.startedAt,
-          completedAt: log.completedAt,
-          durationSeconds: log.durationSeconds,
-          exercises: exercisesWithSets.sort((a, b) => a.order - b.order),
+          clientId: ex.clientId,
+          exerciseClientId: ex.exerciseClientId,
+          name: def?.name ?? "Unknown",
+          type: def?.type ?? ("reps_weight" as const),
+          order: ex.order,
+          restTimeSeconds: ex.restTimeSeconds,
+          sets: sets
+            .sort((a, b) => a.order - b.order)
+            .map((s) => ({
+              clientId: s.clientId,
+              completed: s.completed,
+              type: s.type,
+              ...(s.reps !== undefined && { reps: s.reps }),
+              ...(s.weight !== undefined && { weight: s.weight }),
+              ...(s.time !== undefined && { time: s.time }),
+              ...(s.distance !== undefined && { distance: s.distance }),
+            })),
         };
-      })
-    );
+      });
+
+      return {
+        clientId: log.clientId,
+        templateId: log.templateId,
+        templateName: log.templateName,
+        startedAt: log.startedAt,
+        completedAt: log.completedAt,
+        durationSeconds: log.durationSeconds,
+        exercises: exercisesWithSets.sort((a, b) => a.order - b.order),
+      };
+    });
   },
 });
 

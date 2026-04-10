@@ -1,5 +1,5 @@
 import { Text } from '@/components/ui/text';
-import { addMonths, format, subMonths } from 'date-fns';
+import { addMonths, endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { useRouter } from 'expo-router';
 import { CalendarDays, FileText, Plus, X } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
@@ -26,17 +26,18 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
   const router = useRouter();
 
   const logs = useHistoryStore((s) => s.logs);
+  const extendRange = useHistoryStore((s) => s.extendRange);
+  const isLoadingRange = useHistoryStore((s) => s.isLoadingRange);
   const templates = useTemplateStore((s) => s.templates);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   const workoutDates = useMemo(() => {
     const dates = new Set<string>();
+    const prevStart = startOfMonth(subMonths(currentMonth, 1));
+    const nextEnd = endOfMonth(addMonths(currentMonth, 1));
     logs.forEach((log) => {
       const logDate = new Date(log.startedAt);
-      if (
-        logDate.getFullYear() === currentMonth.getFullYear() &&
-        logDate.getMonth() === currentMonth.getMonth()
-      ) {
+      if (logDate >= prevStart && logDate <= nextEnd) {
         dates.add(format(logDate, 'yyyy-MM-dd'));
       }
     });
@@ -84,8 +85,13 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
         currentMonth={currentMonth}
         selectedDate={selectedDate}
         workoutDates={workoutDates}
+        isLoading={isLoadingRange}
         onSelectDate={onSelectDate}
-        onPrevMonth={() => onMonthChange(subMonths(currentMonth, 1))}
+        onPrevMonth={() => {
+          const prev = subMonths(currentMonth, 1);
+          onMonthChange(prev);
+          extendRange(prev);
+        }}
         onNextMonth={() => onMonthChange(addMonths(currentMonth, 1))}
       />
 
