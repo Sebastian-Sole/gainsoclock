@@ -26,7 +26,10 @@ export const listMeta = query({
     return await ctx.db
       .query("workoutLogs")
       .withIndex("by_user_completedAt", (q) =>
-        q.eq("userId", userId).gte("completedAt", args.from).lte("completedAt", args.to)
+        q
+          .eq("userId", userId)
+          .gte("completedAt", args.from)
+          .lte("completedAt", args.to)
       )
       .order("desc")
       .collect();

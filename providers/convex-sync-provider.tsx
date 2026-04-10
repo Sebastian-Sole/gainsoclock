@@ -53,6 +53,7 @@ function SyncEngine() {
   const exercises = useQuery(api.exercises.list);
   const templates = useQuery(api.templates.listWithExercises);
   const loadedRange = useHistoryStore((s) => s.loadedRange);
+  console.log('[SyncEngine] querying listMeta range:', loadedRange.from.slice(0, 10), '→', loadedRange.to.slice(0, 10));
   const logs = useQuery(api.workoutLogs.listMeta, {
     from: loadedRange.from,
     to: loadedRange.to,
@@ -151,8 +152,9 @@ function SyncEngine() {
   // Hydrate history store from server
   useEffect(() => {
     if (logs === undefined) return;
+    console.log('[SyncEngine] hydrating history with', logs.length, 'logs from server');
     useHistoryStore.getState().hydrateFromServer(logs);
-    useHistoryStore.getState().setIsLoadingMore(false);
+    useHistoryStore.getState().setIsLoadingRange(false);
   }, [logs]);
 
   // Hydrate settings store from server

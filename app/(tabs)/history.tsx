@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, ScrollView, Pressable, Alert, Modal, FlatList } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarDays, FileText, Plus, X } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { Icon } from '@/components/ui/icon';
-import { addMonths, subMonths, format } from 'date-fns';
+import { addMonths, endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { useRouter } from 'expo-router';
 
 import { Calendar } from '@/components/history/calendar';
@@ -26,18 +26,17 @@ export default function HistoryScreen() {
 
   const logs = useHistoryStore((s) => s.logs);
   const extendRange = useHistoryStore((s) => s.extendRange);
-  const isLoadingMore = useHistoryStore((s) => s.isLoadingMore);
+  const isLoadingRange = useHistoryStore((s) => s.isLoadingRange);
   const templates = useTemplateStore((s) => s.templates);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   const workoutDates = useMemo(() => {
     const dates = new Set<string>();
+    const prevStart = startOfMonth(subMonths(currentMonth, 1));
+    const nextEnd = endOfMonth(addMonths(currentMonth, 1));
     logs.forEach((log) => {
       const logDate = new Date(log.startedAt);
-      if (
-        logDate.getFullYear() === currentMonth.getFullYear() &&
-        logDate.getMonth() === currentMonth.getMonth()
-      ) {
+      if (logDate >= prevStart && logDate <= nextEnd) {
         dates.add(format(logDate, 'yyyy-MM-dd'));
       }
     });
@@ -91,13 +90,12 @@ export default function HistoryScreen() {
           currentMonth={currentMonth}
           selectedDate={selectedDate}
           workoutDates={workoutDates}
-          isLoadingMore={isLoadingMore}
+          isLoading={isLoadingRange}
           onSelectDate={setSelectedDate}
           onPrevMonth={() => {
             const prev = subMonths(currentMonth, 1);
             setCurrentMonth(prev);
-            // Pre-fetch one month ahead of where the user is going
-            extendRange(subMonths(prev, 1));
+            extendRange(prev);
           }}
           onNextMonth={() => setCurrentMonth(addMonths(currentMonth, 1))}
         />
