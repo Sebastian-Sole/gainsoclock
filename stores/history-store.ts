@@ -86,7 +86,6 @@ export const useHistoryStore = create<HistoryState>()(
         const needed = startOfMonth(subMonths(viewingMonth, 4)).toISOString();
         const { loadedRange } = get();
         if (needed < loadedRange.from) {
-          console.log('[HistoryStore] extending range:', loadedRange.from.slice(0, 10), '→', needed.slice(0, 10));
           set({ loadedRange: { ...loadedRange, from: needed }, isLoadingRange: true });
         }
       },
@@ -250,7 +249,7 @@ export const useHistoryStore = create<HistoryState>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        // Ensure the persisted range covers the current 3-month window
+        // Ensure the persisted range covers the current 5-month window
         const updated = ensureCurrentRange(state.loadedRange);
         if (updated.from !== state.loadedRange.from || updated.to !== state.loadedRange.to) {
           useHistoryStore.setState({ loadedRange: updated });

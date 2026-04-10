@@ -60,7 +60,7 @@ function CalendarSkeleton() {
 
   return (
     <View style={{ height: GRID_HEIGHT }} className="absolute inset-0 z-10">
-      {Array.from({ length: 5 }).map((_, row) => (
+      {Array.from({ length: MAX_WEEKS }).map((_, row) => (
         <View key={row} className="flex-row" style={{ height: ROW_HEIGHT }}>
           {Array.from({ length: 7 }).map((_, col) => (
             <View key={col} className="flex-1 items-center justify-center">
