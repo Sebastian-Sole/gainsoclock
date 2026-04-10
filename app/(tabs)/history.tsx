@@ -26,7 +26,7 @@ export default function HistoryScreen() {
 
   const logs = useHistoryStore((s) => s.logs);
   const extendRange = useHistoryStore((s) => s.extendRange);
-  const isLoadingRange = useHistoryStore((s) => s.isLoadingRange);
+  const fetchedRangeFrom = useHistoryStore((s) => s.fetchedRangeFrom);
   const templates = useTemplateStore((s) => s.templates);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
@@ -90,7 +90,7 @@ export default function HistoryScreen() {
           currentMonth={currentMonth}
           selectedDate={selectedDate}
           workoutDates={workoutDates}
-          isLoading={isLoadingRange}
+          isLoading={startOfMonth(currentMonth).toISOString() < fetchedRangeFrom}
           onSelectDate={setSelectedDate}
           onPrevMonth={() => {
             const prev = subMonths(currentMonth, 1);

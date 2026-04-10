@@ -152,7 +152,7 @@ function SyncEngine() {
   useEffect(() => {
     if (logs === undefined) return;
     useHistoryStore.getState().hydrateFromServer(logs);
-    useHistoryStore.getState().setIsLoadingRange(false);
+    useHistoryStore.getState().markRangeFetched();
   }, [logs]);
 
   // Hydrate settings store from server

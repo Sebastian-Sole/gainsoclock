@@ -38,7 +38,8 @@ function ensureCurrentRange(persisted: { from: string; to: string }) {
 interface HistoryState {
   logs: WorkoutLog[];
   loadedRange: { from: string; to: string };
-  isLoadingRange: boolean;
+  /** The oldest `from` for which the server has actually returned data. */
+  fetchedRangeFrom: string;
 
   addLog: (log: WorkoutLog) => void;
   updateLog: (id: string, updates: Partial<Omit<WorkoutLog, 'id'>>) => void;
@@ -47,7 +48,7 @@ interface HistoryState {
   getLogsForDate: (date: Date) => WorkoutLog[];
   getDatesWithWorkouts: (year: number, month: number) => Set<string>;
   extendRange: (viewingMonth: Date) => void;
-  setIsLoadingRange: (loading: boolean) => void;
+  markRangeFetched: () => void;
   hydrateFromServer: (serverLogs: Array<{
     clientId: string;
     templateId?: string;
@@ -80,17 +81,19 @@ export const useHistoryStore = create<HistoryState>()(
     (set, get) => ({
       logs: [],
       loadedRange: getDefaultRange(),
-      isLoadingRange: false,
+      fetchedRangeFrom: getDefaultRange().from,
 
       extendRange: (viewingMonth: Date) => {
         const needed = startOfMonth(subMonths(viewingMonth, 4)).toISOString();
         const { loadedRange } = get();
         if (needed < loadedRange.from) {
-          set({ loadedRange: { ...loadedRange, from: needed }, isLoadingRange: true });
+          set({ loadedRange: { ...loadedRange, from: needed } });
         }
       },
 
-      setIsLoadingRange: (loading: boolean) => set({ isLoadingRange: loading }),
+      markRangeFetched: () => {
+        set({ fetchedRangeFrom: get().loadedRange.from });
+      },
 
       addLog: (log) => {
         set((state) => ({ logs: [log, ...state.logs] }));
@@ -251,9 +254,8 @@ export const useHistoryStore = create<HistoryState>()(
         if (!state) return;
         // Ensure the persisted range covers the current 5-month window
         const updated = ensureCurrentRange(state.loadedRange);
-        if (updated.from !== state.loadedRange.from || updated.to !== state.loadedRange.to) {
-          useHistoryStore.setState({ loadedRange: updated });
-        }
+        // Persisted logs cover the persisted range, so mark it as fetched
+        useHistoryStore.setState({ loadedRange: updated, fetchedRangeFrom: updated.from });
       },
     }
   )
