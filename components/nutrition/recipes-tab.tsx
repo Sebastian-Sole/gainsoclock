@@ -1,17 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { View, FlatList, Pressable, TextInput } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Pin, Flame, Clock, UtensilsCrossed, Search, SlidersHorizontal, ShoppingCart } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
+import { Pin, Flame, Clock, UtensilsCrossed, Search, SlidersHorizontal } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
-import { Colors } from '@/constants/theme';
 import { Icon } from '@/components/ui/icon';
 import { Fab } from '@/components/shared/fab';
 import { useRecipeStore } from '@/stores/recipe-store';
-import { useGroceryStore } from '@/stores/grocery-store';
 import { RecipeFilterModal, DEFAULT_FILTERS, hasActiveFilters } from './recipe-filter-modal';
-import { GroceryListModal } from './grocery-list-modal';
 import { SwipeableRecipeCard } from './swipeable-recipe-card';
 import { applyRecipeFilters } from '@/lib/recipe-filters';
 import type { RecipeFilters } from './recipe-filter-modal';
@@ -69,17 +65,12 @@ function RecipeListCard({ recipe }: { recipe: Recipe }) {
 }
 
 export function RecipesTab() {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const router = useRouter();
   const recipes = useRecipeStore((s) => s.recipes);
-
-  const groceryItemCount = useGroceryStore((s) => s.items.length);
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<RecipeFilters>(DEFAULT_FILTERS);
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [showGroceryModal, setShowGroceryModal] = useState(false);
 
   const filteredRecipes = useMemo(() => {
     let result = recipes;
@@ -119,17 +110,6 @@ export function RecipesTab() {
             placeholderTextColor="#9ca3af"
             className="flex-1 py-3 text-foreground"
           />
-          <Pressable onPress={() => setShowGroceryModal(true)} className="p-1.5 relative" hitSlop={8}>
-            <Icon as={ShoppingCart} size={18} className={groceryItemCount > 0 ? 'text-primary' : 'text-muted-foreground'} />
-            {groceryItemCount > 0 && (
-              <View
-                className="absolute -top-1 -right-1 h-4 min-w-[16px] items-center justify-center rounded-full px-1"
-                style={{ backgroundColor: primaryColor }}
-              >
-                <Text className="text-[10px] font-bold text-white">{groceryItemCount}</Text>
-              </View>
-            )}
-          </Pressable>
           <Pressable onPress={() => setShowFilterModal(true)} className="p-1.5" hitSlop={8}>
             <Icon
               as={SlidersHorizontal}
@@ -178,11 +158,6 @@ export function RecipesTab() {
         onClose={() => setShowFilterModal(false)}
         filters={filters}
         onApply={setFilters}
-      />
-
-      <GroceryListModal
-        visible={showGroceryModal}
-        onClose={() => setShowGroceryModal(false)}
       />
     </View>
   );
