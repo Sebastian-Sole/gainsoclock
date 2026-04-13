@@ -27,7 +27,7 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
 
   const logs = useHistoryStore((s) => s.logs);
   const extendRange = useHistoryStore((s) => s.extendRange);
-  const isLoadingRange = useHistoryStore((s) => s.isLoadingRange);
+  const fetchedRangeFrom = useHistoryStore((s) => s.fetchedRangeFrom);
   const templates = useTemplateStore((s) => s.templates);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
@@ -85,7 +85,7 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
         currentMonth={currentMonth}
         selectedDate={selectedDate}
         workoutDates={workoutDates}
-        isLoading={isLoadingRange}
+        isLoading={startOfMonth(currentMonth).toISOString() < fetchedRangeFrom}
         onSelectDate={onSelectDate}
         onPrevMonth={() => {
           const prev = subMonths(currentMonth, 1);

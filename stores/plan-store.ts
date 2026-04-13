@@ -15,6 +15,7 @@ interface PlanState {
   getPlans: () => WorkoutPlan[];
   getActivePlan: () => WorkoutPlan | undefined;
   getActivePlanWithDays: () => PlanWithDays | null;
+  removePlan: (id: string) => void;
 
   hydrateFromServer: (serverPlans: Array<{
     clientId: string;
@@ -62,6 +63,14 @@ export const usePlanStore = create<PlanState>()(
       getPlans: () => get().plans,
       getActivePlan: () => get().plans.find((p) => p.status === 'active'),
       getActivePlanWithDays: () => get().activePlanWithDays,
+
+      removePlan: (id) => {
+        set((state) => ({
+          plans: state.plans.filter((p) => p.id !== id),
+          activePlanWithDays:
+            state.activePlanWithDays?.id === id ? null : state.activePlanWithDays,
+        }));
+      },
 
       hydrateFromServer: (serverPlans) => {
         const localPlans = get().plans;

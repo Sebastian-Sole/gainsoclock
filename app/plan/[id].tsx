@@ -9,6 +9,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useWorkoutStore } from '@/stores/workout-store';
 import { useTemplateStore } from '@/stores/template-store';
+import { usePlanStore } from '@/stores/plan-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { PlanCalendar } from '@/components/chat/plan-calendar';
 import { PlanDayDetail } from '@/components/chat/plan-day-detail';
@@ -28,6 +29,8 @@ export default function PlanDetailScreen() {
   const removePlanWeek = useMutation(api.plans.removePlanWeek);
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
   const getTemplate = useTemplateStore((s) => s.getTemplate);
+  const deleteTemplateLocal = useTemplateStore((s) => s.deleteTemplate);
+  const removePlanLocal = usePlanStore((s) => s.removePlan);
   const weekStartDay = useSettingsStore((s) => s.weekStartDay);
 
   const [selectedDay, setSelectedDay] = useState<{
@@ -132,17 +135,64 @@ export default function PlanDetailScreen() {
   }, [selectedDayData, planData, getTemplate, startWorkout, router, weekStartDay]);
 
   const handleDelete = () => {
-    Alert.alert('Delete Plan', 'This will permanently delete this plan.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deletePlan({ clientId: id });
-          router.back();
+    // Collect unique template IDs used in this plan
+    const templateIds = [
+      ...new Set(
+        (planData?.days ?? [])
+          .map((d) => d.templateClientId)
+          .filter((id): id is string => !!id)
+      ),
+    ];
+    const templateNames = templateIds
+      .map((tid) => getTemplate(tid)?.name)
+      .filter((n): n is string => !!n);
+
+    const hasTemplates = templateNames.length > 0;
+
+    const doDelete = async (alsoDeleteTemplates: boolean) => {
+      removePlanLocal(id);
+      await deletePlan({ clientId: id });
+      if (alsoDeleteTemplates) {
+        for (const tid of templateIds) {
+          deleteTemplateLocal(tid);
+        }
+      }
+      router.back();
+    };
+
+    if (hasTemplates) {
+      const maxShown = 5;
+      const templateList =
+        templateNames.length <= maxShown
+          ? templateNames.join(', ')
+          : `${templateNames.slice(0, maxShown).join(', ')} and ${templateNames.length - maxShown} more`;
+
+      Alert.alert(
+        'Delete Plan',
+        `This plan includes ${templateNames.length} template${templateNames.length > 1 ? 's' : ''}: ${templateList}.\n\nWould you also like to delete the templates?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Keep Templates',
+            onPress: () => doDelete(false),
+          },
+          {
+            text: 'Delete All',
+            style: 'destructive',
+            onPress: () => doDelete(true),
+          },
+        ]
+      );
+    } else {
+      Alert.alert('Delete Plan', 'This will permanently delete this plan.', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => doDelete(false),
         },
-      },
-    ]);
+      ]);
+    }
   };
 
   const handleToggleStatus = () => {
