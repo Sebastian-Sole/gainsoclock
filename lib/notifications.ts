@@ -64,6 +64,21 @@ export async function ensurePermission(): Promise<boolean> {
 
 // --- Rest Timer (Type 1) ---
 
+// Tracks whether the active workout screen is currently visible. Used by the
+// foreground notification handler to decide whether to suppress the rest-timer
+// alert (the screen already shows the countdown + haptic, so no notification
+// needed). When the user closes the workout to use other parts of the app,
+// this flips to false and the notification fires normally.
+let activeWorkoutVisible = false;
+
+export function setActiveWorkoutVisible(visible: boolean): void {
+  activeWorkoutVisible = visible;
+}
+
+export function isActiveWorkoutVisible(): boolean {
+  return activeWorkoutVisible;
+}
+
 export async function scheduleRestTimerNotification(
   seconds: number,
 ): Promise<string | null> {

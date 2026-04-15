@@ -8,6 +8,7 @@ import {
   cancelDailyWorkoutReminder,
   scheduleMorningPlanNotification,
   cancelMorningPlanNotification,
+  isActiveWorkoutVisible,
 } from '@/lib/notifications';
 import { getPlanDayDate, isToday, isTomorrow } from '@/lib/plan-dates';
 
@@ -15,8 +16,10 @@ import { getPlanDayDate, isToday, isTomorrow } from '@/lib/plan-dates';
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const id = notification.request.identifier;
-    // Suppress rest timer notifications when app is in foreground (user can see the timer UI)
-    const show = id !== IDENTIFIERS.REST_TIMER;
+    // Only suppress rest-timer alerts when the active workout screen is on
+    // screen (the timer UI + haptic are the cue). If the user closed the
+    // workout to use other parts of the app, the notification should fire.
+    const show = id !== IDENTIFIERS.REST_TIMER || !isActiveWorkoutVisible();
     return {
       shouldShowAlert: show,
       shouldPlaySound: show,

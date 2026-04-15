@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { View, ScrollView, Pressable, Alert, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Badge } from '@/components/ui/badge';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, X, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
@@ -21,7 +21,7 @@ import { saveWorkoutToHealthKit } from '@/lib/healthkit';
 import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
 import type { Exercise, WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
-import { schedulePostWorkoutNotification, rescheduleReminderAfterWorkout } from '@/lib/notifications';
+import { schedulePostWorkoutNotification, rescheduleReminderAfterWorkout, setActiveWorkoutVisible } from '@/lib/notifications';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useTemplateStore } from '@/stores/template-store';
 
@@ -86,6 +86,16 @@ export default function ActiveWorkoutScreen() {
 
   const elapsed = useWorkoutTimer(activeWorkout?.startedAt ?? null);
   const { isActive: isRestActive, remaining: restRemaining, stop: stopRest } = useRestTimer();
+
+  // Flag the rest-timer notification handler: suppress the alert only while
+  // this screen is focused (the on-screen timer + haptic are the cue). When
+  // the user closes/minimises the workout, the notification fires normally.
+  useFocusEffect(
+    useCallback(() => {
+      setActiveWorkoutVisible(true);
+      return () => setActiveWorkoutVisible(false);
+    }, [])
+  );
 
   // "Apply to all below" prompt — shown when user edits any set
   const [applyAllPrompt, setApplyAllPrompt] = React.useState<{
@@ -254,30 +264,42 @@ export default function ActiveWorkoutScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       {/* Header — fixed height so rest-timer swap doesn't shift layout */}
-      <View className={`h-16 flex-row items-center justify-between border-b px-4 ${isRestActive ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
-        {isRestActive ? (
-          <>
-            <View key="rest-header" className="flex-1 flex-row items-center gap-3">
-              <Text className="text-2xl font-bold tabular-nums text-primary">{formatTime(restRemaining)}</Text>
-              <Text className="text-sm text-muted-foreground">rest</Text>
-            </View>
-            <Pressable onPress={stopRest} className="rounded-lg bg-secondary px-4 py-2">
-              <Text className="text-sm font-semibold text-secondary-foreground">Skip</Text>
-            </Pressable>
-          </>
-        ) : (
-          <>
-            <View key="workout-header" className="flex-1">
-              <Text className="text-lg font-bold" numberOfLines={1}>{activeWorkout.templateName}</Text>
-              <Text className="text-sm text-primary font-medium">{formatDuration(elapsed)}</Text>
-            </View>
-            <View className="flex-row items-center gap-2">
-              <Badge variant="secondary">
-                <Text className="text-xs">{completedSets}/{totalSets} sets</Text>
-              </Badge>
-            </View>
-          </>
-        )}
+      <View className={`h-16 flex-row items-center gap-2 border-b px-4 ${isRestActive ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
+        <Pressable
+          onPress={() => {
+            Keyboard.dismiss();
+            router.back();
+          }}
+          hitSlop={8}
+          className="-ml-2 h-9 w-9 items-center justify-center"
+        >
+          <Icon as={ChevronDown} size={22} className="text-foreground" />
+        </Pressable>
+        <View className="flex-1 flex-row items-center justify-between">
+          {isRestActive ? (
+            <>
+              <View key="rest-header" className="flex-1 flex-row items-center gap-3">
+                <Text className="text-2xl font-bold tabular-nums text-primary">{formatTime(restRemaining)}</Text>
+                <Text className="text-sm text-muted-foreground">rest</Text>
+              </View>
+              <Pressable onPress={stopRest} className="rounded-lg bg-secondary px-4 py-2">
+                <Text className="text-sm font-semibold text-secondary-foreground">Skip</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <View key="workout-header" className="flex-1">
+                <Text className="text-lg font-bold" numberOfLines={1}>{activeWorkout.templateName}</Text>
+                <Text className="text-sm text-primary font-medium">{formatDuration(elapsed)}</Text>
+              </View>
+              <View className="flex-row items-center gap-2">
+                <Badge variant="secondary">
+                  <Text className="text-xs">{completedSets}/{totalSets} sets</Text>
+                </Badge>
+              </View>
+            </>
+          )}
+        </View>
       </View>
 
       {/* Template notes */}

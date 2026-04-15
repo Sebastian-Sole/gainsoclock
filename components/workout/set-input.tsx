@@ -16,22 +16,23 @@ export function SetInput({ value, onValueChange, placeholder, className, allowDe
   // Sync external value changes (e.g. bulk edit) into local text
   useEffect(() => {
     const display = value === 0 ? '' : String(value);
+    const normalized = text.replace(',', '.');
     // Only sync if the numeric value actually changed (avoids clobbering "82." while typing)
-    if (parseFloat(text) !== value && !(text.endsWith('.') && parseFloat(text) === value)) {
+    if (parseFloat(normalized) !== value && !(/[.,]$/.test(text) && parseFloat(normalized) === value)) {
       setText(display);
     }
   }, [value]);
 
   const handleChange = (input: string) => {
     if (allowDecimals) {
-      // Allow digits, one decimal point, and empty string
-      if (input !== '' && !/^\d*\.?\d*$/.test(input)) return;
+      // Allow digits, one decimal separator (. or , for locales like Norwegian), and empty string
+      if (input !== '' && !/^\d*[.,]?\d*$/.test(input)) return;
     } else {
       // Integer only
       if (input !== '' && !/^\d*$/.test(input)) return;
     }
     setText(input);
-    const num = parseFloat(input);
+    const num = parseFloat(input.replace(',', '.'));
     onValueChange(isNaN(num) ? 0 : num);
   };
 

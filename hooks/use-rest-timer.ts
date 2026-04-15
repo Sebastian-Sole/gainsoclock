@@ -91,12 +91,10 @@ export function useRestTimer() {
     }
   }, [isActive, endsAt]);
 
-  // Cancel notification on unmount
-  useEffect(() => {
-    return () => {
-      cancelRestTimerNotification();
-    };
-  }, []);
+  // NOTE: intentionally no cancel-on-unmount. The rest timer is global state
+  // and must keep firing its OS-scheduled notification even when the active
+  // workout screen is closed/minimized. Cancellation happens via `stop()`
+  // (user skipped) or the schedule/cancel effect above when isActive flips off.
 
   const stop = () => {
     stopTimer();
