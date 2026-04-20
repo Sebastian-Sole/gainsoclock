@@ -1,0 +1,10 @@
+appId: com.soleinnovations.fitbull
+---
+# Reusable launch step. Imported via `runFlow: common/launch-app.yaml`.
+# Clears app state so each flow starts from a known point.
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    stopApp: true
+- waitForAnimationToEnd:
+    timeout: 5000

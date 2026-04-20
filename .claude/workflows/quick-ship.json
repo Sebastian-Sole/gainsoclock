@@ -1,0 +1,19 @@
+{
+  "name": "Quick Ship",
+  "description": "Implement, verify, and commit — no planning phase",
+  "steps": [
+    {
+      "command": "/tdd",
+      "description": "Implement with test-driven development"
+    },
+    {
+      "command": "/verify",
+      "description": "Run build, types, lint, and tests",
+      "on_fail": "stop"
+    },
+    {
+      "command": "/pre-commit-check",
+      "description": "Final quality gate"
+    }
+  ]
+}

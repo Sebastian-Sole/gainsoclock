@@ -1,0 +1,14 @@
+{
+  "reviewers": [
+    { "model": "claude-opus", "count": 2 },
+    { "model": "codex", "count": 2 },
+    { "model": "gemini-flash", "count": 2 }
+  ],
+  "aggregator": "claude-sonnet",
+  "validators": [
+    { "model": "claude-sonnet", "count": 2 },
+    { "model": "claude-haiku", "count": 1 }
+  ],
+  "finalModel": "claude-opus",
+  "timeoutMinutes": 25
+}

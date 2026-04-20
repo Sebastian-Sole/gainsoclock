@@ -1,0 +1,44 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - onboarding
+  - critical-path
+---
+# Fresh-install onboarding: from launch to the tab bar.
+# Relies on testIDs that must be added to onboarding components.
+# Stubs below flag where the component work is needed.
+
+- runFlow: ../common/launch-app.yaml
+
+# Welcome step
+- assertVisible:
+    id: "onboarding-welcome"        # add to components/onboarding/welcome.tsx root
+- tapOn:
+    id: "onboarding-continue"
+
+# Goal selection (pick first option -- adjust as product evolves)
+- assertVisible:
+    id: "onboarding-goal-step"
+- tapOn:
+    id: "onboarding-goal-option-0"
+- tapOn:
+    id: "onboarding-continue"
+
+# Weight unit
+- assertVisible:
+    id: "onboarding-units-step"
+- tapOn:
+    id: "onboarding-unit-kg"
+- tapOn:
+    id: "onboarding-continue"
+
+# Skip optional steps (HealthKit, notifications) -- don't grant real permissions in tests
+- tapOn:
+    id: "onboarding-skip"
+    optional: true
+- tapOn:
+    id: "onboarding-skip"
+    optional: true
+
+# Landed on tabs
+- assertVisible:
+    id: "tab-bar"
