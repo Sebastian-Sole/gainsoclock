@@ -1,0 +1,19 @@
+{
+  "name": "Bug Fix",
+  "description": "TDD bug fix with verification and review",
+  "steps": [
+    {
+      "command": "/tdd",
+      "description": "Write failing test for bug, then fix"
+    },
+    {
+      "command": "/verify",
+      "description": "Run build, types, lint, and tests",
+      "on_fail": "stop"
+    },
+    {
+      "command": "/simplify",
+      "description": "Review changed code for quality"
+    }
+  ]
+}

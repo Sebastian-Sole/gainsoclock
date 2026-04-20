@@ -1,0 +1,31 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - paywall
+  - app-review
+---
+# App Review requires a visible Restore Purchases affordance.
+# This flow verifies it exists both on the paywall and in settings.
+
+- runFlow: ../common/launch-app.yaml
+
+# Assume signed-in; navigate to settings
+- tapOn:
+    id: "tab-settings"
+- assertVisible:
+    id: "settings-restore-purchases"
+
+# Open paywall (settings -> upgrade, or whatever entry point exists)
+- tapOn:
+    id: "settings-upgrade"
+- assertVisible:
+    id: "paywall-screen"
+
+# Paywall must have a restore button (App Review requirement)
+- assertVisible:
+    id: "paywall-restore"
+
+# Close paywall -- users must be able to dismiss
+- tapOn:
+    id: "paywall-close"
+- assertVisible:
+    id: "settings-screen"
