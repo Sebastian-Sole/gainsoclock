@@ -4,13 +4,18 @@ export type ExerciseType =
   | 'reps_time'
   | 'time_only'
   | 'time_distance'
-  | 'reps_only';
+  | 'reps_only'
+  | 'intervals';
+
+export type IntervalMetric = 'pace' | 'distance' | 'speed';
+export type IntervalDistanceUnit = 'km' | 'mi';
 
 // Workout Set types (discriminated union)
 interface BaseSet {
   id: string;
   completed: boolean;
   variant?: 'work' | 'rest';
+  rpe?: number; // 1-10, only when rpeEnabled
 }
 
 export interface RepsWeightSet extends BaseSet {
@@ -41,12 +46,24 @@ export interface RepsOnlySet extends BaseSet {
   reps: number;
 }
 
+export interface IntervalSet extends BaseSet {
+  type: 'intervals';
+  variant: 'work' | 'rest'; // required for intervals (overrides BaseSet's optional variant)
+  metric: IntervalMetric;
+  time: number; // seconds
+  distanceUnit: IntervalDistanceUnit;
+  distance?: number;     // when metric === 'distance'
+  paceSeconds?: number;  // when metric === 'pace' (seconds per distanceUnit, e.g. 330 = 5:30/km)
+  speed?: number;        // when metric === 'speed' (per hour, e.g. 12 = 12 km/h)
+}
+
 export type WorkoutSet =
   | RepsWeightSet
   | RepsTimeSet
   | TimeOnlySet
   | TimeDistanceSet
-  | RepsOnlySet;
+  | RepsOnlySet
+  | IntervalSet;
 
 // Master exercise definition (from exercises table)
 export interface ExerciseDefinition {

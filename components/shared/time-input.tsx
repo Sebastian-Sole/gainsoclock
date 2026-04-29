@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, TextInput } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
@@ -14,18 +14,29 @@ export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
   const minutes = Math.floor((value % 3600) / 60);
   const seconds = value % 60;
 
+  // Track raw text + focus per field so users can clear "00" and type a new value.
+  // Without this, padStart on the rendered value would re-pad the cleared input every keystroke.
+  const [hoursText, setHoursText] = useState<string | null>(null);
+  const [minutesText, setMinutesText] = useState<string | null>(null);
+  const [secondsText, setSecondsText] = useState<string | null>(null);
+
   const handleHoursChange = (text: string) => {
-    const hrs = parseInt(text, 10) || 0;
-    onValueChange(hrs * 3600 + minutes * 60 + seconds);
+    setHoursText(text);
+    const hrs = parseInt(text, 10);
+    onValueChange((Number.isFinite(hrs) ? hrs : 0) * 3600 + minutes * 60 + seconds);
   };
 
   const handleMinutesChange = (text: string) => {
-    const mins = Math.min(59, parseInt(text, 10) || 0);
+    setMinutesText(text);
+    const parsed = parseInt(text, 10);
+    const mins = Math.min(59, Number.isFinite(parsed) ? parsed : 0);
     onValueChange(hours * 3600 + mins * 60 + seconds);
   };
 
   const handleSecondsChange = (text: string) => {
-    const secs = Math.min(59, parseInt(text, 10) || 0);
+    setSecondsText(text);
+    const parsed = parseInt(text, 10);
+    const secs = Math.min(59, Number.isFinite(parsed) ? parsed : 0);
     onValueChange(hours * 3600 + minutes * 60 + secs);
   };
 
@@ -35,29 +46,38 @@ export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
   return (
     <View className={cn('flex-row items-center gap-0.5', className)}>
       <TextInput
-        value={String(hours)}
+        value={hoursText ?? String(hours)}
         onChangeText={handleHoursChange}
+        onFocus={() => setHoursText(String(hours))}
+        onBlur={() => setHoursText(null)}
         keyboardType="numeric"
         className={fieldClass}
         maxLength={2}
         placeholder="0"
         placeholderTextColor="#9ca3af"
+        selectTextOnFocus
       />
       <Text className="text-xs text-muted-foreground">:</Text>
       <TextInput
-        value={String(minutes).padStart(2, '0')}
+        value={minutesText ?? String(minutes).padStart(2, '0')}
         onChangeText={handleMinutesChange}
+        onFocus={() => setMinutesText(String(minutes))}
+        onBlur={() => setMinutesText(null)}
         keyboardType="numeric"
         className={fieldClass}
         maxLength={2}
+        selectTextOnFocus
       />
       <Text className="text-xs text-muted-foreground">:</Text>
       <TextInput
-        value={String(seconds).padStart(2, '0')}
+        value={secondsText ?? String(seconds).padStart(2, '0')}
         onChangeText={handleSecondsChange}
+        onFocus={() => setSecondsText(String(seconds))}
+        onBlur={() => setSecondsText(null)}
         keyboardType="numeric"
         className={fieldClass}
         maxLength={2}
+        selectTextOnFocus
       />
     </View>
   );

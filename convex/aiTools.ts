@@ -14,6 +14,7 @@ const VALID_EXERCISE_TYPES = [
   "time_only",
   "time_distance",
   "reps_only",
+  "intervals",
 ] as const;
 
 type ExerciseType = (typeof VALID_EXERCISE_TYPES)[number];

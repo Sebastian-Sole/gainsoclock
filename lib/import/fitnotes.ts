@@ -277,5 +277,17 @@ function buildSet(
         type: 'reps_only',
         reps: reps,
       };
+    case 'intervals':
+      // FitNotes does not export intervals data; this branch is unreachable in practice.
+      return {
+        id,
+        completed,
+        type: 'intervals',
+        variant: 'work',
+        metric: 'distance',
+        time: applyWeight ? time : 0,
+        distanceUnit: 'km',
+        distance: applyWeight ? distance : 0,
+      };
   }
 }

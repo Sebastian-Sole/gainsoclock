@@ -73,6 +73,14 @@ export function exerciseTypeLabel(type: ExerciseType): string {
     time_only: 'Time Only',
     time_distance: 'Time & Distance',
     reps_only: 'Reps Only',
+    intervals: 'Intervals',
   };
   return labels[type];
+}
+
+/** Format pace seconds as "m:ss" (e.g., 330 → "5:30"). */
+export function formatPace(paceSeconds: number): string {
+  const mins = Math.floor(paceSeconds / 60);
+  const secs = Math.round(paceSeconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }

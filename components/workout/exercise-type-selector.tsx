@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Dumbbell, Timer, Clock, Route, Repeat } from 'lucide-react-native';
+import { Dumbbell, Timer, Clock, Route, Repeat, Activity } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import type { ExerciseType } from '@/lib/types';
 import { EXERCISE_TYPE_CONFIG } from '@/lib/constants';
@@ -13,6 +13,7 @@ const ICON_MAP = {
   Clock,
   Route,
   Repeat,
+  Activity,
 } as const;
 
 interface ExerciseTypeSelectorProps {

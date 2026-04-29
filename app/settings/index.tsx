@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Crown,
   Download,
+  Gauge,
   Heart,
   History,
   LogOut,
@@ -201,6 +202,8 @@ export default function SettingsScreen() {
   const setDistanceUnit = useSettingsStore((s) => s.setDistanceUnit);
   const setDefaultRestTime = useSettingsStore((s) => s.setDefaultRestTime);
   const setHapticsEnabled = useSettingsStore((s) => s.setHapticsEnabled);
+  const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
+  const setRpeEnabled = useSettingsStore((s) => s.setRpeEnabled);
   const {
     isAvailable: healthKitAvailable,
     isEnabled: healthKitEnabled,
@@ -413,6 +416,22 @@ export default function SettingsScreen() {
             <Switch
               checked={prefillFromLastWorkout}
               onCheckedChange={setPrefillFromLastWorkout}
+            />
+          </View>
+
+          <Separator />
+
+          <View className="flex-row items-center gap-3 px-4 py-4">
+            <Icon as={Gauge} size={20} className="text-primary" />
+            <View className="flex-1">
+              <Text className="font-medium">Track RPE</Text>
+              <Text className="text-sm text-muted-foreground">
+                Log perceived exertion (1-10) on each set
+              </Text>
+            </View>
+            <Switch
+              checked={rpeEnabled}
+              onCheckedChange={setRpeEnabled}
             />
           </View>
         </View>

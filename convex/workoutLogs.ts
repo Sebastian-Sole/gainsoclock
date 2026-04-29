@@ -108,6 +108,12 @@ export const listFull = query({
               ...(s.weight !== undefined && { weight: s.weight }),
               ...(s.time !== undefined && { time: s.time }),
               ...(s.distance !== undefined && { distance: s.distance }),
+              ...(s.rpe !== undefined && { rpe: s.rpe }),
+              ...(s.variant !== undefined && { variant: s.variant }),
+              ...(s.metric !== undefined && { metric: s.metric }),
+              ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
+              ...(s.speed !== undefined && { speed: s.speed }),
+              ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
             })),
         };
       });
@@ -183,6 +189,12 @@ export const create = mutation({
           ...(s.weight !== undefined && { weight: s.weight }),
           ...(s.time !== undefined && { time: s.time }),
           ...(s.distance !== undefined && { distance: s.distance }),
+          ...(s.rpe !== undefined && { rpe: s.rpe }),
+          ...(s.variant !== undefined && { variant: s.variant }),
+          ...(s.metric !== undefined && { metric: s.metric }),
+          ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
+          ...(s.speed !== undefined && { speed: s.speed }),
+          ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
         });
       }
     }
@@ -307,6 +319,12 @@ export const update = mutation({
             ...(s.weight !== undefined && { weight: s.weight }),
             ...(s.time !== undefined && { time: s.time }),
             ...(s.distance !== undefined && { distance: s.distance }),
+            ...(s.rpe !== undefined && { rpe: s.rpe }),
+            ...(s.variant !== undefined && { variant: s.variant }),
+            ...(s.metric !== undefined && { metric: s.metric }),
+            ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
+            ...(s.speed !== undefined && { speed: s.speed }),
+            ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
           });
         }
       }
@@ -375,6 +393,12 @@ export const bulkUpsert = mutation({
               ...(s.weight !== undefined && { weight: s.weight }),
               ...(s.time !== undefined && { time: s.time }),
               ...(s.distance !== undefined && { distance: s.distance }),
+              ...(s.rpe !== undefined && { rpe: s.rpe }),
+              ...(s.variant !== undefined && { variant: s.variant }),
+              ...(s.metric !== undefined && { metric: s.metric }),
+              ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
+              ...(s.speed !== undefined && { speed: s.speed }),
+              ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
             });
           }
         }

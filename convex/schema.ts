@@ -104,6 +104,15 @@ export default defineSchema({
     weight: v.optional(v.number()),
     time: v.optional(v.number()),
     distance: v.optional(v.number()),
+    rpe: v.optional(v.number()),
+    // Interval-type fields (work/rest pairs)
+    variant: v.optional(v.union(v.literal("work"), v.literal("rest"))),
+    metric: v.optional(
+      v.union(v.literal("pace"), v.literal("distance"), v.literal("speed"))
+    ),
+    paceSeconds: v.optional(v.number()),
+    speed: v.optional(v.number()),
+    distanceUnit: v.optional(v.union(v.literal("km"), v.literal("mi"))),
   })
     .index("by_workout_exercise", ["userId", "workoutLogExerciseClientId"])
     .index("by_exercise", ["userId", "exerciseClientId"]),
@@ -235,6 +244,7 @@ export default defineSchema({
     notificationsReminderTime: v.optional(v.string()),
     notificationsMorningPlanEnabled: v.optional(v.boolean()),
     notificationsMorningPlanTime: v.optional(v.string()),
+    rpeEnabled: v.optional(v.boolean()),
   }).index("by_user", ["userId"]),
 
   // Onboarding status

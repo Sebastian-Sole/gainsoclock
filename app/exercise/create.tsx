@@ -12,7 +12,7 @@ import { RestTimerPresets } from '@/components/workout/rest-timer-presets';
 import { StepIndicator } from '@/components/shared/step-indicator';
 import { NumericInput } from '@/components/shared/numeric-input';
 
-import type { Exercise, ExerciseType, ExerciseDefinition, TemplateExercise } from '@/lib/types';
+import type { Exercise, ExerciseType, ExerciseDefinition, IntervalDistanceUnit, TemplateExercise } from '@/lib/types';
 import { createDefaultSets } from '@/lib/defaults';
 import { generateId } from '@/lib/id';
 import { DEFAULT_REST_TIME } from '@/lib/defaults';
@@ -23,6 +23,7 @@ import { useWorkoutStore } from '@/stores/workout-store';
 import { useEditLogStore } from '@/stores/edit-log-store';
 import { useExerciseLibraryStore } from '@/stores/exercise-library-store';
 import { useSettingsStore } from '@/stores/settings-store';
+import { cn } from '@/lib/utils';
 
 const TOTAL_STEPS = 4;
 
@@ -37,6 +38,7 @@ export default function CreateExerciseScreen() {
   const userDefaultRestTime = useSettingsStore((s) => s.defaultRestTime);
   const userDefaultSetsCount = useSettingsStore((s) => s.defaultSetsCount);
   const userDefaultRepsCount = useSettingsStore((s) => s.defaultRepsCount);
+  const userDistanceUnit = useSettingsStore((s) => s.distanceUnit);
 
   // -1 = picker, 0-3 = wizard steps
   const [step, setStep] = useState(-1);
@@ -45,6 +47,7 @@ export default function CreateExerciseScreen() {
   const [setsCount, setSetsCount] = useState(userDefaultSetsCount);
   const [repsCount, setRepsCount] = useState(userDefaultRepsCount);
   const [restTime, setRestTime] = useState(userDefaultRestTime);
+  const [intervalUnit, setIntervalUnit] = useState<IntervalDistanceUnit>(userDistanceUnit);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseDefinition | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -128,7 +131,12 @@ export default function CreateExerciseScreen() {
     const exerciseDef = getOrCreate(trimmedName, exerciseType);
 
     const hasReps = exerciseType === 'reps_weight' || exerciseType === 'reps_time' || exerciseType === 'reps_only';
-    const suggested = hasReps ? { suggestedReps: repsCount } : undefined;
+    const isIntervals = exerciseType === 'intervals';
+    const suggested = hasReps
+      ? { suggestedReps: repsCount }
+      : isIntervals
+        ? { intervalDistanceUnit: intervalUnit }
+        : undefined;
 
     if (isActiveWorkout || source === 'edit-log') {
       const exercise: Exercise = {
@@ -264,21 +272,59 @@ export default function CreateExerciseScreen() {
         );
       case 2: {
         const hasReps = exerciseType === 'reps_weight' || exerciseType === 'reps_time' || exerciseType === 'reps_only';
+        const isIntervals = exerciseType === 'intervals';
+        const countLabel = isIntervals ? 'Intervals' : 'Sets';
         return (
           <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-2" className="flex-1">
-            <Text className="mb-2 text-2xl font-bold">Sets{hasReps ? ' & Reps' : ''}</Text>
+            <Text className="mb-2 text-2xl font-bold">
+              {isIntervals ? 'Intervals' : `Sets${hasReps ? ' & Reps' : ''}`}
+            </Text>
             <Text className="mb-6 text-muted-foreground">
-              {hasReps ? 'Configure sets and default reps' : 'How many sets for this exercise?'}
+              {isIntervals
+                ? 'Each interval is one work + one rest pair'
+                : hasReps
+                  ? 'Configure sets and default reps'
+                  : 'How many sets for this exercise?'}
             </Text>
             <View className="gap-6">
               <View className="flex-row items-center justify-between">
-                <Text className="text-base font-medium">Sets</Text>
+                <Text className="text-base font-medium">{countLabel}</Text>
                 <NumericInput value={setsCount} onValueChange={setSetsCount} min={1} max={20} />
               </View>
               {hasReps && (
                 <View className="flex-row items-center justify-between">
                   <Text className="text-base font-medium">Reps</Text>
                   <NumericInput value={repsCount} onValueChange={setRepsCount} min={1} max={100} />
+                </View>
+              )}
+              {isIntervals && (
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-base font-medium">Distance unit</Text>
+                  <View className="flex-row rounded-lg bg-secondary">
+                    {(['km', 'mi'] as const).map((unit) => (
+                      <Pressable
+                        key={unit}
+                        onPress={() => setIntervalUnit(unit)}
+                        className={cn(
+                          'rounded-lg px-4 py-2',
+                          intervalUnit === unit && 'bg-primary'
+                        )}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Distance unit ${unit}`}
+                      >
+                        <Text
+                          className={cn(
+                            'text-sm font-medium',
+                            intervalUnit === unit
+                              ? 'text-primary-foreground'
+                              : 'text-secondary-foreground'
+                          )}
+                        >
+                          {unit}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
               )}
             </View>
