@@ -1,0 +1,26 @@
+appId: com.soleinnovations.fitbull
+---
+# Reusable: seed a signed-in state for onboarding flows.
+# Uses env credentials so test accounts aren't hardcoded.
+# Expected env vars (pass via `maestro test -e EMAIL=… -e PASSWORD=…`):
+#   EMAIL, PASSWORD
+
+- tapOn:
+    id: "auth-sign-up-email"
+    optional: true
+- tapOn:
+    id: "auth-sign-in-email"
+    optional: true
+- tapOn:
+    id: "auth-email-input"
+    optional: true
+- inputText: ${EMAIL}
+- pressKey: Enter
+- tapOn:
+    id: "auth-password-input"
+    optional: true
+- inputText: ${PASSWORD}
+- pressKey: Enter
+- tapOn:
+    id: "auth-submit"
+    optional: true

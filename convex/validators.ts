@@ -154,3 +154,55 @@ export const weekStartDayValidator = v.union(
   v.literal("monday"),
   v.literal("sunday")
 );
+
+// Onboarding V2 / profile validators
+export const goalValidator = v.union(
+  v.literal("stronger"),
+  v.literal("leaner"),
+  v.literal("healthier"),
+  v.literal("routine")
+);
+
+export const experienceValidator = v.union(
+  v.literal("beginner"),
+  v.literal("returning"),
+  v.literal("experienced")
+);
+
+// "marketing" is intentionally NOT in V1 (HealthKit-Privacy C1).
+export const consentPurposeValidator = v.union(
+  v.literal("health_data_personalization"),
+  v.literal("ai_coach_inference"),
+  v.literal("analytics")
+);
+
+export const subscriptionStatusValidator = v.union(
+  v.literal("free"),
+  v.literal("trial"),
+  v.literal("pro"),
+  v.literal("grace"),
+  v.literal("paused"),
+  v.literal("lapsed")
+);
+
+export const subscriptionSourceValidator = v.union(
+  v.literal("rc_intro"),
+  v.literal("rc_paid"),
+  v.literal("rc_temp"),
+  v.literal("app_local")
+);
+
+export const dataSourceValidator = v.union(
+  v.literal("healthkit"),
+  v.literal("manual"),
+  v.literal("mixed")
+);
+
+export const biologicalSexValidator = v.union(
+  v.literal("male"),
+  v.literal("female")
+);
+
+// Compile-time coverage for Convex. `lib/subscription-constants.ts` remains
+// the single source of truth for the literal entitlement string.
+export const ENTITLEMENT_IDS = ["fitbull_pro"] as const;

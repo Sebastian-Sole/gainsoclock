@@ -1,5 +1,4 @@
 import { Tabs } from "expo-router";
-import { View } from "react-native";
 import {
   ChartNoAxesCombined,
   Compass,
@@ -12,15 +11,9 @@ import React from "react";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { Colors } from "@/constants/theme";
-import { useOnboardingTarget } from "@/hooks/use-onboarding-target";
 
 export default function TabLayout() {
   const { colorScheme } = useColorScheme();
-
-  const workoutsRef = useOnboardingTarget('tab-workouts');
-  const statsRef = useOnboardingTarget('tab-stats');
-  const exploreRef = useOnboardingTarget('tab-explore');
-  const chatRef = useOnboardingTarget('tab-chat');
 
   return (
     <Tabs
@@ -39,9 +32,7 @@ export default function TabLayout() {
         options={{
           title: "Workouts",
           tabBarIcon: ({ color, size }) => (
-            <View ref={workoutsRef} collapsable={false}>
-              <Dumbbell size={size} color={color} />
-            </View>
+            <Dumbbell size={size} color={color} />
           ),
         }}
       />
@@ -56,9 +47,7 @@ export default function TabLayout() {
         options={{
           title: "Stats",
           tabBarIcon: ({ color, size }) => (
-            <View ref={statsRef} collapsable={false}>
-              <ChartNoAxesCombined size={size} color={color} />
-            </View>
+            <ChartNoAxesCombined size={size} color={color} />
           ),
         }}
       />
@@ -76,9 +65,7 @@ export default function TabLayout() {
         options={{
           title: "Explore",
           tabBarIcon: ({ color, size }) => (
-            <View ref={exploreRef} collapsable={false}>
-              <Compass size={size} color={color} />
-            </View>
+            <Compass size={size} color={color} />
           ),
         }}
       />
@@ -87,9 +74,7 @@ export default function TabLayout() {
         options={{
           title: "Chat",
           tabBarIcon: ({ color, size }) => (
-            <View ref={chatRef} collapsable={false}>
-              <MessageCircle size={size} color={color} />
-            </View>
+            <MessageCircle size={size} color={color} />
           ),
         }}
       />

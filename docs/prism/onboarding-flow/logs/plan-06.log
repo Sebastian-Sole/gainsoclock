@@ -1,0 +1,14 @@
+Implementation complete. Plan-06 (HealthKit primer + prefill + manual stats + re-ask primitive) is in, with:
+
+- **S5 primer** (`app/onboarding/healthkit.tsx`) in the locked won't-read → read → write → revocation order, two equal-weight onboarding-size buttons, VoiceOver-grouped sections
+- **S5a prefill** (`healthkit-prefill.tsx`) with 16+ gate, sanity bounds, `dataSource` flipping to `"mixed"` on any edit
+- **S5b manual** (`manual-stats.tsx`) single-screen with same gate + bounds, `dataSource: "manual"`
+- **`AgeGateBlock`** full-screen with modal a11y, signs out + routes to sign-up, no side-route
+- **`lib/healthkit.ts`** locked to 3 read / 2 write scopes with `getAuthorizationStatus()` + `getLatestStats()` (parallel, `limit: 1`, descending sort, body-fat fraction normalisation)
+- **Re-ask card** (`components/home/healthkit-reask-card.tsx`) — 30-day suppress after 1 dismiss, permanent after 2, `.sharingDenied` → `Linking.openSettings()`
+- **`api.onboarding.updateHealthStats`** mutation with sanity bounds
+- **`stores/intake-draft-store.ts`** — persisted `reaskState` + `dataSource` (non-Art.9), backfill on rehydrate
+- **`docs/compliance/age-gate.md`** — decision record
+- Analytics wired for all six HealthKit events, scope names only, zero values
+
+`npx tsc --noEmit` and Convex typecheck both green. `pnpm lint` clean on all files touched here (3 pre-existing errors in `today-tab.tsx` unrelated). Completion log at `docs/prism/onboarding-flow/implementation/plan-06-log.md`.

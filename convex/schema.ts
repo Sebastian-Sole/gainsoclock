@@ -12,6 +12,13 @@ import {
   ingredientValidator,
   macrosValidator,
   weekStartDayValidator,
+  goalValidator,
+  experienceValidator,
+  consentPurposeValidator,
+  subscriptionStatusValidator,
+  subscriptionSourceValidator,
+  dataSourceValidator,
+  biologicalSexValidator,
 } from "./validators";
 
 export default defineSchema({
@@ -113,9 +120,102 @@ export default defineSchema({
     updatedAt: v.string(),
     lastEventId: v.optional(v.string()),
     lastEventTimestampMs: v.optional(v.number()),
+
+    // V2 state-machine additions — all optional here so the plan-02
+    // migration can backfill the two existing TestFlight rows without
+    // the schema deploy failing. Tightening happens in V1.1 after backfill.
+    status: v.optional(subscriptionStatusValidator),
+    source: v.optional(subscriptionSourceValidator),
+    sourceHistory: v.optional(
+      v.array(
+        v.object({
+          source: v.string(),
+          grantedAt: v.string(),
+          reason: v.string(),
+        })
+      )
+    ),
+    cancelReason: v.optional(v.string()),
+    trialExpiresAt: v.optional(v.string()),
+    willAutoRenew: v.optional(v.boolean()),
+    lastVerifiedAt: v.optional(v.string()),
+    notificationAnchorAt: v.optional(v.string()),
+    dcsaNotifiedAt: v.optional(v.string()),
+    reminder48hSentAt: v.optional(v.string()),
+    emailOptOut: v.optional(v.boolean()),
+    storefrontCountry: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
-    .index("by_revenuecat_id", ["revenuecatAppUserId"]),
+    .index("by_revenuecat_id", ["revenuecatAppUserId"])
+    .index("by_status", ["status"])
+    .index("by_status_trialExpiresAt", ["status", "trialExpiresAt"])
+    .index("by_status_lastVerifiedAt", ["status", "lastVerifiedAt"])
+    .index("by_status_notificationAnchorAt", ["status", "notificationAnchorAt"]),
+
+  // Onboarding V2: structured user profile
+  userProfile: defineTable({
+    userId: v.id("users"),
+    clientIntakeId: v.optional(v.string()),
+    goals: v.array(goalValidator),
+    primaryGoal: goalValidator,
+    experience: experienceValidator,
+    trainingDaysOfWeek: v.array(v.number()), // 0-6, max len 7
+    ageYears: v.optional(v.number()), // 16-100
+    biologicalSex: v.optional(biologicalSexValidator),
+    weightKg: v.optional(v.number()), // 30-250
+    heightCm: v.optional(v.number()), // 120-230
+    bodyFatPercent: v.optional(v.number()), // 3-60
+    dataSource: dataSourceValidator,
+    ahaGenerationCount: v.optional(v.number()),
+    lastAhaAt: v.optional(v.string()),
+    archetypeKey: v.optional(v.string()),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  }).index("by_user", ["userId"]),
+
+  // Append-only consent log (Security CR4). Withdrawals insert a new row.
+  userConsents: defineTable({
+    userId: v.id("users"),
+    purpose: consentPurposeValidator,
+    granted: v.boolean(),
+    version: v.string(), // 8-hex SHA-256 prefix from lib/consent.ts
+    grantedAt: v.string(), // server-authored ISO
+    revokedAt: v.optional(v.string()),
+    clientIntakeId: v.optional(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_purpose", ["userId", "purpose"])
+    .index("by_user_purpose_grantedAt", ["userId", "purpose", "grantedAt"]),
+
+  // AI-generated "aha" workout preview (streamed). Dedicated table (Theme I).
+  // `workout` is deliberately v.any(): streaming writes overwrite full JSON
+  // each 250ms tick; client parses only on `status: "complete"`.
+  onboardingAha: defineTable({
+    userId: v.id("users"),
+    generationId: v.string(),
+    status: v.union(
+      v.literal("streaming"),
+      v.literal("complete"),
+      v.literal("failed")
+    ),
+    workout: v.optional(v.any()),
+    intro: v.optional(v.string()),
+    error: v.optional(v.string()),
+    profileSnapshot: v.string(),
+    startedAt: v.string(),
+    completedAt: v.optional(v.string()),
+    updatedAt: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_generationId", ["userId", "generationId"]),
+
+  // AI safety incidents (moderation flags, refusals, bounds violations).
+  aiSafetyIncidents: defineTable({
+    userId: v.id("users"),
+    kind: v.string(),
+    detail: v.string(),
+    createdAt: v.string(),
+  }).index("by_user_createdAt", ["userId", "createdAt"]),
 
   // User preferences
   userSettings: defineTable({

@@ -1,0 +1,11 @@
+Plan-02 is implemented. Summary of what changed:
+
+- **State machine.** `convex/subscriptions.ts` rewritten around a pure `computeNextState` helper covering all 14 RC event types from the transition table (INITIAL_PURCHASE, RENEWAL, PRODUCT_CHANGE, CANCELLATION, UNCANCELLATION, SUBSCRIPTION_PAUSED, EXPIRATION, BILLING_ISSUE, REFUND, REFUND_REVERSED, TEMPORARY_ENTITLEMENT_GRANT, TRANSFER, SUBSCRIBER_ALIAS, SUBSCRIPTION_EXTENDED). New `getSubscriptionState` query exposes the full state surface.
+- **Webhook hardening.** `convex/http.ts` now does dual-token timing-safe auth, accepts unknown event types with a 200 + log, and pre-demotes stale `rc_temp` rows. Convex HTTP actions run in V8, so `timingSafeEqualString` is implemented in JS rather than via Node `crypto.timingSafeEqual`.
+- **Crons + Resend.** `convex/crons.ts`, `convex/subscriptionCrons.ts`, `convex/email.ts` wire the trial-48h, DCSA-6-month, and rc-temp-demote jobs. Idempotency via `reminder48hSentAt` / `dcsaNotifiedAt` / `expiresAt`.
+- **Migration.** `convex/migrations.ts` exports `migrateSubscriptionsV2({ logOnly })` for the 2 TestFlight rows — dry-run first, then commit.
+- **Client.** `stores/subscription-store.ts` extended with the full state surface (deprecated `isPro` retained as derived selector). `hooks/use-purchases.ts` adds `getOfferings()` + `checkTrialOrIntroDiscountEligibility()`, drops stale `customerInfo` payloads, preserves `rnpModule.default ?? rnpModule`. `app/settings/index.tsx` and `providers/convex-sync-provider.tsx` migrated to the state machine.
+- **Pinned versions.** `react-native-purchases` + `-ui` to exact `9.10.4`.
+- **Verification.** `npx tsc --noEmit` green; `pnpm convex codegen` green; lint clean for plan-02 files (pre-existing failures elsewhere). Manual webhook curl replay, Resend send, and migration dry-run still need to be executed against the dev deployment — see deviations in `docs/prism/onboarding-flow/implementation/plan-02-log.md`.
+
+Naming deviation: `convex/revenuecat-types.ts` had to be renamed to `convex/revenuecatTypes.ts` because Convex disallows hyphens in module paths.

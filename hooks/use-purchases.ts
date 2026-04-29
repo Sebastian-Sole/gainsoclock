@@ -1,10 +1,15 @@
 import { api } from "@/convex/_generated/api";
+import { ENTITLEMENT_ID } from "@/lib/subscription-constants";
 import { useSubscriptionStore } from "@/stores/subscription-store";
 import { useAction } from "convex/react";
 import { useCallback, useState } from "react";
 import { Linking, Platform } from "react-native";
 
-// Lazy-load native modules to avoid crashes when not linked
+// Lazy-load native modules to avoid crashes when not linked.
+//
+// RC F4: react-native-purchases v9 ships as CJS but Metro can pick up an
+// ESM facade depending on bundler config — `rnpModule.default ?? rnpModule`
+// is load-bearing and must be preserved across version bumps.
 let Purchases: any = null;
 let RevenueCatUI: any = null;
 let PAYWALL_RESULT: any = {};
@@ -40,15 +45,15 @@ interface CustomerInfo {
   };
   managementURL?: string;
   managementUrl?: string;
+  // RC SDK ≥ v6 sends ISO strings here; older sends Date.
+  requestDate?: string | Date;
 }
+
 export type CustomerCenterResult =
   | "opened"
   | "fallback_url"
   | "unavailable"
   | "error";
-
-const ENTITLEMENT_ID =
-  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ?? "Fitbull Pro";
 
 function getActiveEntitlement(customerInfo: CustomerInfo) {
   const activeEntitlements = customerInfo?.entitlements?.active ?? {};
@@ -62,23 +67,19 @@ function getActiveEntitlement(customerInfo: CustomerInfo) {
     };
   }
 
-  const firstActiveEntitlementId = Object.keys(activeEntitlements)[0] ?? null;
-  const firstActiveEntitlement = firstActiveEntitlementId
-    ? activeEntitlements[firstActiveEntitlementId]
-    : undefined;
-  if (firstActiveEntitlement) {
-    return {
-      activeEntitlement: firstActiveEntitlement,
-      entitlementId: firstActiveEntitlementId,
-      isActive: true,
-    };
-  }
-
   return {
     activeEntitlement: undefined,
     entitlementId: null,
     isActive: false,
   };
+}
+
+function customerInfoRequestMs(info: CustomerInfo): number | null {
+  const raw = info.requestDate;
+  if (!raw) return null;
+  if (raw instanceof Date) return raw.getTime();
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 let isConfigured = false;
@@ -112,6 +113,66 @@ export function configurePurchases() {
   isConfigured = true;
 }
 
+// Per-session cache of `getOfferings()` so the paywall interstitial doesn't
+// re-fetch on every render. Cleared on sign-out via `clearOfferingsCache`.
+let cachedOfferings: unknown | null = null;
+
+export function clearOfferingsCache() {
+  cachedOfferings = null;
+}
+
+export async function getOfferings(): Promise<unknown | null> {
+  if (!Purchases) return null;
+  if (cachedOfferings) return cachedOfferings;
+  try {
+    cachedOfferings = await Purchases.getOfferings();
+    return cachedOfferings;
+  } catch (error) {
+    console.warn("[Purchases] getOfferings failed:", error);
+    return null;
+  }
+}
+
+export async function checkTrialOrIntroDiscountEligibility(
+  productIds: string[],
+): Promise<Record<string, unknown> | null> {
+  if (!Purchases) return null;
+  try {
+    return await Purchases.checkTrialOrIntroductoryPriceEligibility(productIds);
+  } catch (error) {
+    console.warn(
+      "[Purchases] checkTrialOrIntroductoryPriceEligibility failed:",
+      error,
+    );
+    return null;
+  }
+}
+
+export function isRevenueCatUIAvailable(): boolean {
+  return Boolean(RevenueCatUI);
+}
+
+// Low-level wrapper used by the plan-08 fallback when `RevenueCatUI` is null
+// at runtime. Callers are expected to refresh the subscription store via
+// `checkStatus` after a successful purchase.
+export async function purchasePackageRaw(
+  pkg: unknown,
+): Promise<"purchased" | "cancelled" | "error"> {
+  if (!Purchases) return "error";
+  try {
+    const { userCancelled, customerInfo } =
+      await Purchases.purchasePackage(pkg);
+    if (userCancelled) return "cancelled";
+    const active = customerInfo?.entitlements?.active ?? {};
+    return active[ENTITLEMENT_ID] ? "purchased" : "error";
+  } catch (error) {
+    const err = error as { userCancelled?: boolean } | undefined;
+    if (err?.userCancelled) return "cancelled";
+    console.warn("[Purchases] purchasePackage failed:", error);
+    return "error";
+  }
+}
+
 export function usePurchases() {
   const [isLoading, setIsLoading] = useState(false);
   const syncToServer = useAction(api.subscriptions.syncFromClient);
@@ -137,8 +198,35 @@ export function usePurchases() {
       const { isActive, activeEntitlement, entitlementId } =
         getActiveEntitlement(customerInfo);
 
+      // Out-of-order protection (Offline-Sync #5): if this customerInfo is
+      // older than the last verified payload we successfully synced, drop
+      // it. The webhook is authoritative; in-app `syncCustomerInfo` is a
+      // best-effort hint that should never overwrite a newer server state.
+      const incomingMs = customerInfoRequestMs(customerInfo);
+      const lastVerifiedRaw =
+        useSubscriptionStore.getState().lastVerifiedAt;
+      const lastVerifiedMs = lastVerifiedRaw
+        ? Date.parse(lastVerifiedRaw)
+        : null;
+      if (
+        incomingMs !== null &&
+        lastVerifiedMs !== null &&
+        Number.isFinite(lastVerifiedMs) &&
+        incomingMs < lastVerifiedMs
+      ) {
+        if (__DEV__) {
+          console.log(
+            `[Purchases] ignored stale customerInfo (incoming=${incomingMs} < lastVerified=${lastVerifiedMs})`,
+          );
+        }
+        return isActive;
+      }
+
+      // Optimistic local update — the server state machine is still the
+      // truth, but the client store needs to reflect intent immediately so
+      // the UI doesn't flicker.
       useSubscriptionStore.getState().setSubscription({
-        isPro: isActive,
+        status: isActive ? "pro" : "free",
         productId: activeEntitlement?.productIdentifier ?? null,
         expiresAt: activeEntitlement?.expirationDate ?? null,
       });
@@ -152,10 +240,9 @@ export function usePurchases() {
         });
       } catch (error) {
         // Revert optimistic local state so the UI doesn't show Pro access
-        // that the server can't confirm. Without this, the local store stays
-        // isPro=true indefinitely while every server call rejects.
+        // that the server can't confirm.
         useSubscriptionStore.getState().setSubscription({
-          isPro: false,
+          status: "free",
           productId: null,
           expiresAt: null,
         });
@@ -179,41 +266,70 @@ export function usePurchases() {
     [syncToServer],
   );
 
-  // Present RevenueCat's native paywall UI
-  const presentPaywall = useCallback(async (): Promise<
-    "purchased" | "cancelled" | "error"
-  > => {
-    if (!RevenueCatUI || !Purchases) return "error";
-    try {
-      const result = await RevenueCatUI.presentPaywall();
-      if (__DEV__) {
-        console.log("[Purchases] presentPaywall result:", result);
-      }
-      switch (result) {
-        case PAYWALL_RESULT.PURCHASED:
-        case PAYWALL_RESULT.RESTORED: {
-          // Prompt RevenueCat to refresh backend receipt processing.
-          if (typeof Purchases.syncPurchasesForResult === "function") {
-            await Purchases.syncPurchasesForResult();
+  // Present RevenueCat's native paywall UI.
+  //
+  // `offeringIdentifier` lets callers explicitly target an offering by its
+  // dashboard ID (e.g. `default` for Test Store dev, `fitbull_pro` for
+  // production App Store). This decouples the SDK's runtime offering choice
+  // from the dashboard's project-wide Default flag — so we don't have to
+  // toggle dashboard state when shipping between Test Store and App Store
+  // API keys. If omitted, RC falls back to the Default offering.
+  const presentPaywall = useCallback(
+    async (
+      offeringIdentifier?: string
+    ): Promise<"purchased" | "cancelled" | "error"> => {
+      if (!RevenueCatUI || !Purchases) return "error";
+      try {
+        // Resolve the requested offering, if specified.
+        let presentArgs: Record<string, unknown> | undefined;
+        if (offeringIdentifier) {
+          const offerings = await Purchases.getOfferings();
+          const offering = offerings?.all?.[offeringIdentifier];
+          if (!offering) {
+            if (__DEV__) {
+              console.warn(
+                `[Purchases] No offering with identifier "${offeringIdentifier}" — falling back to default.`,
+                {
+                  available: Object.keys(offerings?.all ?? {}),
+                }
+              );
+            }
+          } else {
+            presentArgs = { offering };
           }
-          // Sync updated customer info after purchase/restore
-          const customerInfo = await fetchCustomerInfoWithRetry();
-          if (!customerInfo) return "error";
-          const isActive = await syncCustomerInfo(customerInfo);
-          return isActive ? "purchased" : "error";
         }
-        case PAYWALL_RESULT.ERROR:
-          return "error";
-        case PAYWALL_RESULT.NOT_PRESENTED:
-        case PAYWALL_RESULT.CANCELLED:
-        default:
-          return "cancelled";
+
+        const result = presentArgs
+          ? await RevenueCatUI.presentPaywall(presentArgs)
+          : await RevenueCatUI.presentPaywall();
+        if (__DEV__) {
+          console.log("[Purchases] presentPaywall result:", result);
+        }
+        switch (result) {
+          case PAYWALL_RESULT.PURCHASED:
+          case PAYWALL_RESULT.RESTORED: {
+            if (typeof Purchases.syncPurchasesForResult === "function") {
+              await Purchases.syncPurchasesForResult();
+            }
+            const customerInfo = await fetchCustomerInfoWithRetry();
+            if (!customerInfo) return "error";
+            const isActive = await syncCustomerInfo(customerInfo);
+            return isActive ? "purchased" : "error";
+          }
+          case PAYWALL_RESULT.ERROR:
+            return "error";
+          case PAYWALL_RESULT.NOT_PRESENTED:
+          case PAYWALL_RESULT.CANCELLED:
+          default:
+            return "cancelled";
+        }
+      } catch (error) {
+        console.error("[Purchases] Paywall presentation failed:", error);
+        return "error";
       }
-    } catch (error) {
-      console.error("[Purchases] Paywall presentation failed:", error);
-      return "error";
-    }
-  }, [fetchCustomerInfoWithRetry, syncCustomerInfo]);
+    },
+    [fetchCustomerInfoWithRetry, syncCustomerInfo]
+  );
 
   // Present RevenueCat's Customer Center for subscription management
   const openManagementUrl = useCallback(async (): Promise<boolean> => {
@@ -243,7 +359,6 @@ export function usePurchases() {
         }
 
         await RevenueCatUI.presentCustomerCenter();
-        // Re-sync after customer center (user may have cancelled/changed plan)
         const customerInfo = await fetchCustomerInfoWithRetry();
         if (!customerInfo) return "error" as const;
         await syncCustomerInfo(customerInfo);
@@ -290,6 +405,8 @@ export function usePurchases() {
     presentCustomerCenter,
     restore,
     checkStatus,
+    getOfferings,
+    checkTrialOrIntroDiscountEligibility,
     isLoading,
   };
 }

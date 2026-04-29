@@ -1,0 +1,110 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - onboarding
+  - a11y
+  - ship-gate
+  - blocking
+---
+# Flow 07 — VoiceOver happy path. BLOCKING SHIP GATE (Mobile-A11y #12).
+#
+# Preconditions:
+#   - Enable VoiceOver on the simulator BEFORE running:
+#       Settings → Accessibility → VoiceOver → On
+#     Or host shortcut: ⌘F5 in the simulator window.
+#   - Enable "Screen Curtain" (triple-tap with 3 fingers after VO on) to prove
+#     the flow works without sight. The gate passes only if every step is
+#     reachable via focus + activate.
+#
+# Gate semantics:
+#   - Every interactive element must be VO-focusable.
+#   - Every navigation must announce the new screen.
+#   - No trapped state (focus never dead-ends without a visible exit).
+#
+# Implementation note:
+#   Maestro does not interact with VoiceOver focus directly. This flow uses
+#   the same selectors as the non-VO happy path; failure mode is that an
+#   element exists visually but has no `accessibilityLabel` / `accessibilityRole`,
+#   which fails the human gate below.
+#
+# Human gate (reviewer checklist) — see
+# `docs/perf/preship-measurements.md` §VoiceOver review.
+
+- runFlow: ../common/launch-app.yaml
+
+# Auth screen — both affordances labelled
+- assertVisible:
+    id: "auth-sign-up-apple"
+- assertVisible:
+    id: "auth-sign-up-email"
+
+- runFlow: ./common-signed-in.yaml
+
+# S2 goal — progress dots announce position
+- assertVisible:
+    id: "onboarding-progress-dots"
+- assertVisible:
+    id: "goal-card-build_muscle"
+- tapOn:
+    id: "goal-card-build_muscle"
+- tapOn:
+    id: "onboarding-goal-continue"
+
+# S3 experience
+- assertVisible:
+    id: "experience-chip-intermediate"
+- tapOn:
+    id: "experience-chip-intermediate"
+- tapOn:
+    id: "onboarding-goal-continue"
+    optional: true
+
+# S4 days
+- tapOn:
+    id: "day-chip-monday"
+- tapOn:
+    id: "day-chip-wednesday"
+- tapOn:
+    id: "day-chip-friday"
+- tapOn:
+    id: "onboarding-days-continue"
+
+# S5 primer — dismiss path labelled
+- assertVisible:
+    id: "onboarding-healthkit-dismiss"
+- tapOn:
+    id: "onboarding-healthkit-dismiss"
+
+# S5b manual-stats — every input labelled, continue reachable
+- tapOn:
+    id: "onboarding-manual-age"
+- inputText: "30"
+- pressKey: Enter
+- tapOn:
+    id: "onboarding-manual-weight"
+- inputText: "75"
+- pressKey: Enter
+- tapOn:
+    id: "onboarding-manual-height"
+- inputText: "180"
+- pressKey: Enter
+- tapOn:
+    id: "onboarding-manual-continue"
+
+# S6 consent — checkboxes labelled with state
+- tapOn:
+    id: "consent-checkbox-analytics"
+- tapOn:
+    id: "onboarding-consent-submit"
+
+# S7 → S8 — plan reveal announces
+- assertVisible:
+    id: "aha-tile-calorie"
+    timeout: 20000
+- tapOn:
+    id: "onboarding-aha-continue"
+
+# S11 — paywall dismiss reachable
+- assertVisible:
+    id: "paywall-close"
+- tapOn:
+    id: "paywall-close"

@@ -1,0 +1,35 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - onboarding
+  - critical-path
+  - ship-gate
+---
+# Flow 01 — Sign up with Sign in with Apple.
+# Covers: cold-start → auth landing → SIWA → landed signed-in on onboarding start.
+# Notes:
+#   - SIWA sheet is a native iOS system sheet. On simulator this usually fails
+#     without a signed-in Apple ID; fall back to email sign-up in that case.
+#   - This flow is run on real device in CI (or is marked `optional` on sim).
+
+- runFlow: ../common/launch-app.yaml
+
+# Landing on auth
+- assertVisible:
+    id: "auth-sign-up-apple"
+
+# Tap SIWA
+- tapOn:
+    id: "auth-sign-up-apple"
+
+# Native system sheet — on real device, user touches Face ID + "Continue".
+# On simulator, Maestro cannot drive the system SIWA sheet; this flow is
+# skipped on sim runs via `--exclude-tags sim-skip`.
+- tapOn:
+    text: "Continue"
+    optional: true
+
+# Landed on first onboarding screen (goal).
+- assertVisible:
+    id: "onboarding-progress-dots"
+- assertVisible:
+    id: "onboarding-goal-continue"

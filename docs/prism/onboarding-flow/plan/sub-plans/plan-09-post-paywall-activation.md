@@ -1,8 +1,15 @@
 # Sub-Plan 09: Post-Paywall Activation Checklist (S10 + S11)
 
 ## Dependencies
-- **Requires:** plan-00 (spotlight tour deleted — replaced by Mural), plan-01 (schema + `userProfile.dataSource` for S11 re-ask gating + mutations), plan-03 (analytics events `activation_gate_*`, `healthkit_reask_*`), plan-06 (`HealthKitReaskCard` primitive ships from plan-06 — this phase mounts it), plan-07 (aha action produces the first plan; item-2 pre-complete logic depends on the distinction between aha and full plans), plan-08 (trial confirmation banner; Settings privacy route exists for Mural item "Enable AI personalisation").
-- **Blocks:** plan-10 (pre-ship polish verifies ≤ 3 concurrent `useQuery` per screen).
+- **Requires:**
+  - plan-00 — spotlight tour deleted; Mural replaces it
+  - plan-01 — schema + `userProfile.dataSource` for S11 re-ask gating + mutations
+  - plan-03 — analytics events `activation_gate_*`, `healthkit_reask_*`
+  - plan-06 — `HealthKitReaskCard` primitive (mounted here)
+  - plan-07 — aha action produces the first plan; item-2 pre-complete logic depends on the aha/full-plan distinction
+  - plan-08 — trial confirmation banner; Settings privacy route exists for the "Enable AI personalisation" item
+- **Blocks:**
+  - plan-10 — pre-ship polish verifies ≤ 3 concurrent `useQuery` per screen
 
 ## Objective
 Replace the old spotlight tour entirely with a Mural-style activation checklist on the home tab. Five items — (1) log a workout, (2) generate a full plan, (3) send a first coach message, (4) import HealthKit if not done, (5) set a weekly target — drive the first-session experience. Item 2 resolves on the first user-requested multi-week plan, NOT the aha card (important distinction from plan-07). All five booleans come from one aggregated `api.home.getActivationState` query — not five `useQuery` hooks. The skeptic cohort (plan-04 side-door) gets item 1 replaced with "Enable AI personalisation" routing to `app/settings/privacy.tsx`. The S11 re-ask card from plan-06 mounts here with its 30-day/permanent cadence cap.

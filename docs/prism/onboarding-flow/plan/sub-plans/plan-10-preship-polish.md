@@ -1,8 +1,18 @@
 # Sub-Plan 10: Pre-Ship Polish & Verification
 
 ## Dependencies
-- **Requires:** plan-00 through plan-09 — everything built. This phase is verification, measurement, and the final polish pass.
+- **Requires:**
+  - plan-00 — unblockers live
+  - plan-01 — schema shipped
+  - plan-02 — subscription state machine shipped
+  - plan-03 — analytics foundation shipped
+  - plan-04 — auth UI shipped
+  - plan-05 — intake screens shipped
+  - plan-06 — HealthKit primer shipped
+  - plan-07 — AI aha shipped
+  - plan-08 — paywall interstitial + trial + Settings privacy/delete shipped
 - **Blocks:** nothing. Final phase before TestFlight + App Store submission.
+- **Note:** plan-09 (Mural activation checklist) was cancelled post-implementation; no dependency on it.
 
 ## Objective
 Close the remaining open questions (G2 pricing matrix, G8 citation DOIs), run the measurement gates that the earlier phases committed to (cold-start, bundle delta, p50/p95/p99 latency, ≤3 concurrent `useQuery`), exercise the nine Maestro flows that cover the ship-critical paths including the blocking VoiceOver gate, verify the React Compiler healthcheck on `app/onboarding/*` as a CI gate, confirm the full environment-variable enumeration is live in production Convex, draft Apple review notes in case the reviewer asks 3.1.2 / 5.1.3 / 4.2 / 5.1.1(v) questions, and spin up the Canary Walker so the first week of production is observed from CI, not from incident channels. No new product scope — every item here is a pre-existing commitment from the master plan.

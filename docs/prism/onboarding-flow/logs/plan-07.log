@@ -1,0 +1,15 @@
+Plan-07 is implemented. Summary:
+
+**What shipped**
+- Convex: `onboardingActions.ts` (public `generateAhaWorkout` + internal `runAhaGeneration`) with verbatim system prompt, Structured Outputs + tier-filtered exerciseId enum, 250ms streaming throttle, moderation + refusal handling, primary→fallback model ladder, consent/age/rate-limit/idempotency gates, post-parse safety asserts. `onboarding.ts` gets `getAha` + `rekickAha`. `onboardingInternal.ts` implemented with all the upsert/log/query helpers.
+- Libraries: `lib/aha-schema.ts`, `lib/onboarding-fallback-session.ts`, `lib/bmr.ts`, `convex/exerciseLibrary.ts`, `stores/aha-session-store.ts`.
+- UI: `app/onboarding/analysis.tsx` (S7 with p50/p95/p99 latency budget + VoiceOver path), `app/onboarding/aha.tsx` (skeleton-until-complete, single a11y announce, assertive error with consent-missing copy path), `app/methodology.tsx`, five new `components/onboarding/*` files.
+- Layout updated to allow `analysis`/`aha`/`paywall` to run after `hasCompletedOnboarding` flips.
+
+**Verification**
+- `npx tsc --noEmit`: green
+- `npx convex codegen --typecheck enable`: green
+- `pnpm lint`: no new errors/warnings; pre-existing issues untouched
+- `tools:` / `tool_choice` / `chatActions` imports in `onboardingActions.ts`: zero real hits (only a DO-NOT-ADD guard comment)
+
+Completion log at `docs/prism/onboarding-flow/implementation/plan-07-log.md`.

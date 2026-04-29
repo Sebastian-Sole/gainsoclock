@@ -1,0 +1,8 @@
+Plan-10 scaffolding complete. Summary of what was produced:
+
+- **10 Maestro flows** (`.maestro/onboarding/01-…` through `09-…` + `99-canary.yaml`) plus 2 reusable partials. All flows wire to testIDs already shipped by plans 03–09. Flow 07 is marked as the BLOCKING VoiceOver ship gate.
+- **2 GitHub Actions workflows**: React Compiler healthcheck (PR gate on the four watched globs) and Canary Walker (weekly cron, HogQL assertion, auto-issue on divergence).
+- **1 PostHog assertion script** (`.github/scripts/canary-posthog-assert.mjs`) enforcing the `intake_started → consent_granted → plan_visible → trial_started` 24h chain.
+- **3 docs**: `docs/perf/preship-measurements.md` (every gate as a fillable row), `docs/apple-review-notes.md` (3.1.2 / 5.1.3 / 4.2 / 5.1.1(v) drafts), `docs/privacy-nutrition-label.md`.
+
+Manual verification work (ASC pricing, DOI click-throughs, cold-start / bundle / latency measurements, VoiceOver Screen Curtain walk, 50-user replay review) is captured as explicit `[ ]` TODO rows in the preship doc rather than fabricated. `npx tsc --noEmit` is clean; lint errors are pre-existing in `components/nutrition/today-tab.tsx` and unaffected by this sub-plan. Log written to `docs/prism/onboarding-flow/implementation/plan-10-log.md`.

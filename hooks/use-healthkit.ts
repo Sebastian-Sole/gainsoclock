@@ -1,10 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useSettingsStore } from '@/stores/settings-store';
 import {
+  getAuthorizationStatus,
+  getLatestBodyWeight,
+  getLatestStats,
   isHealthKitAvailable,
   requestHealthKitPermissions,
   saveWorkoutToHealthKit,
-  getLatestBodyWeight,
 } from '@/lib/healthkit';
 import type { WorkoutLog } from '@/lib/types';
 
@@ -52,5 +54,7 @@ export function useHealthKit() {
     disable,
     syncWorkout,
     getBodyWeight: getLatestBodyWeight,
+    getAuthorizationStatus,
+    getLatestStats,
   };
 }

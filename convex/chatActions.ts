@@ -9,6 +9,7 @@ import type {
 } from "openai/resources/chat/completions";
 import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
+import { OPENAI_CHAT_MODEL } from "./openaiConfig";
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -583,7 +584,7 @@ export const sendMessage = action({
 
     try {
       const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
+        model: OPENAI_CHAT_MODEL,
         messages,
         tools: TOOLS,
         stream: true,
@@ -711,7 +712,7 @@ export const sendMessage = action({
       if (userMessages.length <= 1) {
         try {
           const titleResponse = await openai.chat.completions.create({
-            model: "gpt-5.2",
+            model: OPENAI_CHAT_MODEL,
             messages: [
               {
                 role: "system",

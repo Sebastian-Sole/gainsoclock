@@ -1,8 +1,15 @@
 # Sub-Plan 07: AI Aha Moment (S7 narrated analysis + S8 aha plan card)
 
 ## Dependencies
-- **Requires:** plan-00 (OpenAI model abstraction in `convex/openai-config.ts`), plan-01 (`onboardingAha` table, `aiSafetyIncidents` table, `userProfile.ahaGenerationCount` + `lastAhaAt`, `userConsents.ai_coach_inference` gate, `internal.onboardingInternal.writeAhaDelta` stub), plan-02 (subscription state machine fields — the action is free during onboarding, but the post-paywall flow in plan-08 consumes these), plan-03 (analytics + server `captureServer`), plan-06 (`userProfile` populated with sanity-bounded stats + `dataSource`).
-- **Blocks:** plan-08 (paywall interstitial routes from S8 Continue; `plan_visible` analytics feed into funnel measurement), plan-09 (post-paywall activation checklist depends on aha being ready when user lands on `/(tabs)`).
+- **Requires:**
+  - plan-00 — OpenAI model abstraction in `convex/openai-config.ts`
+  - plan-01 — `onboardingAha` table, `aiSafetyIncidents` table, `userProfile.ahaGenerationCount` + `lastAhaAt`, `ai_coach_inference` consent gate, `internal.onboardingInternal.writeAhaDelta` stub
+  - plan-02 — subscription state machine fields consumed by downstream paywall
+  - plan-03 — analytics + server `captureServer`
+  - plan-06 — `userProfile` populated with sanity-bounded stats + `dataSource`
+- **Blocks:**
+  - plan-08 — paywall interstitial routes from S8 Continue; `plan_visible` feeds funnel measurement
+  - plan-09 — post-paywall activation checklist depends on aha being ready when user lands on `/(tabs)`
 
 ## Objective
 Ship the single-workout Structured Outputs streaming "aha" moment — the conversion payoff after the intake. The server action `generateAhaWorkout` composes a safety-hardened prompt from the user's profile, calls OpenAI with `response_format: json_schema` and `strict: true` (no tool calls), streams the generated workout into the dedicated `onboardingAha` row at a 250ms throttle with full-JSON overwrite each tick, enforces moderation + sanity bounds + 16+ + rate limits + medical boundaries + no-tools-discipline, and falls back to a static safety-net session on repeated failure. The client ships S7 (narrated analysis) and S8 (aha reveal with carousel tiles, editable intake chips, medical disclaimer), both VoiceOver-aware and Reduce-Motion-aware. Three-phase latency budget (p50 3.5s / p95 8s / p99 14s) is enforced on the client with graceful degradation.

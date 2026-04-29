@@ -13,11 +13,12 @@ import { Alert, FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PlansList } from '@/components/chat/plans-list';
+import { HealthKitReaskCard } from '@/components/home/healthkit-reask-card';
+import { TrialConfirmationBanner } from '@/components/home/trial-confirmation-banner';
 import { Fab } from '@/components/shared/fab';
 import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
 import { EmptyState } from '@/components/workout/empty-state';
 import { TemplateCard } from '@/components/workout/template-card';
-import { useOnboardingTarget } from '@/hooks/use-onboarding-target';
 import { heavyHaptic, mediumHaptic } from '@/lib/haptics';
 import { useHistoryStore } from '@/stores/history-store';
 import { useTemplateStore } from '@/stores/template-store';
@@ -26,9 +27,6 @@ import { useWorkoutStore } from '@/stores/workout-store';
 export default function WorkoutsScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('templates');
-
-  const fabRef = useOnboardingTarget('fab-create-template');
-  const startBtnRef = useOnboardingTarget('btn-start-empty');
 
   const templates = useTemplateStore((s) => s.templates);
   const deleteTemplate = useTemplateStore((s) => s.deleteTemplate);
@@ -197,6 +195,11 @@ export default function WorkoutsScreen() {
         </View>
 
         <TabsContent value="templates" className="flex-1">
+          <TrialConfirmationBanner />
+          <View className="mx-4 mb-3">
+            <HealthKitReaskCard />
+          </View>
+
           {/* Resume Active Workout */}
           {activeWorkout && (
             <Pressable
@@ -235,8 +238,6 @@ export default function WorkoutsScreen() {
 
           {/* Start Empty Workout */}
           <Pressable
-            ref={startBtnRef}
-            collapsable={false}
             onPress={handleStartEmpty}
             className="mx-4 mb-4 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
           >
@@ -266,11 +267,7 @@ export default function WorkoutsScreen() {
             />
           )}
 
-          <View
-            ref={fabRef}
-            collapsable={false}
-            className="absolute bottom-6 right-6 h-14 w-14"
-          >
+          <View className="absolute bottom-6 right-6 h-14 w-14">
             <Fab onPress={() => router.push('/template/create')} className="relative bottom-0 right-0" />
           </View>
         </TabsContent>

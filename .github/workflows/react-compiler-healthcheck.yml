@@ -1,0 +1,45 @@
+name: React Compiler Healthcheck
+
+on:
+  pull_request:
+    paths:
+      - "app/onboarding/**"
+      - "components/onboarding/**"
+      - "components/paywall/**"
+      - "components/home/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/react-compiler-healthcheck.yml"
+
+concurrency:
+  group: rc-healthcheck-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  healthcheck:
+    name: react-compiler-healthcheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run React Compiler healthcheck
+        run: |
+          npx --yes react-compiler-healthcheck \
+            --src "app/onboarding/**/*.{ts,tsx}" \
+            --src "components/onboarding/**/*.{ts,tsx}" \
+            --src "components/paywall/**/*.{ts,tsx}" \
+            --src "components/home/**/*.{ts,tsx}" \
+            --verbose
