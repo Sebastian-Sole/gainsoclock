@@ -1,27 +1,27 @@
+import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Pressable, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import Animated, {
-  Easing,
-  cancelAnimation,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
+    Easing,
+    cancelAnimation,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming,
 } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SvgXml } from 'react-native-svg';
 
+import { SEBASTIAN_SIGNATURE_SVG } from '@/assets/signatures/sebastian';
 import { Text } from '@/components/ui/text';
 import { useReduceMotion } from '@/hooks/use-reduce-motion';
-import { lightHaptic } from '@/lib/haptics';
 import { capture } from '@/lib/analytics';
-import { SEBASTIAN_SIGNATURE_SVG } from '@/assets/signatures/sebastian';
+import { lightHaptic } from '@/lib/haptics';
 
 const BODY_PARAGRAPHS = [
-  "I'm Sebastian. I built Fitbull because I was tired of fitness apps that hide real coaching behind another paywall on top of the one I'd already paid.",
-  'Fitbull is what I wanted: a coach in my pocket that actually listens, plans built around my real schedule, and no dark patterns to subscribe.',
-  'If something\u2019s broken or stupid, my email is in Settings. I read every message.',
+  "Sebastian here! I built Fitbull because I got fed up with every workout app doing everything besides focusing on fitness.",
+  `While other apps are squeezing out every extra of penny from you, I'm in the gym between sets, adding that extra "cherry-on-top" feature to Fitbull. That's the whole difference.`,
+  "If something's missing, broken, or just doesn't feel right - tell me, my email is in settings. I read every email myself. I love YOUR great ideas; that's how Fitbull started, with a simple idea.",
 ];
 
 export default function FounderNoteScreen() {
@@ -112,7 +112,7 @@ export default function FounderNoteScreen() {
           className="rounded-3xl border border-border bg-card px-6 py-7"
         >
           <Text className="text-[22px] font-semibold leading-tight text-foreground">
-            Hey.
+            A note from the founder...
           </Text>
 
           <View className="mt-4 gap-4">

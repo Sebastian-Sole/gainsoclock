@@ -1,23 +1,23 @@
+import { useRouter } from 'expo-router';
+import { Check, Dumbbell, TrendingUp } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { Pressable, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import Animated, {
-  Easing,
-  cancelAnimation,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  type SharedValue,
+    Easing,
+    cancelAnimation,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming,
+    type SharedValue,
 } from 'react-native-reanimated';
-import { Check, Dumbbell, TrendingUp } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useReduceMotion } from '@/hooks/use-reduce-motion';
-import { lightHaptic, mediumHaptic } from '@/lib/haptics';
 import { capture } from '@/lib/analytics';
+import { lightHaptic, mediumHaptic } from '@/lib/haptics';
 
 // ── Demo content (mirrors a real workout active screen) ──────────
 const EXERCISE_NAME = 'Barbell back squat';
@@ -394,7 +394,7 @@ export default function DemoWorkoutsScreen() {
             Log workouts.{'\n'}Watch your progress.
           </Text>
           <Text className="mt-3 text-center text-[15px] leading-6 text-muted-foreground">
-            Tap, log, done. Your numbers compound week over week.
+            Tap, log, done. And a stats dashboard to track progress.
           </Text>
         </Animated.View>
 

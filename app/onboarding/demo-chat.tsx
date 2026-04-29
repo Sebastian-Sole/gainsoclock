@@ -1,32 +1,32 @@
+import { useRouter } from 'expo-router';
+import { Calendar, Sparkles } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import Animated, {
-  Easing,
-  cancelAnimation,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming,
+    Easing,
+    cancelAnimation,
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withRepeat,
+    withSequence,
+    withSpring,
+    withTiming,
 } from 'react-native-reanimated';
-import { Calendar, Sparkles } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useReduceMotion } from '@/hooks/use-reduce-motion';
-import { lightHaptic, mediumHaptic } from '@/lib/haptics';
 import { capture } from '@/lib/analytics';
+import { lightHaptic, mediumHaptic } from '@/lib/haptics';
 
 // ── Demo content ────────────────────────────────────────────────
 // Hand-authored — this is a scripted demo, not a real chat.
 
 const USER_PROMPT = 'Build me a 4-day plan to gain muscle.';
 const AI_REPLY =
-  "Here's a 4-day upper/lower split. ~45 min per session, progressive overload built in.";
+  "Here's a 4-day upper/lower split. ~45 min per session, progressive overload built in, based on your current level of activity";
 const PLAN_NAME = 'Strength · Upper / Lower';
 const PLAN_META = '4 weeks · 4 sessions/week';
 // Day-of-week pattern, Mon/Tue/Thu/Fri (1, 2, 4, 5)
@@ -392,7 +392,7 @@ export default function DemoChatScreen() {
             className="text-center text-[28px] font-bold leading-tight text-foreground"
             accessibilityRole="header"
           >
-            Tell it what you want.{'\n'}Get a plan.
+            A personal trainer,{'\n'}in your pocket.
           </Text>
           <Text className="mt-3 text-center text-[15px] leading-6 text-muted-foreground">
             Built around your goals, your schedule, and your data.
