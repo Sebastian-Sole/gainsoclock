@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useMutation } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTemplateStore } from "@/stores/template-store";
@@ -35,6 +35,7 @@ function getExerciseKey(name: string, type: string): string {
  * Uses bulkUpsert mutations that deduplicate by clientId, so it's safe to retry.
  */
 export function useDataMigration() {
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const bulkUpsertTemplates = useMutation(api.templates.bulkUpsert);
   const bulkUpsertLogs = useMutation(api.workoutLogs.bulkUpsert);
   const bulkUpsertExercises = useMutation(api.exercises.bulkUpsert);
@@ -43,6 +44,10 @@ export function useDataMigration() {
 
   useEffect(() => {
     if (hasRun.current) return;
+    // Convex auth has to be settled AND positive before we run any
+    // mutations — otherwise `getAuthUserId(ctx)` returns null on the
+    // server and the migration throws "Not authenticated".
+    if (isLoading || !isAuthenticated) return;
     hasRun.current = true;
 
     (async () => {
@@ -211,5 +216,6 @@ export function useDataMigration() {
         // Will retry on next app launch since flag was not set
       }
     })();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, isLoading]);
 }

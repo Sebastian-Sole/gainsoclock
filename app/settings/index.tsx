@@ -113,7 +113,7 @@ export default function SettingsScreen() {
     try {
       await resetOnboarding();
       clearAuthCache();
-      router.replace("/onboarding/demo-chat" as never);
+      router.replace("/onboarding/welcome");
     } catch (e) {
       Alert.alert(
         "Reset failed",

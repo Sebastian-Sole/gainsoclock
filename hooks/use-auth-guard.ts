@@ -50,12 +50,12 @@ export function useAuthGuard() {
     const inOnboarding = (segments[0] as string) === "onboarding";
 
     if (!effectiveAuthenticated && !inAuthGroup) {
-      router.replace("/(auth)/sign-up" as never);
+      router.replace("/(auth)/sign-up");
       return;
     }
 
     if (effectiveAuthenticated && !hasCompletedOnboarding && !inOnboarding) {
-      router.replace("/onboarding/demo-chat" as never);
+      router.replace("/onboarding/welcome");
       return;
     }
 
@@ -71,7 +71,7 @@ export function useAuthGuard() {
       hasCompletedOnboarding &&
       inAuthGroup
     ) {
-      router.replace("/(tabs)" as never);
+      router.replace("/(tabs)");
     }
   }, [
     hasCompletedOnboarding,

@@ -67,9 +67,17 @@ export type AnalyticsEvent =
     }
   | { name: "rage_quit"; props: { screen: string; msSinceMount: number } }
   | { name: "screen_render_ms"; props: { screen: string; ms: number } }
+  | { name: "welcome_shown"; props: Record<string, never> }
+  | { name: "welcome_continue"; props: Record<string, never> }
   | { name: "demo_chat_shown"; props: Record<string, never> }
   | { name: "demo_chat_continue"; props: Record<string, never> }
   | { name: "demo_chat_skipped"; props: Record<string, never> }
+  | { name: "demo_meals_shown"; props: Record<string, never> }
+  | { name: "demo_meals_continue"; props: Record<string, never> }
+  | { name: "demo_meals_skipped"; props: Record<string, never> }
+  | { name: "demo_workouts_shown"; props: Record<string, never> }
+  | { name: "demo_workouts_continue"; props: Record<string, never> }
+  | { name: "demo_workouts_skipped"; props: Record<string, never> }
   | { name: "founder_note_shown"; props: Record<string, never> }
   | { name: "founder_note_continue"; props: Record<string, never> }
   | { name: `activation_gate_${string}`; props: Record<string, never> };
@@ -135,9 +143,17 @@ const PRE_CONSENT_BUFFERABLE: ReadonlySet<AnalyticsEvent["name"]> = new Set([
   "intake_restarted",
   "consent_granted",
   "skipped_to_app",
+  "welcome_shown",
+  "welcome_continue",
   "demo_chat_shown",
   "demo_chat_continue",
   "demo_chat_skipped",
+  "demo_meals_shown",
+  "demo_meals_continue",
+  "demo_meals_skipped",
+  "demo_workouts_shown",
+  "demo_workouts_continue",
+  "demo_workouts_skipped",
   "founder_note_shown",
   "founder_note_continue",
 ]);

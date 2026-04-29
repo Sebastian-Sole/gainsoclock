@@ -58,7 +58,16 @@ export default function OnboardingLayout() {
           contentStyle: { backgroundColor: 'transparent' },
         }}
       >
+        <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
         <Stack.Screen name="demo-chat" options={{ gestureEnabled: false }} />
+        <Stack.Screen
+          name="demo-meals"
+          options={{ gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="demo-workouts"
+          options={{ gestureEnabled: false }}
+        />
         <Stack.Screen
           name="founder-note"
           options={{ gestureEnabled: false }}

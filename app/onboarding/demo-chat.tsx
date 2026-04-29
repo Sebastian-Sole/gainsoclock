@@ -368,13 +368,13 @@ export default function DemoChatScreen() {
   const handleContinue = () => {
     capture({ name: 'demo_chat_continue', props: {} });
     mediumHaptic();
-    router.replace('/onboarding/founder-note' as never);
+    router.replace('/onboarding/demo-meals');
   };
 
   const handleSkip = () => {
     capture({ name: 'demo_chat_skipped', props: {} });
     lightHaptic();
-    router.replace('/onboarding/founder-note' as never);
+    router.replace('/onboarding/demo-meals');
   };
 
   return (

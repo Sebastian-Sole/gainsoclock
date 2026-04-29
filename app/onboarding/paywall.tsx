@@ -57,7 +57,7 @@ export default function PaywallScreen() {
     if (userId === undefined) return;
     if (userId === null) {
       // Not authenticated — soft fall to tabs. Auth-guard will catch it.
-      router.replace('/(tabs)' as never);
+      router.replace('/(tabs)');
       return;
     }
     ranRef.current = true;
@@ -204,7 +204,7 @@ export default function PaywallScreen() {
             console.warn('[paywall] markOnboardingComplete failed', markErr);
           }
         }
-        router.replace('/(tabs)' as never);
+        router.replace('/(tabs)');
       }
     })();
   }, [checkStatus, markOnboardingComplete, presentPaywall, router, userId]);
