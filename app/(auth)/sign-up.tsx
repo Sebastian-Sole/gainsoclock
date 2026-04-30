@@ -301,36 +301,31 @@ export default function SignUpScreen() {
           </Pressable>
 
           {/* Legal acceptance line — basis for account creation. Toggleable
-              consents (analytics, AI, health) live in Settings → Privacy. */}
-          <View className="mb-6 flex-row flex-wrap items-center justify-center gap-x-1 px-4">
-            <Text className="text-center text-xs text-muted-foreground">
-              By continuing, you agree to our{" "}
-            </Text>
-            <Pressable
+              consents (analytics, AI, health) live in Settings → Privacy.
+              Single Text container with nested onPress runs so the line wraps
+              as natural prose; flex-row siblings would let punctuation orphan
+              onto its own line. */}
+          <Text className="mb-6 px-4 text-center text-xs text-muted-foreground">
+            By continuing, you agree to our{" "}
+            <Text
+              className="font-medium text-foreground underline"
               onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)}
               accessibilityRole="link"
               accessibilityLabel={TERMS_URL}
-              hitSlop={8}
             >
-              <Text className="text-xs font-medium text-foreground underline">
-                Terms
-              </Text>
-            </Pressable>
-            <Text className="text-xs text-muted-foreground">
-              , which describe how we use OpenAI to power the AI coach, and our{" "}
+              Terms
             </Text>
-            <Pressable
+            , which describe how we use OpenAI to power the AI coach, and our{" "}
+            <Text
+              className="font-medium text-foreground underline"
               onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)}
               accessibilityRole="link"
               accessibilityLabel={PRIVACY_URL}
-              hitSlop={8}
             >
-              <Text className="text-xs font-medium text-foreground underline">
-                Privacy Policy
-              </Text>
-            </Pressable>
-            <Text className="text-xs text-muted-foreground">.</Text>
-          </View>
+              Privacy Policy
+            </Text>
+            .
+          </Text>
 
           {/* Sign-in link */}
           <Pressable
