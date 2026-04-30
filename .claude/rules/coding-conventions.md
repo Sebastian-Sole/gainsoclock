@@ -8,7 +8,7 @@ These rules are enforceable. If a rule can be enforced by ESLint/TypeScript, pre
 
 ## Tooling
 
-- **Package manager: pnpm only.** `pnpm-workspace.yaml` and `pnpm.overrides` in `package.json` pin `react-native-nitro-modules@0.32.2`. Using npm/yarn drops the override and breaks iOS builds.
+- **Package manager: pnpm only.** `pnpm.overrides` in `package.json` pins `react-native-nitro-modules@0.32.2`. Using npm/yarn drops the override and breaks iOS builds. `.npmrc` sets `node-linker=hoisted` so Metro can resolve modules.
 - **Lint: `pnpm lint` (`expo lint` → ESLint 9 + `eslint-config-expo`).** Do not introduce a second formatter. Prettier is available transitively via `prettier-plugin-tailwindcss` for class sorting only — don't add a Prettier config.
 - **Typecheck app code:** `npx tsc --noEmit`. The root `tsconfig.json` excludes `convex/`.
 - **Typecheck Convex:** `pnpm convex:dev` (the Convex CLI). `convex/` has its own `tsconfig.json`.

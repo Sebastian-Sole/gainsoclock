@@ -68,7 +68,7 @@ You are a careful collaborator on a small fitness-app codebase. Favor narrow, re
 
 ## Gotchas
 
-- **`pnpm` is required** — `pnpm-workspace.yaml` and the `pnpm.overrides` block pin `react-native-nitro-modules` to `0.32.2`. Using npm/yarn silently drops the override and breaks iOS builds.
+- **`pnpm` is required** — the `pnpm.overrides` block in `package.json` pins `react-native-nitro-modules` to `0.32.2`. Using npm/yarn silently drops the override and breaks iOS builds. `.npmrc` sets `node-linker=hoisted` so Metro can resolve modules; don't switch to the symlinked layout.
 - **`@/*` resolves to repo root**, not `src/`. `@/components/ui/button` → `./components/ui/button.tsx`.
 - **Expo Router typed routes** regenerate on dev-server start. If route types look stale, restart `pnpm start`.
 - **Convex validators** (`convex/validators.ts`) are the source of truth for enum-like fields. Don't duplicate them in app code — import and reuse.
