@@ -14,14 +14,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useConvexAuth, useQuery } from "convex/react";
+import { useConvexAuth } from "convex/react";
 
 import { Text } from "@/components/ui/text";
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
-import { AbandonmentRecoveryInterstitial } from "@/components/auth/abandonment-recovery-interstitial";
 import { capture } from "@/lib/analytics";
 import { SIWA_COLLISION_COPY } from "@/lib/privacy-notice";
-import { api } from "@/convex/_generated/api";
 import { useOnboardingStatus } from "@/hooks/use-onboarding-status";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -48,7 +46,6 @@ export default function SignInScreen() {
   const router = useRouter();
   const { signIn } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
-  const userIdResult = useQuery(api.user.me);
   const onboarding = useOnboardingStatus();
 
   const [email, setEmail] = useState("");
@@ -161,9 +158,6 @@ export default function SignInScreen() {
   const handleAppleCollision = () => {
     setError(SIWA_COLLISION_COPY);
   };
-
-  const currentUserId =
-    typeof userIdResult === "string" ? userIdResult : null;
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -304,11 +298,6 @@ export default function SignInScreen() {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <AbandonmentRecoveryInterstitial
-        userId={currentUserId}
-        hasCompletedOnboarding={onboarding.status === "complete"}
-      />
     </SafeAreaView>
   );
 }

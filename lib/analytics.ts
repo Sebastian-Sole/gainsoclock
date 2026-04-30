@@ -35,6 +35,9 @@ export type AnalyticsEvent =
   | { name: "healthkit_reask_shown"; props: Record<string, never> }
   | { name: "healthkit_reask_granted"; props: Record<string, never> }
   | { name: "healthkit_reask_dismissed"; props: Record<string, never> }
+  | { name: "healthkit_chat_prompt_shown"; props: Record<string, never> }
+  | { name: "healthkit_chat_prompt_granted"; props: Record<string, never> }
+  | { name: "healthkit_chat_prompt_dismissed"; props: Record<string, never> }
   | {
       name: "manual_stats_complete";
       props: { dataSource: "healthkit" | "manual" | "mixed" };
@@ -54,6 +57,7 @@ export type AnalyticsEvent =
       props: { trialEligible: boolean };
     }
   | { name: "paywall_presented"; props: { placementId: string } }
+  | { name: "paywall_dismissed"; props: Record<string, never> }
   | { name: "revenuecat_ui_unavailable"; props: Record<string, never> }
   | {
       name: "trial_started";

@@ -19,15 +19,25 @@ import { useReduceMotion } from '@/hooks/use-reduce-motion';
 import { capture } from '@/lib/analytics';
 import { lightHaptic, mediumHaptic } from '@/lib/haptics';
 
+// Inlined to keep this demo screen self-contained; mirrors `--chart-*` in
+// `global.css` and `chart-*` in `tailwind.config.js`. Reanimated worklet
+// styles need resolved color strings (cannot parse `hsl(var(...))`).
+const MACRO_COLORS = {
+  protein: '#3b82f6',
+  carbs: '#eab308',
+  fat: '#ef4444',
+  success: '#22c55e',
+} as const;
+
 // ── Demo content (mirrors what the real Today tab shows) ─────────
 const CALORIES = 1620;
 const CALORIES_GOAL = 2080;
 const REMAINING = CALORIES_GOAL - CALORIES;
 
 const MACROS = [
-  { label: 'Protein', value: 124, goal: 140, color: '#3b82f6' }, // blue
-  { label: 'Carbs', value: 188, goal: 240, color: '#eab308' }, //   yellow
-  { label: 'Fat', value: 56, goal: 70, color: '#ef4444' }, //       red
+  { label: 'Protein', value: 124, goal: 140, color: MACRO_COLORS.protein },
+  { label: 'Carbs', value: 188, goal: 240, color: MACRO_COLORS.carbs },
+  { label: 'Fat', value: 56, goal: 70, color: MACRO_COLORS.fat },
 ];
 
 type MealRow = {
@@ -427,7 +437,7 @@ export default function DemoMealsScreen() {
                   <View className="mt-3 w-full">
                     <HorizontalBar
                       fraction={caloriesFraction}
-                      color="#22c55e"
+                      color={MACRO_COLORS.success}
                       height={10}
                     />
                   </View>

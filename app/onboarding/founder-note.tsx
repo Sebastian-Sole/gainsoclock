@@ -14,6 +14,8 @@ import { SvgXml } from 'react-native-svg';
 
 import { SEBASTIAN_SIGNATURE_SVG } from '@/assets/signatures/sebastian';
 import { Text } from '@/components/ui/text';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useReduceMotion } from '@/hooks/use-reduce-motion';
 import { capture } from '@/lib/analytics';
 import { lightHaptic } from '@/lib/haptics';
@@ -27,6 +29,8 @@ const BODY_PARAGRAPHS = [
 export default function FounderNoteScreen() {
   const router = useRouter();
   const reduceMotion = useReduceMotion();
+  const colorScheme = useColorScheme() ?? 'light';
+  const signatureColor = Colors[colorScheme].text;
 
   const cardOpacity = useSharedValue(0);
   const cardY = useSharedValue(24);
@@ -133,15 +137,12 @@ export default function FounderNoteScreen() {
               accessibilityLabel="Signature: Sebastian"
               accessibilityRole="image"
             >
-              <View
-                style={{ height: 56, width: 200 }}
-                className="text-foreground"
-              >
+              <View style={{ height: 56, width: 200 }}>
                 <SvgXml
                   xml={SEBASTIAN_SIGNATURE_SVG}
                   width="100%"
                   height="100%"
-                  color="currentColor"
+                  color={signatureColor}
                 />
               </View>
             </Animated.View>

@@ -8,8 +8,12 @@ import { api } from '@/convex/_generated/api';
 import { Text } from '@/components/ui/text';
 import { usePurchases } from '@/hooks/use-purchases';
 import { capture } from '@/lib/analytics';
+import { logPaywallDiagnostics } from '@/lib/paywall-diag';
+import { useAuthCacheStore } from '@/stores/auth-cache-store';
 
 const LOGIN_TIMEOUT_MS = 4000;
+const MARK_COMPLETE_MAX_ATTEMPTS = 3;
+const MARK_COMPLETE_BASE_BACKOFF_MS = 500;
 
 // Offering selection by build environment. Decoupled from RC dashboard's
 // project-wide Default flag so we don't have to toggle dashboard state when
@@ -70,6 +74,8 @@ export default function PaywallScreen() {
 
       // 1. Ensure RC has the right (non-anonymous) customer before
       //    presenting. Idempotent — re-logging the same id is a no-op.
+      //    This is load-bearing for production: RC offering targeting
+      //    filters anonymous customers out of the default offering.
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const rnp = require('react-native-purchases');
@@ -77,7 +83,6 @@ export default function PaywallScreen() {
         if (Purchases?.logIn) {
           setStatusCopy('Connecting…');
           if (__DEV__) {
-            // eslint-disable-next-line no-console
             console.log('[paywall:logIn] calling logIn', { userId });
           }
           try {
@@ -89,7 +94,6 @@ export default function PaywallScreen() {
             ]);
             if (__DEV__) {
               if (loginResult === null) {
-                // eslint-disable-next-line no-console
                 console.warn(
                   `[paywall:logIn] timed out after ${LOGIN_TIMEOUT_MS}ms — proceeding anyway`
                 );
@@ -101,7 +105,6 @@ export default function PaywallScreen() {
                 const lr = loginResult as { created?: boolean };
                 const currentAppUserId = await Purchases.getAppUserID?.()
                   .catch(() => null);
-                // eslint-disable-next-line no-console
                 console.log('[paywall:logIn] result', {
                   created: lr.created,
                   currentAppUserId,
@@ -112,63 +115,14 @@ export default function PaywallScreen() {
             }
           } catch (loginErr) {
             if (__DEV__) {
-              // eslint-disable-next-line no-console
               console.warn('[paywall:logIn] threw', loginErr);
             }
           }
         }
 
-        if (__DEV__ && Purchases) {
-          try {
-            await Purchases.invalidateCustomerInfoCache?.();
-          } catch {
-            // older SDKs may not expose it — fine
-          }
-          // `getAppUserID()` returns the CURRENT user — the right thing to
-          // check. `originalAppUserId` on customerInfo never changes after
-          // logIn, so checking that field for `$RCAnonymousID:` always
-          // returns true for users who started anonymous (= every user).
-          const [info, offerings, currentAppUserId] = await Promise.all([
-            Purchases.getCustomerInfo?.().catch((e: unknown) => ({ error: String(e) })),
-            Purchases.getOfferings?.().catch((e: unknown) => ({ error: String(e) })),
-            Purchases.getAppUserID?.().catch(() => null),
-          ]);
-          // eslint-disable-next-line no-console
-          console.log('[paywall:diag] customer', {
-            currentAppUserId,
-            isAnonymous: String(currentAppUserId ?? '').startsWith(
-              '$RCAnonymousID:'
-            ),
-            originalAppUserId: (info as { originalAppUserId?: string })
-              ?.originalAppUserId,
-            activeEntitlements: Object.keys(
-              (info as { entitlements?: { active?: Record<string, unknown> } })
-                ?.entitlements?.active ?? {}
-            ),
-          });
-          const all = (offerings as { all?: Record<string, { availablePackages?: unknown[]; identifier?: string }> })?.all ?? {};
-          // eslint-disable-next-line no-console
-          console.log('[paywall:diag] offerings', {
-            hasCurrent: Boolean((offerings as { current?: unknown })?.current),
-            currentId:
-              (offerings as { current?: { identifier?: string } })?.current
-                ?.identifier ?? null,
-            allOfferingIds: Object.keys(all),
-            currentPackageCount:
-              (
-                offerings as { current?: { availablePackages?: unknown[] } }
-              )?.current?.availablePackages?.length ?? 0,
-            packagesPerOffering: Object.fromEntries(
-              Object.entries(all).map(([id, off]) => [
-                id,
-                off.availablePackages?.length ?? 0,
-              ])
-            ),
-          });
-        }
+        await logPaywallDiagnostics(userId);
       } catch (e) {
         if (__DEV__) {
-          // eslint-disable-next-line no-console
           console.warn('[paywall] login/diag failed', e);
         }
       }
@@ -184,10 +138,11 @@ export default function PaywallScreen() {
           await checkStatus();
         } else if (result === 'error') {
           capture({ name: 'revenuecat_ui_unavailable', props: {} });
+        } else if (result === 'cancelled') {
+          capture({ name: 'paywall_dismissed', props: {} });
         }
       } catch (e) {
         if (__DEV__) {
-          // eslint-disable-next-line no-console
           console.warn('[paywall] presentPaywall threw', e);
         }
         capture({ name: 'revenuecat_ui_unavailable', props: {} });
@@ -196,12 +151,31 @@ export default function PaywallScreen() {
         // Mark onboarding complete BEFORE navigating away. Otherwise the
         // auth-guard sees `hasCompletedOnboarding: false` on /(tabs) and
         // bounces the user straight back into demo-chat → loop.
-        try {
-          await markOnboardingComplete();
-        } catch (markErr) {
-          if (__DEV__) {
-            // eslint-disable-next-line no-console
-            console.warn('[paywall] markOnboardingComplete failed', markErr);
+        //
+        // Belt-and-braces:
+        //   1. Write through to the offline auth cache first. `use-onboarding-status`
+        //      treats the cached value as truth while offline, and any subsequent
+        //      bounce reads from the same cache before the server query resolves.
+        //   2. Retry the server mutation up to 3 times with linear backoff. If
+        //      every attempt fails we still navigate — the cache write above is
+        //      the safety net so the user isn't trapped re-looping.
+        useAuthCacheStore.getState().setHasCompletedOnboarding(true);
+        for (let attempt = 0; attempt < MARK_COMPLETE_MAX_ATTEMPTS; attempt++) {
+          try {
+            await markOnboardingComplete();
+            break;
+          } catch (markErr) {
+            if (__DEV__) {
+              console.warn(
+                `[paywall] markOnboardingComplete attempt ${attempt + 1} failed`,
+                markErr
+              );
+            }
+            if (attempt < MARK_COMPLETE_MAX_ATTEMPTS - 1) {
+              await new Promise((r) =>
+                setTimeout(r, MARK_COMPLETE_BASE_BACKOFF_MS * (attempt + 1))
+              );
+            }
           }
         }
         router.replace('/(tabs)');

@@ -17,6 +17,17 @@ export type RevenueCatStore =
 
 export type RevenueCatEnvironment = "SANDBOX" | "PRODUCTION";
 
+// RC tags lifecycle events (INITIAL_PURCHASE, RENEWAL, …) with the
+// authoritative trial/intro/normal/promotional indicator. Optional on the
+// type because we don't want to reject legitimate webhook payloads that
+// omit it during a partial RC outage — the state machine falls back to a
+// duration-based heuristic in that case.
+export type RevenueCatPeriodType =
+  | "NORMAL"
+  | "TRIAL"
+  | "INTRO"
+  | "PROMOTIONAL";
+
 export type RevenueCatCancelReason =
   | "UNSUBSCRIBE"
   | "BILLING_ERROR"
@@ -44,11 +55,17 @@ interface BaseEnvelope {
 }
 
 export type InitialPurchaseEvent = BaseEnvelope & {
-  event: BaseEventPayload & { type: "INITIAL_PURCHASE" };
+  event: BaseEventPayload & {
+    type: "INITIAL_PURCHASE";
+    period_type?: RevenueCatPeriodType;
+  };
 };
 
 export type RenewalEvent = BaseEnvelope & {
-  event: BaseEventPayload & { type: "RENEWAL" };
+  event: BaseEventPayload & {
+    type: "RENEWAL";
+    period_type?: RevenueCatPeriodType;
+  };
 };
 
 export type ProductChangeEvent = BaseEnvelope & {

@@ -105,16 +105,32 @@ export function computeNextState(
 
   switch (event.type) {
     case "INITIAL_PURCHASE": {
-      // Trial vs paid is inferred from expiration_at_ms presence + product_id
-      // hint. RC webhook doesn't expose `is_trial_period` consistently across
-      // stores, so the heuristic is: a short window (≤ 31 days from event ts)
-      // on an annual product = trial. Anything else = paid.
-      const expMs = event.expiration_at_ms;
-      const isTrial =
-        typeof expMs === "number" &&
-        Number.isFinite(expMs) &&
-        expMs - event.event_timestamp_ms <= 31 * 24 * 60 * 60 * 1000 &&
-        (event.product_id?.includes("annual") ?? false);
+      // Prefer RC's authoritative `period_type` when present:
+      //   "TRIAL"        → free trial               → status="trial",  source="rc_intro"
+      //   "INTRO"        → discounted intro pricing → status="trial",  source="rc_intro"
+      //                    (we treat intro pricing as a trial-like state for
+      //                    notification anchoring; the user is in a reduced-cost
+      //                    window with no separate "intro" status)
+      //   "NORMAL"       → standard paid term       → status="pro",    source="rc_paid"
+      //   "PROMOTIONAL"  → comped promo grant       → status="pro",    source="rc_paid"
+      //
+      // When `period_type` is missing (older payloads or partial RC outage),
+      // fall back to the legacy duration-based heuristic: a short window
+      // (≤ 31 days from event ts) on an annual product = trial. Anything else
+      // = paid. This regresses gracefully for monthly trials but at least
+      // doesn't drop the event.
+      const periodType = event.period_type;
+      let isTrial: boolean;
+      if (periodType !== undefined) {
+        isTrial = periodType === "TRIAL" || periodType === "INTRO";
+      } else {
+        const expMs = event.expiration_at_ms;
+        isTrial =
+          typeof expMs === "number" &&
+          Number.isFinite(expMs) &&
+          expMs - event.event_timestamp_ms <= 31 * 24 * 60 * 60 * 1000 &&
+          (event.product_id?.includes("annual") ?? false);
+      }
       if (isTrial) {
         next.status = "trial";
         next.source = "rc_intro";
@@ -147,8 +163,14 @@ export function computeNextState(
       const trialEndedMs = next.trialExpiresAt
         ? Date.parse(next.trialExpiresAt)
         : Number.POSITIVE_INFINITY;
+      // `period_type === "NORMAL"` on a RENEWAL is the canonical "trial
+      // converted to paid" signal from RC. We OR it with the timestamp check
+      // so older payloads (no period_type) still convert correctly — this
+      // only tightens detection, never loosens it.
       const leavingTrial =
-        wasTrial && event.event_timestamp_ms >= trialEndedMs;
+        wasTrial &&
+        (event.period_type === "NORMAL" ||
+          event.event_timestamp_ms >= trialEndedMs);
       if (leavingTrial) {
         next.status = "pro";
         next.source = "rc_paid";

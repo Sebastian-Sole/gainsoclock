@@ -18,6 +18,10 @@ import { Text } from '@/components/ui/text';
 import { useReduceMotion } from '@/hooks/use-reduce-motion';
 import { capture } from '@/lib/analytics';
 import { lightHaptic, mediumHaptic } from '@/lib/haptics';
+// Inlined for self-containment + hot-reload safety. Mirrors the
+// `--chart-success` value in `global.css`. RGB triplet form lets the
+// Reanimated worklet build `rgba(...)` at varying alpha.
+const SUCCESS_RGB = '34, 197, 94';
 
 // ── Demo content (mirrors a real workout active screen) ──────────
 const EXERCISE_NAME = 'Barbell back squat';
@@ -67,18 +71,20 @@ function SetRowMock({
   // Background tints to bg-primary/10 when completed (matches real SetRow).
   const bgStyle = useAnimatedStyle(() => ({
     backgroundColor:
-      completed.value > 0 ? `rgba(34, 197, 94, ${0.12 * completed.value})` : 'transparent',
+      completed.value > 0
+        ? `rgba(${SUCCESS_RGB}, ${0.12 * completed.value})`
+        : 'transparent',
   }));
 
-  // Checkbox fills with primary when completed.
+  // Checkbox fills with the success accent when completed.
   const checkboxStyle = useAnimatedStyle(() => ({
     backgroundColor:
       completed.value > 0
-        ? `rgba(34, 197, 94, ${completed.value})`
+        ? `rgba(${SUCCESS_RGB}, ${completed.value})`
         : 'transparent',
     borderColor:
       completed.value > 0
-        ? `rgba(34, 197, 94, ${completed.value})`
+        ? `rgba(${SUCCESS_RGB}, ${completed.value})`
         : '#999',
     transform: [{ scale: 0.9 + 0.1 * completed.value }],
   }));

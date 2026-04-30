@@ -1,4 +1,11 @@
 import { api } from "@/convex/_generated/api";
+import type {
+  CustomerInfo,
+  LogLevelMap,
+  PaywallResultMap,
+  PurchasesShim,
+  RevenueCatUIShim,
+} from "@/lib/purchases-types";
 import { ENTITLEMENT_ID } from "@/lib/subscription-constants";
 import { useSubscriptionStore } from "@/stores/subscription-store";
 import { useAction } from "convex/react";
@@ -10,43 +17,35 @@ import { Linking, Platform } from "react-native";
 // RC F4: react-native-purchases v9 ships as CJS but Metro can pick up an
 // ESM facade depending on bundler config — `rnpModule.default ?? rnpModule`
 // is load-bearing and must be preserved across version bumps.
-let Purchases: any = null;
-let RevenueCatUI: any = null;
-let PAYWALL_RESULT: any = {};
-let LOG_LEVEL: any = {};
+let Purchases: PurchasesShim | null = null;
+let RevenueCatUI: RevenueCatUIShim | null = null;
+let PAYWALL_RESULT: PaywallResultMap = {};
+let LOG_LEVEL: LogLevelMap = {} as LogLevelMap;
 
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const rnpModule = require("react-native-purchases");
-  Purchases = rnpModule.default ?? rnpModule;
-  LOG_LEVEL = rnpModule.LOG_LEVEL;
+  const rnpModule = require("react-native-purchases") as {
+    default?: PurchasesShim;
+    LOG_LEVEL?: LogLevelMap;
+  } & PurchasesShim;
+  Purchases = (rnpModule.default ?? rnpModule) as PurchasesShim;
+  if (rnpModule.LOG_LEVEL) {
+    LOG_LEVEL = rnpModule.LOG_LEVEL;
+  }
 } catch (e) {
   console.warn("[Purchases] react-native-purchases not available:", e);
 }
 
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  RevenueCatUI = require("react-native-purchases-ui").default;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  PAYWALL_RESULT = require("react-native-purchases-ui").PAYWALL_RESULT;
+  const rnpUiModule = require("react-native-purchases-ui") as {
+    default: RevenueCatUIShim;
+    PAYWALL_RESULT: PaywallResultMap;
+  };
+  RevenueCatUI = rnpUiModule.default;
+  PAYWALL_RESULT = rnpUiModule.PAYWALL_RESULT;
 } catch (e) {
   console.warn("[Purchases] react-native-purchases-ui not available:", e);
-}
-
-interface EntitlementInfo {
-  productIdentifier?: string;
-  store?: string;
-  expirationDate?: string;
-}
-
-interface CustomerInfo {
-  entitlements?: {
-    active?: Record<string, EntitlementInfo>;
-  };
-  managementURL?: string;
-  managementUrl?: string;
-  // RC SDK ≥ v6 sends ISO strings here; older sends Date.
-  requestDate?: string | Date;
 }
 
 export type CustomerCenterResult =
