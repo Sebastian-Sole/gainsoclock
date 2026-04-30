@@ -13,6 +13,7 @@
       "bundleIdentifier": "com.soleinnovations.fitbull",
       "usesAppleSignIn": true,
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSHealthShareUsageDescription": "Fitbull reads your weight, height, and body-fat percentage from Apple Health so you don't have to re-enter them. We never read sleep, heart rate, cycle, or workout data.",
         "NSHealthUpdateUsageDescription": "Fitbull writes your completed strength workouts and estimated active energy to Apple Health so they count toward your Fitness rings."
       }
