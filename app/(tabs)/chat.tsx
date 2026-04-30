@@ -1,9 +1,10 @@
 import { Text } from '@/components/ui/text';
-import { CheckCheck, Menu, MessageCircle, Plus } from 'lucide-react-native';
+import { CheckCheck, Heart, Menu, MessageCircle, Plus } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { api } from '@/convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
@@ -22,7 +23,10 @@ import {
   useCreateConversation,
   useDeleteConversation,
 } from '@/hooks/use-chat';
+import { useHealthKit } from '@/hooks/use-healthkit';
 import { useNetwork } from '@/hooks/use-network';
+import { capture } from '@/lib/analytics';
+import { HEALTHKIT_READ_SCOPES } from '@/lib/healthkit';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 
 export default function ChatScreen() {
@@ -288,23 +292,171 @@ function EmptyChatView({
   onSend: (content: string) => void;
 }) {
   const { isOffline } = useNetwork();
+  const showHealthPrompt = useHealthKitChatPrompt();
 
   return (
     <>
       <Pressable className="flex-1 items-center justify-center px-8" onPress={Keyboard.dismiss}>
-        <View className="items-center">
-          <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <Icon as={MessageCircle} size={32} className="text-primary" />
+        {showHealthPrompt ? (
+          <HealthKitChatPrompt />
+        ) : (
+          <View className="items-center">
+            <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+              <Icon as={MessageCircle} size={32} className="text-primary" />
+            </View>
+            <Text className="text-xl font-bold mb-2">Your AI Fitness Coach</Text>
+            <Text className="text-sm text-muted-foreground text-center leading-5">
+              {isOffline
+                ? 'AI Coach requires an internet connection. Connect to the internet to chat with your coach.'
+                : 'Ask me to create workout templates, build training plans, suggest meals, or answer any fitness question.'}
+            </Text>
           </View>
-          <Text className="text-xl font-bold mb-2">Your AI Fitness Coach</Text>
-          <Text className="text-sm text-muted-foreground text-center leading-5">
-            {isOffline
-              ? 'AI Coach requires an internet connection. Connect to the internet to chat with your coach.'
-              : 'Ask me to create workout templates, build training plans, suggest meals, or answer any fitness question.'}
-          </Text>
-        </View>
+        )}
       </Pressable>
       <ChatInput onSend={onSend} disabled={isOffline} />
     </>
+  );
+}
+
+// Returns true while the chat empty state should pitch HealthKit. Gates on iOS,
+// availability, `notDetermined` status (Apple won't re-prompt after deny — we
+// fall back to the default copy in that case), and a session-local dismissal.
+function useHealthKitChatPrompt(): boolean {
+  const { isAvailable, getAuthorizationStatus } = useHealthKit();
+  const [status, setStatus] = useState<'loading' | 'show' | 'hide'>('loading');
+
+  useEffect(() => {
+    if (!isAvailable) {
+      setStatus('hide');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const authStatus = await getAuthorizationStatus();
+      if (cancelled) return;
+      setStatus(authStatus === 'notDetermined' ? 'show' : 'hide');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAvailable, getAuthorizationStatus]);
+
+  return status === 'show';
+}
+
+function HealthKitChatPrompt() {
+  const { enable, getAuthorizationStatus, getLatestStats } = useHealthKit();
+  const updateHealthStats = useMutation(api.onboarding.updateHealthStats);
+  const [pending, setPending] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const shownRef = useRef(false);
+
+  useEffect(() => {
+    if (shownRef.current) return;
+    shownRef.current = true;
+    capture({ name: 'healthkit_chat_prompt_shown', props: {} });
+  }, []);
+
+  const handleGrant = useCallback(async () => {
+    if (pending) return;
+    setPending(true);
+    try {
+      const status = await getAuthorizationStatus();
+      if (status === 'sharingDenied') {
+        await Linking.openSettings();
+        return;
+      }
+
+      await enable();
+      const afterStatus = await getAuthorizationStatus();
+      if (afterStatus === 'sharingDenied') {
+        await Linking.openSettings();
+        return;
+      }
+
+      capture({ name: 'healthkit_chat_prompt_granted', props: {} });
+      capture({
+        name: 'healthkit_granted',
+        props: { grantedScopes: [...HEALTHKIT_READ_SCOPES] },
+      });
+
+      const stats = await getLatestStats();
+      const hasAny =
+        stats.weightKg != null ||
+        stats.heightCm != null ||
+        stats.bodyFatPercent != null;
+      if (!hasAny) {
+        setDismissed(true);
+        return;
+      }
+
+      try {
+        await updateHealthStats({
+          weightKg: stats.weightKg ?? undefined,
+          heightCm: stats.heightCm ?? undefined,
+          bodyFatPercent: stats.bodyFatPercent ?? undefined,
+          dataSource: 'mixed',
+        });
+      } catch (error) {
+        // Profile may not exist yet for users who skipped onboarding stats.
+        console.warn('[healthkit-chat-prompt] updateHealthStats failed', error);
+      }
+      setDismissed(true);
+    } catch (error) {
+      console.warn('[healthkit-chat-prompt] grant failed', error);
+    } finally {
+      setPending(false);
+    }
+  }, [enable, getAuthorizationStatus, getLatestStats, pending, updateHealthStats]);
+
+  const handleDismiss = useCallback(() => {
+    capture({ name: 'healthkit_chat_prompt_dismissed', props: {} });
+    setDismissed(true);
+  }, []);
+
+  if (dismissed) {
+    return (
+      <View className="items-center">
+        <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+          <Icon as={MessageCircle} size={32} className="text-primary" />
+        </View>
+        <Text className="text-xl font-bold mb-2">Your AI Fitness Coach</Text>
+        <Text className="text-sm text-muted-foreground text-center leading-5">
+          Ask me to create workout templates, build training plans, suggest meals, or answer any fitness question.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View className="items-center" testID="healthkit-chat-prompt">
+      <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+        <Icon as={Heart} size={32} className="text-primary" />
+      </View>
+      <Text className="text-xl font-bold mb-2 text-center">Connect Apple Health</Text>
+      <Text className="text-sm text-muted-foreground text-center leading-5 mb-6">
+        Your AI coach builds more accurate workouts when it knows your weight, height, and body composition. We don&apos;t read sleep, heart rate, or workout history.
+      </Text>
+      <Button
+        size="onboarding"
+        onPress={handleGrant}
+        disabled={pending}
+        accessibilityRole="button"
+        accessibilityLabel="Connect Apple Health"
+        testID="healthkit-chat-prompt-grant"
+      >
+        {pending ? <ActivityIndicator color="white" /> : <Text>Connect Apple Health</Text>}
+      </Button>
+      <Pressable
+        onPress={handleDismiss}
+        accessibilityRole="button"
+        accessibilityLabel="Skip Apple Health for now"
+        hitSlop={10}
+        className="mt-4 px-4 py-2"
+        testID="healthkit-chat-prompt-skip"
+      >
+        <Text className="text-sm text-muted-foreground">Maybe later</Text>
+      </Pressable>
+    </View>
   );
 }

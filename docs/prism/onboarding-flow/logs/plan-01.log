@@ -1,0 +1,5 @@
+plan-01 is complete. Schema, validators, `completeOnboardingV2`, consent/aha internals, intake-draft store, and updated `useOnboardingStatus` are all in. `npx tsc --noEmit` and convex tsc are both green; `pnpm lint` shows only pre-existing errors untouched by this phase. Log at `docs/prism/onboarding-flow/implementation/plan-01-log.md`.
+
+Two notable gaps flagged in the log for follow-up:
+- Added a thin `markLegacyOnboardingComplete` bridge so `app/onboarding.tsx` keeps working until plan-05 demolishes it.
+- Renamed `convex/openai-config.ts` → `openaiConfig.ts` (pre-existing plan-00 file); the hyphen was blocking `convex codegen` for the whole branch.

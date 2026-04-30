@@ -32,6 +32,7 @@ export const upsert = mutation({
     notificationsReminderTime: v.optional(v.string()),
     notificationsMorningPlanEnabled: v.optional(v.boolean()),
     notificationsMorningPlanTime: v.optional(v.string()),
+    rpeEnabled: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);

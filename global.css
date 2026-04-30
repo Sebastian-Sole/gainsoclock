@@ -23,6 +23,11 @@
     --border: 20 5.9% 90%;
     --input: 20 5.9% 90%;
     --ring: 24 95% 53%;
+    /* Chart / macro accents — keep in sync with lib/theme.ts CHART_COLORS */
+    --chart-protein: 217 91% 60%; /* blue-500  #3b82f6 */
+    --chart-carbs: 45 93% 47%; /*    yellow-500 #eab308 */
+    --chart-fat: 0 84% 60%; /*       red-500    #ef4444 */
+    --chart-success: 142 71% 45%; /* green-500  #22c55e */
   }
 
   .dark:root {
@@ -45,5 +50,12 @@
     --border: 24 6% 19%;
     --input: 24 6% 19%;
     --ring: 24 95% 58%;
+    /* Chart / macro accents — keep in sync with lib/theme.ts CHART_COLORS.
+       Same hues as light mode; the underlying app surfaces are dark enough
+       that the saturated mid-tones still read clearly. */
+    --chart-protein: 217 91% 60%;
+    --chart-carbs: 45 93% 47%;
+    --chart-fat: 0 84% 60%;
+    --chart-success: 142 71% 45%;
   }
 }

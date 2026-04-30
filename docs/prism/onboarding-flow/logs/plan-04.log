@@ -1,0 +1,21 @@
+Plan-04 implementation complete. Summary of the landed work:
+
+**New files**
+- `components/auth/apple-sign-in-button.tsx` — iOS-guarded native SIWA wrapper, surfaces credential upstream, routes collision errors to `onCollision`.
+- `components/auth/abandonment-recovery-interstitial.tsx` — dialog modal with 7-day freshness + userIdPartition check; Continue infers last step from draft contents.
+- `lib/privacy-notice.ts` — Art. 13 short notice, support email, collision copy.
+- `app/legal/privacy.tsx`, `app/legal/terms.tsx` — placeholder screens linking to hosted policies.
+- `docs/siwa-email-collision.md` — documented V1 behaviour + linking-primitive decision.
+
+**Modified**
+- `app/(auth)/sign-up.tsx` — SIWA-primary layout, Art. 13 notice above submit, skeptic side-door that calls `completeOnboardingV2` with defaulted profile, accessibility labels + heading focus on success.
+- `app/(auth)/sign-in.tsx` — SIWA-primary layout, abandonment recovery interstitial mount.
+- `convex/auth.ts` — `createOrUpdateUser` override detects SIWA↔password email collisions on non-relay emails and throws `siwa_email_collision`.
+- `app.json` — `usesAppleSignIn: true` + locked HealthKit usage strings.
+
+**Verification**
+- `npx tsc --noEmit` and `npx tsc -p convex/tsconfig.json --noEmit` — plan-04 files pass; remaining errors are pre-existing in files not touched here.
+- `pnpm exec eslint` over all created/modified files — clean.
+- `JSON.parse(app.json)` — valid.
+
+Completion log written at `docs/prism/onboarding-flow/implementation/plan-04-log.md` with `Status: complete`.

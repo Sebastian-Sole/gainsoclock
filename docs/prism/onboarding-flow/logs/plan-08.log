@@ -1,0 +1,10 @@
+Plan-08 implementation complete. Summary:
+
+- **Paywall interstitial** (`app/onboarding/paywall.tsx` + 4 components) with Apple 3.1.2 disclosure above the fold, eligibility-branched copy, accordions for the Non-Promise Pledge + Founder Letter, Methodology + skip links, offline degrade with `AsyncStorage` price cache + 3s timeout, and `RevenueCatUI`-null fallback.
+- **Trial banner** on the home tab with 24h auto-dismiss + permanent X persisted in `auth-cache-store`.
+- **Settings Privacy** toggles backed by `withdrawConsent` (analytics revoke also flips PostHog `optOut()` and schedules PostHog delete server-side).
+- **Settings Delete-account** two-step flow driving a full Convex cascade (14 tables) + HealthKit externalUUID cleanup + AsyncStorage/SecureStore/PostHog client wipe.
+- **Convex**: fleshed `deleteAccount` cascade, implemented `scheduleProfileErasure`, new `posthogServer.deletePostHogUser` node action.
+- **Verification**: Convex codegen + `tsc --noEmit` + Convex typecheck clean; lint clean on all plan-08 files (2 pre-existing array-type warnings in `convex/onboarding.ts` unchanged).
+
+Completion log written to `docs/prism/onboarding-flow/implementation/plan-08-log.md` with `Status: complete`.

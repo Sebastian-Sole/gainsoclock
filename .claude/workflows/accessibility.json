@@ -1,0 +1,10 @@
+{
+  "name": "Accessibility Audit",
+  "description": "Full WCAG 2.1 AA compliance check",
+  "steps": [
+    {
+      "command": "/a11y-check",
+      "description": "Automated accessibility audit"
+    }
+  ]
+}

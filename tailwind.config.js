@@ -41,6 +41,11 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Chart / macro accents — keep in sync with lib/theme.ts CHART_COLORS
+        "chart-protein": "hsl(var(--chart-protein))",
+        "chart-carbs": "hsl(var(--chart-carbs))",
+        "chart-fat": "hsl(var(--chart-fat))",
+        "chart-success": "hsl(var(--chart-success))",
       },
       borderWidth: {
         hairline: hairlineWidth(),

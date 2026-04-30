@@ -1,0 +1,73 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - onboarding
+  - edge-case
+---
+# Flow 09 — Skeptic-skip path.
+# User refuses analytics consent, declines HealthKit, dismisses paywall.
+# Verifies app is fully usable (Apple 4.2 minimum-functionality gate) without
+# any paid purchase and without any optional consent grant.
+
+- runFlow: ../common/launch-app.yaml
+- runFlow: ./common-signed-in.yaml
+
+# S2 goal — minimal selection
+- tapOn:
+    id: "goal-card-build_muscle"
+- tapOn:
+    id: "onboarding-goal-continue"
+
+# S3 experience
+- tapOn:
+    id: "experience-chip-intermediate"
+- tapOn:
+    id: "onboarding-goal-continue"
+    optional: true
+
+# S4 days
+- tapOn:
+    id: "day-chip-monday"
+- tapOn:
+    id: "onboarding-days-continue"
+
+# S5 primer — dismiss
+- tapOn:
+    id: "onboarding-healthkit-dismiss"
+
+# S5b manual-stats (required) — minimal valid values
+- tapOn:
+    id: "onboarding-manual-age"
+- inputText: "30"
+- pressKey: Enter
+- tapOn:
+    id: "onboarding-manual-weight"
+- inputText: "75"
+- pressKey: Enter
+- tapOn:
+    id: "onboarding-manual-height"
+- inputText: "180"
+- pressKey: Enter
+- tapOn:
+    id: "onboarding-manual-continue"
+
+# S6 consent — REFUSE all optional consents; submit without ticking
+- tapOn:
+    id: "onboarding-consent-submit"
+
+# S7 → S8 still reachable (aha must not require consent)
+- assertVisible:
+    id: "aha-tile-calorie"
+    timeout: 20000
+- tapOn:
+    id: "onboarding-aha-continue"
+
+# S11 paywall — dismiss
+- assertVisible:
+    id: "paywall-close"
+- tapOn:
+    id: "paywall-close"
+
+# Lands on home; core value usable without purchase
+- assertVisible:
+    id: "tab-bar"
+    timeout: 10000

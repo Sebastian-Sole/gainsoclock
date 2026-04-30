@@ -1,0 +1,35 @@
+{
+  "name": "Full Feature",
+  "description": "Plan, implement with TDD, verify, review, docs, and PR",
+  "steps": [
+    {
+      "command": "/plan",
+      "description": "Create implementation plan",
+      "gate": true,
+      "model": "opus"
+    },
+    {
+      "command": "/tdd",
+      "description": "Implement with test-driven development"
+    },
+    {
+      "command": "/verify",
+      "description": "Run build, types, lint, and tests",
+      "on_fail": "stop"
+    },
+    {
+      "command": "node .claude/scripts/run-review.js --profile thorough",
+      "description": "Multi-agent code review (thorough profile)",
+      "on_fail": "stop"
+    },
+    {
+      "command": "/update-docs",
+      "description": "Sync documentation with changes",
+      "model": "haiku"
+    },
+    {
+      "command": "/pr",
+      "description": "Commit and create pull request"
+    }
+  ]
+}

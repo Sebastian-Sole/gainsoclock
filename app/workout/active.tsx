@@ -13,14 +13,14 @@ import { useWorkoutStore } from '@/stores/workout-store';
 import { useHistoryStore } from '@/stores/history-store';
 import { useWorkoutTimer } from '@/hooks/use-workout-timer';
 import { useRestTimer } from '@/hooks/use-rest-timer';
-import { createDefaultSet } from '@/lib/defaults';
+import { createDefaultSet, createIntervalPair } from '@/lib/defaults';
 import { generateId } from '@/lib/id';
 import { formatDuration, formatTime } from '@/lib/format';
 import { mediumHaptic, successHaptic } from '@/lib/haptics';
 import { saveWorkoutToHealthKit } from '@/lib/healthkit';
 import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
-import type { Exercise, WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
+import type { Exercise, IntervalSet, WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
 import { schedulePostWorkoutNotification, rescheduleReminderAfterWorkout, setActiveWorkoutVisible } from '@/lib/notifications';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useTemplateStore } from '@/stores/template-store';
@@ -80,6 +80,7 @@ export default function ActiveWorkoutScreen() {
   const addLog = useHistoryStore((s) => s.addLog);
   const weightUnit = useSettingsStore((s) => s.weightUnit);
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
+  const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
   const templateNotes = useTemplateStore((s) =>
     activeWorkout?.templateId ? s.templates.find((t) => t.id === activeWorkout.templateId)?.notes : undefined
   );
@@ -122,6 +123,13 @@ export default function ActiveWorkoutScreen() {
 
   const handleAddSet = useCallback((exercise: Exercise) => {
     Keyboard.dismiss();
+    if (exercise.type === 'intervals') {
+      const lastSet = exercise.sets[exercise.sets.length - 1] as IntervalSet | undefined;
+      const [work, rest] = createIntervalPair(lastSet?.distanceUnit ?? 'km');
+      addSet(exercise.id, work);
+      addSet(exercise.id, rest);
+      return;
+    }
     const newSet = createDefaultSet(exercise.type);
     addSet(exercise.id, newSet);
   }, [addSet]);
@@ -374,8 +382,8 @@ export default function ActiveWorkoutScreen() {
                 )}
                 {exercise.type === 'reps_time' && (
                   <>
-                    <Text className="flex-[2] text-center text-xs text-muted-foreground">Time</Text>
-                    <Text className="flex-1 text-center text-xs text-muted-foreground">Reps</Text>
+                    <Text className="flex-[2] pr-3 text-center text-xs text-muted-foreground">Time</Text>
+                    <Text className="flex-1 text-left text-xs text-muted-foreground">Reps</Text>
                   </>
                 )}
                 {exercise.type === 'time_only' && (
@@ -390,7 +398,13 @@ export default function ActiveWorkoutScreen() {
                 {exercise.type === 'reps_only' && (
                   <Text className="flex-1 text-center text-xs text-muted-foreground">Reps</Text>
                 )}
+                {exercise.type === 'intervals' && (
+                  <Text className="flex-1 text-xs text-muted-foreground">Effort &amp; Time</Text>
+                )}
               </View>
+              {rpeEnabled && (
+                <Text className="min-w-[40px] text-center text-xs text-muted-foreground">RPE</Text>
+              )}
               <View className="w-[68px]" />
             </View>
 

@@ -1,0 +1,10 @@
+Plan-09 complete. Summary:
+
+- **`convex/home.ts`**: aggregated `getActivationState` query using `take(1)` existence checks; returns 5 booleans + skeptic flag + microcopy + `firstTrainingDay`. Comment makes the `workoutPlans` vs `onboardingAha` distinction explicit.
+- **`lib/activation-types.ts`**: shared `ActivationItemId` union (lives in `lib/` because root tsconfig excludes `convex/`).
+- **`stores/activation-store.ts`**: persisted UI state — dismiss flags, collapsed chip, `firstCompletedAt`, `permanentlyDismissed`, and `lastSeenItemState` so analytics flips don't re-fire after relaunch.
+- **`components/home/activation-item.tsx`** + **`activation-checklist.tsx`**: 5-item checklist with skeptic swap (slot 1 → "Enable AI personalisation" → `/settings/privacy`), ≥3 collapsible chip, full-complete "Setup done. See you {firstTrainingDay}." for 48h then null. `accessibilityRole="button"` + `accessibilityState`, 44pt targets, testIDs in place. Analytics: `activation_gate_{name}` fires once per false→true via persisted previous-state ref.
+- **`app/(tabs)/index.tsx`**: mounted checklist + `<HealthKitReaskCard />` at the top of the Templates tab; left a TODO for plan-08's TrialConfirmationBanner.
+- **Verification**: `npx tsc --noEmit` clean; `npx convex codegen` clean (added `home` to api); `pnpm lint` introduces no new errors (3 pre-existing errors in `today-tab.tsx` are out of scope).
+
+Deferrals documented in the log: trial banner + `/settings/privacy` route depend on plan-08; the "Your first session is ready" primary card depends on plan-07's aha row; Maestro flow is plan-10.

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useMutation } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTemplateStore } from "@/stores/template-store";
@@ -30,11 +30,39 @@ function getExerciseKey(name: string, type: string): string {
 }
 
 /**
+ * Wait for all persisted Zustand stores to finish hydrating from AsyncStorage.
+ *
+ * On a cold boot, Convex auth can resolve before `persist` has loaded its
+ * snapshot. Reading `getState()` then yields default (empty) state, and the
+ * migration would mark itself complete with nothing to migrate — orphaning
+ * the user's actual local data forever.
+ */
+function waitForHydration(): Promise<void> {
+  const stores = [useTemplateStore, useHistoryStore, useSettingsStore];
+  return Promise.all(
+    stores.map((store) => {
+      const persistApi = store.persist;
+      if (!persistApi || typeof persistApi.hasHydrated !== "function") {
+        return Promise.resolve();
+      }
+      if (persistApi.hasHydrated()) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        const unsub = persistApi.onFinishHydration(() => {
+          unsub();
+          resolve();
+        });
+      });
+    })
+  ).then(() => undefined);
+}
+
+/**
  * One-time migration: push local AsyncStorage data to Convex.
  * Handles both old embedded format and new normalized format.
  * Uses bulkUpsert mutations that deduplicate by clientId, so it's safe to retry.
  */
 export function useDataMigration() {
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const bulkUpsertTemplates = useMutation(api.templates.bulkUpsert);
   const bulkUpsertLogs = useMutation(api.workoutLogs.bulkUpsert);
   const bulkUpsertExercises = useMutation(api.exercises.bulkUpsert);
@@ -43,11 +71,20 @@ export function useDataMigration() {
 
   useEffect(() => {
     if (hasRun.current) return;
+    // Convex auth has to be settled AND positive before we run any
+    // mutations — otherwise `getAuthUserId(ctx)` returns null on the
+    // server and the migration throws "Not authenticated".
+    if (isLoading || !isAuthenticated) return;
     hasRun.current = true;
 
     (async () => {
       const migrated = await AsyncStorage.getItem(MIGRATION_KEY);
       if (migrated === "true") return;
+
+      // Wait for persist middleware to finish loading from AsyncStorage
+      // before snapshotting state. Otherwise we'd see empty defaults and
+      // mark the migration "complete" with nothing migrated.
+      await waitForHydration();
 
       // Read raw data from stores (may be old or new format)
       const templates = useTemplateStore.getState().templates as unknown as Array<Record<string, unknown>>;
@@ -211,5 +248,6 @@ export function useDataMigration() {
         // Will retry on next app launch since flag was not set
       }
     })();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, isLoading]);
 }

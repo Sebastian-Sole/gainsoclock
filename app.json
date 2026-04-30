@@ -10,7 +10,12 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.soleinnovations.fitbull"
+      "bundleIdentifier": "com.soleinnovations.fitbull",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Fitbull reads your weight, height, and body-fat percentage from Apple Health so you don't have to re-enter them. We never read sleep, heart rate, cycle, or workout data.",
+        "NSHealthUpdateUsageDescription": "Fitbull writes your completed strength workouts and estimated active energy to Apple Health so they count toward your Fitness rings."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -45,8 +50,8 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "Fitbull reads your health data to display body measurements and workout history.",
-          "NSHealthUpdateUsageDescription": "Fitbull saves your completed workouts to Apple Health.",
+          "NSHealthShareUsageDescription": "Fitbull reads your weight, height, and body-fat percentage from Apple Health so you don't have to re-enter them. We never read sleep, heart rate, cycle, or workout data.",
+          "NSHealthUpdateUsageDescription": "Fitbull writes your completed strength workouts and estimated active energy to Apple Health so they count toward your Fitness rings.",
           "background": false
         }
       ],

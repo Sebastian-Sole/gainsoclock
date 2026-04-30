@@ -1,0 +1,14 @@
+# Workspace-level config for Maestro flows.
+# Reference: https://docs.maestro.dev/cli/configuring-maestro-cli
+
+flows:
+  - "**/*.yaml"
+
+# Flows to exclude from the default `maestro test .maestro/` run.
+# Templates and partials are imported, not run standalone.
+excludeFlows:
+  - "common/**"
+
+# Tagging so CI can filter: e.g. `maestro test --include-tags smoke .maestro/`
+includeTags: []
+excludeTags: []

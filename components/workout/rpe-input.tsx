@@ -1,0 +1,114 @@
+import React, { useState } from 'react';
+import { Modal, Pressable, View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { lightHaptic } from '@/lib/haptics';
+import { cn } from '@/lib/utils';
+
+interface RpeInputProps {
+  value?: number;
+  onValueChange: (rpe: number | undefined) => void;
+  disabled?: boolean;
+}
+
+const RPE_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+
+function rpeColor(value: number): string {
+  if (value <= 4) return 'bg-green-500';
+  if (value <= 7) return 'bg-yellow-500';
+  if (value <= 9) return 'bg-orange-500';
+  return 'bg-red-500';
+}
+
+export function RpeInput({ value, onValueChange, disabled }: RpeInputProps) {
+  const [open, setOpen] = useState(false);
+
+  const handleSelect = (rpe: number) => {
+    lightHaptic();
+    onValueChange(rpe === value ? undefined : rpe);
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <Pressable
+        onPress={() => !disabled && setOpen(true)}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={value ? `RPE ${value}` : 'Set RPE'}
+        className={cn(
+          'h-9 min-w-[40px] items-center justify-center rounded-md border border-input px-2',
+          value !== undefined && rpeColor(value)
+        )}
+      >
+        <Text
+          className={cn(
+            'text-xs font-semibold',
+            value !== undefined ? 'text-white' : 'text-muted-foreground'
+          )}
+        >
+          {value !== undefined ? value : 'RPE'}
+        </Text>
+      </Pressable>
+
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <Pressable
+          onPress={() => setOpen(false)}
+          className="flex-1 items-center justify-center bg-black/50 px-6"
+        >
+          <View
+            onStartShouldSetResponder={() => true}
+            className="w-full rounded-2xl bg-card p-5"
+          >
+            <Text className="mb-1 text-lg font-bold">Rate of Perceived Exertion</Text>
+            <Text className="mb-4 text-sm text-muted-foreground">
+              How hard was this set? 1 = very easy, 10 = max effort.
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {RPE_VALUES.map((n) => {
+                const selected = n === value;
+                return (
+                  <Pressable
+                    key={n}
+                    onPress={() => handleSelect(n)}
+                    className={cn(
+                      'h-12 w-12 items-center justify-center rounded-lg border',
+                      selected
+                        ? `${rpeColor(n)} border-transparent`
+                        : 'border-border bg-secondary'
+                    )}
+                    accessibilityRole="button"
+                    accessibilityLabel={`RPE ${n}`}
+                  >
+                    <Text
+                      className={cn(
+                        'text-base font-semibold',
+                        selected ? 'text-white' : 'text-foreground'
+                      )}
+                    >
+                      {n}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {value !== undefined && (
+              <Pressable
+                onPress={() => handleSelect(value)}
+                className="mt-4 items-center rounded-lg border border-border py-3"
+                accessibilityRole="button"
+                accessibilityLabel="Clear RPE"
+              >
+                <Text className="font-medium text-foreground">Clear</Text>
+              </Pressable>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
+    </>
+  );
+}

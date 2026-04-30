@@ -1,0 +1,9 @@
+plan-00 is complete. Key changes:
+
+- `ENTITLEMENT_ID = "fitbull_pro"` now lives in `lib/subscription-constants.ts`; every env-var fallback and the "first active entitlement" silent promotion are gone from both client (`hooks/use-purchases.ts`) and Convex (`convex/subscriptions.ts`).
+- `hooks/use-onboarding-status.ts` provides the reactive tri-state (`loading | pending | complete`) with offline cache fallback and write-through; `hooks/use-auth-guard.ts` returns early on `loading` (D3 race fix).
+- Spotlight tour fully removed: provider, store, steps registry, overlay/card/tooltip, target hook, and every consumer ref in `app/_layout.tsx`, `app/(tabs)/_layout.tsx`, `app/(tabs)/index.tsx`.
+- `convex/openai-config.ts` centralizes the OpenAI model constants; `convex/chatActions.ts` now uses `OPENAI_CHAT_MODEL` at every call site.
+- `docs/revenuecat-webhook-rotation.md` documents the dual-token rotation.
+
+Verification: `npx tsc --noEmit` and `npx tsc --noEmit -p convex/tsconfig.json` both clean. `pnpm lint` delta is zero — the 3 errors are pre-existing in `components/nutrition/today-tab.tsx`. Grep sweep shows zero hits in `app/`, `components/`, `hooks/`, `lib/`, `stores/`, `convex/`, `providers/` for any of the legacy identifiers. Log at `docs/prism/onboarding-flow/implementation/plan-00-log.md`.

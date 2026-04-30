@@ -1,0 +1,15 @@
+Done. plan-03 is implemented.
+
+**What landed**
+- `lib/analytics.ts` — event union, distributive `NoHealthKitFields` firewall (`Extract<keyof T, ForbiddenKeys> extends never ? T : never`), `capture()` with runtime key-scan + consent gate + 50-event pre-consent buffer, `initPostHog`, route-allowlisted `startReplayForRoute`/`stopReplay`, `identifyAnalytics`, `resetAnalytics`.
+- `lib/analytics.test-types.ts` — three `@ts-expect-error` negative assertions; verified one fires ts(2322) when removed, then restored.
+- `providers/posthog-provider.tsx` — defers `initPostHog` via `InteractionManager.runAfterInteractions`.
+- `hooks/use-reduce-motion.ts` and `hooks/use-rage-quit-tracking.ts` — shared a11y/funnel hooks for plans 05/07/08.
+- `convex/analytics.ts` — `internalAction` `captureServer` with EU host, `disableGeoip`, `flushAt: 1`, `Promise.race([shutdown, timeout(2000)])`, server-side forbidden-key duplicate.
+- `docs/perf/baseline.md` — cold-start + bundle templates + privacy posture + env-var enumeration.
+- `app/_layout.tsx` — mounts `<PostHogProvider>` below Convex providers; route effect drives session-replay gating; identify/reset on auth transitions.
+- `providers/convex-sync-provider.tsx` — calls `setAnalyticsConsent(false)` with a `TODO(plan-01)` swap site (the `api.onboarding.getConsents` query isn't on this branch yet).
+
+**Verification**
+- `npx tsc --noEmit` clean, `npx tsc --noEmit -p convex/tsconfig.json` clean, `pnpm lint` shows zero new problems (3 errors / 37 warnings all pre-existing in `today-tab.tsx`, matching plan-00 baseline).
+- Manual smokes (cold-start, bundle delta, replay start/stop on a real path, rage-quit) require a dev build and are deferred to the dev-build smoke pass / plan-10 perf gate per the log.

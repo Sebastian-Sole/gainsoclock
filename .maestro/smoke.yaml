@@ -1,0 +1,15 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - smoke
+---
+# Top-level smoke test: app launches and lands on a known screen.
+# Expand as screens get testIDs -- for now, text-based assertions.
+
+- runFlow: common/launch-app.yaml
+
+# If the app opens to auth (fresh install), we expect a sign-in affordance.
+# If it opens to the tab bar (signed in), we expect a tab label.
+# Either is acceptable for smoke; fail only if neither shows up.
+- assertVisible:
+    # Match any of several known top-level texts. Update as copy stabilises.
+    text: "Sign in|Stats|Home|Workout|Nutrition"

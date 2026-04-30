@@ -1,0 +1,48 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - workout
+  - critical-path
+---
+# Log a single set end-to-end. Assumes the user is signed in; run after onboarding flow
+# or seed the simulator with a signed-in state via Maestro Studio / runScript.
+
+- runFlow: ../common/launch-app.yaml
+
+# Navigate to the workout tab
+- tapOn:
+    id: "tab-workout"
+- assertVisible:
+    id: "workout-screen"
+
+# Start a new workout from a template (first template in the list)
+- tapOn:
+    id: "workout-start-from-template"
+- tapOn:
+    id: "template-item-0"
+
+# Log the first set
+- assertVisible:
+    id: "workout-active"
+- inputText: "50"
+  # target the first weight field
+  into:
+    id: "set-0-weight"
+- inputText: "8"
+  into:
+    id: "set-0-reps"
+- tapOn:
+    id: "set-0-complete"
+
+# Verify the set shows as completed
+- assertVisible:
+    id: "set-0-completed-indicator"
+
+# Finish workout
+- tapOn:
+    id: "workout-finish"
+- tapOn:
+    id: "workout-finish-confirm"
+
+# Should land back on the workout tab with the new log in history
+- assertVisible:
+    id: "workout-screen"

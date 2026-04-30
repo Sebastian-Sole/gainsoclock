@@ -11,6 +11,7 @@ import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useSubscriptionStore } from "@/stores/subscription-store";
 import { usePlanStore } from "@/stores/plan-store";
 import { setConvexClient, syncToConvex } from "@/lib/convex-sync";
+import { setAnalyticsConsent } from "@/lib/analytics";
 import type { ExerciseType } from "@/lib/types";
 import { useDataMigration } from "@/hooks/use-data-migration";
 import { configurePurchases } from "@/hooks/use-purchases";
@@ -60,7 +61,7 @@ function SyncEngine() {
   const settings = useQuery(api.settings.get);
   const recipes = useQuery(api.recipes.listRecipes);
   const nutritionGoals = useQuery(api.nutritionGoals.get);
-  const subscription = useQuery(api.subscriptions.getStatus);
+  const subscription = useQuery(api.subscriptions.getSubscriptionState);
   const plans = useQuery(api.plans.listPlans);
   const activePlanWithDays = useQuery(api.plans.getActivePlanWithDays);
   const userId = useQuery(api.user.me);
@@ -190,6 +191,14 @@ function SyncEngine() {
     if (subscription === undefined) return;
     useSubscriptionStore.getState().hydrateFromServer(subscription);
   }, [subscription]);
+
+  // Analytics consent gate (HK-Privacy C1). Subscribe to `getConsents` so the
+  // wrapper flips to opt-in the moment the user grants `analytics` on S6 and
+  // back to opt-out on withdrawal. `setAnalyticsConsent` is idempotent.
+  const consents = useQuery(api.onboarding.getConsents);
+  useEffect(() => {
+    setAnalyticsConsent(consents?.analytics?.granted ?? false);
+  }, [consents]);
 
   return null;
 }

@@ -6,7 +6,10 @@ import { useColorScheme } from 'nativewind';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
 import { SetInput } from './set-input';
 import { TimeInput } from '@/components/shared/time-input';
+import { RpeInput } from './rpe-input';
+import { IntervalSetInputs } from './interval-set-inputs';
 import type { WorkoutSet } from '@/lib/types';
+import { useSettingsStore } from '@/stores/settings-store';
 import { cn } from '@/lib/utils';
 
 interface SetRowProps {
@@ -21,6 +24,7 @@ interface SetRowProps {
 export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggleComplete, onRemove, editable = true }: SetRowProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -106,6 +110,13 @@ export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggl
             className="flex-1"
           />
         );
+      case 'intervals':
+        return (
+          <IntervalSetInputs
+            set={set}
+            onUpdate={(updates) => onUpdate(updates as Partial<WorkoutSet>)}
+          />
+        );
     }
   };
 
@@ -136,6 +147,13 @@ export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggl
       <View className="flex-1 flex-row items-center gap-2">
         {renderInputs()}
       </View>
+      {rpeEnabled && (
+        <RpeInput
+          value={set.rpe}
+          onValueChange={(rpe) => onUpdate({ rpe } as Partial<WorkoutSet>)}
+          disabled={!editable}
+        />
+      )}
       {editable && (
         <View className="flex-row items-center gap-1">
           <Pressable

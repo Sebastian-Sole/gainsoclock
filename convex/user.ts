@@ -32,13 +32,124 @@ export const getOnboardingStatus = query({
     const userCreationMs = userDoc?._creationTime ?? nowMs;
     const isLikelyNewUser = nowMs - userCreationMs < 5 * 60 * 1000;
 
-    // Legacy users without a row are treated as already onboarded.
-    // Newly created users are routed through onboarding immediately.
-    if (!onboarding) {
-      return { hasCompletedOnboarding: !isLikelyNewUser };
+    const hasCompletedOnboarding = onboarding
+      ? onboarding.hasCompletedOnboarding
+      : !isLikelyNewUser;
+
+    const profile = await ctx.db
+      .query("userProfile")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+
+    const purposes = [
+      "health_data_personalization",
+      "ai_coach_inference",
+      "analytics",
+    ] as const;
+
+    type ConsentSnapshot = {
+      granted: boolean;
+      grantedAt: string;
+      version: string;
+    } | null;
+
+    const consents: {
+      health_data_personalization: ConsentSnapshot;
+      ai_coach_inference: ConsentSnapshot;
+      analytics: ConsentSnapshot;
+    } = {
+      health_data_personalization: null,
+      ai_coach_inference: null,
+      analytics: null,
+    };
+
+    for (const purpose of purposes) {
+      const latest = await ctx.db
+        .query("userConsents")
+        .withIndex("by_user_purpose_grantedAt", (q) =>
+          q.eq("userId", userId).eq("purpose", purpose)
+        )
+        .order("desc")
+        .first();
+      if (latest) {
+        consents[purpose] = {
+          granted: latest.granted,
+          grantedAt: latest.grantedAt,
+          version: latest.version,
+        };
+      }
     }
 
-    return { hasCompletedOnboarding: onboarding.hasCompletedOnboarding };
+    return {
+      hasCompletedOnboarding,
+      profile: profile ?? null,
+      consents,
+    };
+  },
+});
+
+// Marks the current user's onboarding as complete. Called from the demo-
+// only onboarding flow's paywall exit (regardless of purchase outcome —
+// soft paywall). Idempotent: re-calling on an already-complete user is a
+// no-op other than bumping `updatedAt`.
+export const markOnboardingComplete = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const existing = await ctx.db
+      .query("userOnboarding")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    const now = new Date().toISOString();
+    if (existing) {
+      if (!existing.hasCompletedOnboarding) {
+        await ctx.db.patch(existing._id, {
+          hasCompletedOnboarding: true,
+          updatedAt: now,
+        });
+      }
+    } else {
+      await ctx.db.insert("userOnboarding", {
+        userId,
+        hasCompletedOnboarding: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  },
+});
+
+// Dev/QA helper — flips `hasCompletedOnboarding` back to false so the
+// next route guard cycle re-enters the onboarding flow without needing
+// to delete and recreate the account. Safe in production (only callable
+// while authenticated); the Settings button that drives it is `__DEV__`-
+// gated client-side.
+export const resetOnboarding = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const existing = await ctx.db
+      .query("userOnboarding")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    const now = new Date().toISOString();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        hasCompletedOnboarding: false,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("userOnboarding", {
+        userId,
+        hasCompletedOnboarding: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
   },
 });
 
@@ -65,35 +176,6 @@ export const markOnboardingPendingIfUnset = mutation({
     await ctx.db.insert("userOnboarding", {
       userId,
       hasCompletedOnboarding: !isLikelyNewUser,
-      createdAt: now,
-      updatedAt: now,
-    });
-  },
-});
-
-export const completeOnboarding = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const existing = await ctx.db
-      .query("userOnboarding")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .unique();
-
-    const now = new Date().toISOString();
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        hasCompletedOnboarding: true,
-        updatedAt: now,
-      });
-      return;
-    }
-
-    await ctx.db.insert("userOnboarding", {
-      userId,
-      hasCompletedOnboarding: true,
       createdAt: now,
       updatedAt: now,
     });

@@ -4,6 +4,8 @@
   <dict>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
+    <key>CFBundleAllowMixedLocalizations</key>
+    <true/>
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
@@ -52,9 +54,9 @@
       <true/>
     </dict>
     <key>NSHealthShareUsageDescription</key>
-    <string>Fitbull reads your health data to display body measurements and workout history.</string>
+    <string>Fitbull reads your weight, height, and body-fat percentage from Apple Health so you don't have to re-enter them. We never read sleep, heart rate, cycle, or workout data.</string>
     <key>NSHealthUpdateUsageDescription</key>
-    <string>Fitbull saves your completed workouts to Apple Health.</string>
+    <string>Fitbull writes your completed strength workouts and estimated active energy to Apple Health so they count toward your Fitness rings.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
@@ -86,8 +88,6 @@
     <key>UIUserInterfaceStyle</key>
     <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
-    <false/>
-    <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
   </dict>
 </plist>

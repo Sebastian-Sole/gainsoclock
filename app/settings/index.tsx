@@ -4,7 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { api } from "@/convex/_generated/api";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useAction } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useRouter } from "expo-router";
 import {
   Bell,
@@ -12,13 +12,16 @@ import {
   ChevronRight,
   Crown,
   Download,
+  Gauge,
   Heart,
   History,
   LogOut,
   RotateCcw,
   Ruler,
+  ShieldCheck,
   Timer,
   Trash2,
+  UserX,
   Vibrate,
   Weight,
 } from "lucide-react-native";
@@ -61,13 +64,21 @@ export default function SettingsScreen() {
   const { signOut } = useAuthActions();
 
   const deleteAllData = useAction(api.user.deleteAllData);
+  const resetOnboarding = useMutation(api.user.resetOnboarding);
+  const clearAuthCache = useAuthCacheStore((s) => s.clear);
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
   const [resetState, setResetState] = useState<"idle" | "loading" | "success" | "error">("idle");
 
-  const isPro = useSubscriptionStore((s) => s.isPro);
+  const subscriptionStatus = useSubscriptionStore((s) => s.status);
+  // Treat trial + grace as "has access" — UI here only branches on whether
+  // we should offer "Manage" vs "Upgrade". Distinct copy for grace/lapsed
+  // is plan-08's responsibility.
+  const hasProAccess =
+    subscriptionStatus === "pro" ||
+    subscriptionStatus === "trial" ||
+    subscriptionStatus === "grace";
   const resetSubscription = useSubscriptionStore((s) => s.reset);
-  const clearAuthCache = useAuthCacheStore((s) => s.clear);
   const { restore, presentPaywall, presentCustomerCenter, isLoading: isRestoring } = usePurchases();
 
   const handleSignOut = () => {
@@ -97,6 +108,19 @@ export default function SettingsScreen() {
         },
       },
     ]);
+  };
+
+  const handleRerunOnboarding = async () => {
+    try {
+      await resetOnboarding();
+      clearAuthCache();
+      router.replace("/onboarding/welcome");
+    } catch (e) {
+      Alert.alert(
+        "Reset failed",
+        e instanceof Error ? e.message : "Try again."
+      );
+    }
   };
 
   const handleUpgradeToPro = async () => {
@@ -178,6 +202,8 @@ export default function SettingsScreen() {
   const setDistanceUnit = useSettingsStore((s) => s.setDistanceUnit);
   const setDefaultRestTime = useSettingsStore((s) => s.setDefaultRestTime);
   const setHapticsEnabled = useSettingsStore((s) => s.setHapticsEnabled);
+  const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
+  const setRpeEnabled = useSettingsStore((s) => s.setRpeEnabled);
   const {
     isAvailable: healthKitAvailable,
     isEnabled: healthKitEnabled,
@@ -392,6 +418,22 @@ export default function SettingsScreen() {
               onCheckedChange={setPrefillFromLastWorkout}
             />
           </View>
+
+          <Separator />
+
+          <View className="flex-row items-center gap-3 px-4 py-4">
+            <Icon as={Gauge} size={20} className="text-primary" />
+            <View className="flex-1">
+              <Text className="font-medium">Track RPE</Text>
+              <Text className="text-sm text-muted-foreground">
+                Log perceived exertion (1-10) on each set
+              </Text>
+            </View>
+            <Switch
+              checked={rpeEnabled}
+              onCheckedChange={setRpeEnabled}
+            />
+          </View>
         </View>
 
         {/* Notifications */}
@@ -452,7 +494,7 @@ export default function SettingsScreen() {
           SUBSCRIPTION
         </Text>
         <View className="rounded-xl bg-card">
-          {isPro ? (
+          {hasProAccess ? (
             <Pressable
               onPress={handleManageSubscription}
               className="flex-row items-center gap-3 px-4 py-4"
@@ -532,6 +574,29 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
+        {/* Privacy Section */}
+        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+          PRIVACY
+        </Text>
+        <View className="rounded-xl bg-card">
+          <Pressable
+            onPress={() => router.push("/settings/privacy" as never)}
+            className="flex-row items-center gap-3 px-4 py-4"
+            accessibilityRole="button"
+            accessibilityLabel="Privacy and consents"
+            testID="settings-privacy"
+          >
+            <Icon as={ShieldCheck} size={20} className="text-primary" />
+            <View className="flex-1">
+              <Text className="font-medium">Privacy &amp; consents</Text>
+              <Text className="text-sm text-muted-foreground">
+                Manage HealthKit, AI coach, and analytics consents
+              </Text>
+            </View>
+            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
+          </Pressable>
+        </View>
+
         {/* Account Section */}
         <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
           ACCOUNT
@@ -546,7 +611,56 @@ export default function SettingsScreen() {
               Sign Out
             </Text>
           </Pressable>
+          <Separator />
+          <Pressable
+            onPress={() => router.push("/settings/delete-account" as never)}
+            className="flex-row items-center gap-3 px-4 py-4"
+            accessibilityRole="button"
+            accessibilityLabel="Delete account"
+            testID="settings-delete-account"
+          >
+            <Icon as={UserX} size={20} className="text-destructive" />
+            <View className="flex-1">
+              <Text className="font-medium text-destructive">Delete account</Text>
+              <Text className="text-sm text-muted-foreground">
+                Permanently delete your account and all data
+              </Text>
+            </View>
+            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
+          </Pressable>
         </View>
+
+        {__DEV__ ? (
+          <View className="mt-6 overflow-hidden rounded-xl bg-card">
+            <View className="px-4 pt-3 pb-1">
+              <Text className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Developer
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => {
+                void handleRerunOnboarding();
+              }}
+              className="flex-row items-center gap-3 px-4 py-4"
+              accessibilityRole="button"
+              accessibilityLabel="Rerun onboarding"
+              testID="settings-rerun-onboarding"
+            >
+              <Icon as={RotateCcw} size={20} className="text-foreground" />
+              <View className="flex-1">
+                <Text className="font-medium">Rerun onboarding</Text>
+                <Text className="text-sm text-muted-foreground">
+                  Reset the onboarding flag and re-enter the demo
+                </Text>
+              </View>
+              <Icon
+                as={ChevronRight}
+                size={20}
+                className="text-muted-foreground"
+              />
+            </Pressable>
+          </View>
+        ) : null}
 
         {/* App info */}
         <View className="mt-8 items-center pb-8">

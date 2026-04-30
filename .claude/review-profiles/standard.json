@@ -1,0 +1,11 @@
+{
+  "reviewers": [
+    { "model": "claude-sonnet", "count": 3 }
+  ],
+  "aggregator": "claude-sonnet",
+  "validators": [
+    { "model": "claude-haiku", "count": 2 }
+  ],
+  "finalModel": "claude-sonnet",
+  "timeoutMinutes": 15
+}

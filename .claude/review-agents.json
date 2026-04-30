@@ -1,0 +1,14 @@
+[
+  {
+    "name": "review-typescript",
+    "agent": ".claude/agents/review-typescript.md"
+  },
+  {
+    "name": "review-security",
+    "agent": ".claude/agents/review-security.md"
+  },
+  {
+    "name": "review-code",
+    "agent": ".claude/agents/review-code.md"
+  }
+]

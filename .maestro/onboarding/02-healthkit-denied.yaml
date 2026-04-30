@@ -1,0 +1,41 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - onboarding
+  - critical-path
+  - ship-gate
+---
+# Flow 02 — HealthKit primer → user dismisses → manual-stats path.
+# Covers: S5 primer → "Not now" → S5b manual-stats form → continue.
+# Does NOT grant real HealthKit permissions.
+
+- runFlow: ../common/launch-app.yaml
+- runFlow: ./common-signed-in.yaml
+- runFlow: ./common-pass-goal-experience-days.yaml
+
+# S5 HealthKit primer
+- assertVisible:
+    id: "healthkit-primer-section-read"
+- tapOn:
+    id: "onboarding-healthkit-dismiss"
+
+# Routed to S5b manual-stats
+- assertVisible:
+    id: "onboarding-manual-age"
+- tapOn:
+    id: "onboarding-manual-age"
+- inputText: "30"
+- pressKey: Enter
+- tapOn:
+    id: "onboarding-manual-weight"
+- inputText: "78"
+- pressKey: Enter
+- tapOn:
+    id: "onboarding-manual-height"
+- inputText: "180"
+- pressKey: Enter
+- tapOn:
+    id: "onboarding-manual-continue"
+
+# Continued into S6 consent
+- assertVisible:
+    id: "consent-row-analytics"

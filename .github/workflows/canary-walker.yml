@@ -1,0 +1,106 @@
+name: Canary Walker
+
+on:
+  schedule:
+    # Every Monday 07:00 UTC (09:00 Oslo).
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: canary-walker
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: 99-canary onboarding flow
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      MAESTRO_APP_ID: com.soleinnovations.fitbull
+      CANARY_EMAIL: ${{ secrets.CANARY_EMAIL }}
+      CANARY_PASSWORD: ${{ secrets.CANARY_PASSWORD }}
+      POSTHOG_API_KEY: ${{ secrets.POSTHOG_PROJECT_API_KEY }}
+      POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
+      POSTHOG_HOST: ${{ secrets.POSTHOG_HOST || 'https://eu.posthog.com' }}
+      CANARY_DISTINCT_ID: ${{ secrets.CANARY_DISTINCT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Install Facebook IDB
+        run: |
+          brew tap facebook/fb
+          brew install facebook/fb/idb-companion
+
+      - name: Boot simulator
+        run: |
+          xcrun simctl boot "iPhone 15" || true
+          xcrun simctl list devices booted
+
+      - name: Build dev client (simulator)
+        run: pnpm exec expo prebuild --platform ios --clean
+        env:
+          EXPO_NO_TELEMETRY: "1"
+
+      - name: Install dev client on simulator
+        run: |
+          # Assumes EAS simulator build is cached as an artifact; otherwise
+          # this step should be replaced with `eas build --local --profile
+          # development-simulator` in a separate job.
+          xcrun simctl install booted "ios/build/Build/Products/Debug-iphonesimulator/Fitbull.app" || \
+            (echo "::warning::dev client build missing; canary cannot run" && exit 1)
+
+      - name: Run canary Maestro flow
+        id: maestro
+        run: |
+          maestro test \
+            -e EMAIL="$CANARY_EMAIL" \
+            -e PASSWORD="$CANARY_PASSWORD" \
+            .maestro/onboarding/99-canary.yaml
+
+      - name: Assert PostHog event chain (24h window, ±10% tolerance)
+        if: always()
+        run: node .github/scripts/canary-posthog-assert.mjs
+
+      - name: Open GitHub issue on divergence
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Canary Walker divergence — ${new Date().toISOString().slice(0, 10)}`;
+            const body = [
+              "The weekly Canary Walker (`.github/workflows/canary-walker.yml`) failed.",
+              "",
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              "",
+              "Possible causes:",
+              "- Onboarding UI change broke a Maestro selector",
+              "- PostHog event pipeline drift (`intake_started → consent_granted → plan_visible → trial_started`)",
+              "- Latency outside 24h tolerance band",
+              "",
+              "Triage per plan-10 §Canary Walker CI."
+            ].join("\n");
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ["canary", "on-call"],
+            });

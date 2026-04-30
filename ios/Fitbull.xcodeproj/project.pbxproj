@@ -8,23 +8,23 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		1A8B9015F3BD295BDF91A22D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 28015AA613B374159D761B45 /* PrivacyInfo.xcprivacy */; };
+		25349E77F36A92A53003457F /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96F9B2C09C71546732D08F47 /* ExpoModulesProvider.swift */; };
+		28177D106B13F94A6EB2E985 /* libPods-Fitbull.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 59BD9BD70B904C47D262636B /* libPods-Fitbull.a */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		7E56034E8DE0AF5548F9DCB2 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96646A9445185CD2AB808E33 /* ExpoModulesProvider.swift */; };
-		84E6B62CFBEE961AC015583D /* libPods-Fitbull.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D1C35BD103910D94D870D10 /* libPods-Fitbull.a */; };
+		556299BCF4A86C86DD3536E5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 954002341E45D3BF77125971 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0D1C35BD103910D94D870D10 /* libPods-Fitbull.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Fitbull.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07F961A680F5B00A75B9A /* Fitbull.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fitbull.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Fitbull/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Fitbull/Info.plist; sourceTree = "<group>"; };
-		28015AA613B374159D761B45 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Fitbull/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		73DDC0E70DA0CC37D113BD45 /* Pods-Fitbull.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Fitbull.release.xcconfig"; path = "Target Support Files/Pods-Fitbull/Pods-Fitbull.release.xcconfig"; sourceTree = "<group>"; };
-		911F0E47AB99478AE072C3E1 /* Pods-Fitbull.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Fitbull.debug.xcconfig"; path = "Target Support Files/Pods-Fitbull/Pods-Fitbull.debug.xcconfig"; sourceTree = "<group>"; };
-		96646A9445185CD2AB808E33 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Fitbull/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		59BD9BD70B904C47D262636B /* libPods-Fitbull.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Fitbull.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		652B271C2EA16317BD52FD2A /* Pods-Fitbull.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Fitbull.release.xcconfig"; path = "Target Support Files/Pods-Fitbull/Pods-Fitbull.release.xcconfig"; sourceTree = "<group>"; };
+		8182B977D03D86D068551B0F /* Pods-Fitbull.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Fitbull.debug.xcconfig"; path = "Target Support Files/Pods-Fitbull/Pods-Fitbull.debug.xcconfig"; sourceTree = "<group>"; };
+		954002341E45D3BF77125971 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Fitbull/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		96F9B2C09C71546732D08F47 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Fitbull/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Fitbull/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				84E6B62CFBEE961AC015583D /* libPods-Fitbull.a in Frameworks */,
+				28177D106B13F94A6EB2E985 /* libPods-Fitbull.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,34 +53,36 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				28015AA613B374159D761B45 /* PrivacyInfo.xcprivacy */,
+				954002341E45D3BF77125971 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Fitbull;
+			sourceTree = "<group>";
+		};
+		221729DADE048128E1F84B37 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				8182B977D03D86D068551B0F /* Pods-Fitbull.debug.xcconfig */,
+				652B271C2EA16317BD52FD2A /* Pods-Fitbull.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				0D1C35BD103910D94D870D10 /* libPods-Fitbull.a */,
+				59BD9BD70B904C47D262636B /* libPods-Fitbull.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		45528D3D057F753C4684CBEF /* Fitbull */ = {
+		7DCC66D14F7250BE123DCCC9 /* Fitbull */ = {
 			isa = PBXGroup;
 			children = (
-				96646A9445185CD2AB808E33 /* ExpoModulesProvider.swift */,
+				96F9B2C09C71546732D08F47 /* ExpoModulesProvider.swift */,
 			);
 			name = Fitbull;
-			sourceTree = "<group>";
-		};
-		820835DBB0BAA88282BBA6DB /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				45528D3D057F753C4684CBEF /* Fitbull */,
-			);
-			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -97,8 +99,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				D87394B38B5D1836E6805803 /* Pods */,
-				820835DBB0BAA88282BBA6DB /* ExpoModulesProviders */,
+				221729DADE048128E1F84B37 /* Pods */,
+				FDC1E957B04AF50A200562BF /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -122,14 +124,12 @@
 			path = Fitbull/Supporting;
 			sourceTree = "<group>";
 		};
-		D87394B38B5D1836E6805803 /* Pods */ = {
+		FDC1E957B04AF50A200562BF /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				911F0E47AB99478AE072C3E1 /* Pods-Fitbull.debug.xcconfig */,
-				73DDC0E70DA0CC37D113BD45 /* Pods-Fitbull.release.xcconfig */,
+				7DCC66D14F7250BE123DCCC9 /* Fitbull */,
 			);
-			name = Pods;
-			path = Pods;
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -140,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Fitbull" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				2DA0C75EAF5DFC99CEC50652 /* [Expo] Configure project */,
+				32B65A8DD29102672F1D2B7E /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				00266C5BA5D931FAD7F3E0DC /* [CP] Embed Pods Frameworks */,
+				00D2DE032CCBB04656A09D11 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -167,6 +167,8 @@
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1250;
+						DevelopmentTeam = "UR644ZFFAK";
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -196,14 +198,14 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				1A8B9015F3BD295BDF91A22D /* PrivacyInfo.xcprivacy in Resources */,
+				556299BCF4A86C86DD3536E5 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		00266C5BA5D931FAD7F3E0DC /* [CP] Embed Pods Frameworks */ = {
+		00D2DE032CCBB04656A09D11 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -264,7 +266,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		2DA0C75EAF5DFC99CEC50652 /* [Expo] Configure project */ = {
+		32B65A8DD29102672F1D2B7E /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -309,6 +311,7 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCat/RevenueCat.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCatUI/RevenueCat_RevenueCatUI.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/SDWebImage/SDWebImage.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-launcher/EXDevLauncher.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-menu/EXDevMenu.bundle",
 			);
@@ -328,6 +331,7 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat_RevenueCatUI.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SDWebImage.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevLauncher.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevMenu.bundle",
 			);
@@ -344,7 +348,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				7E56034E8DE0AF5548F9DCB2 /* ExpoModulesProvider.swift in Sources */,
+				25349E77F36A92A53003457F /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -353,7 +357,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 911F0E47AB99478AE072C3E1 /* Pods-Fitbull.debug.xcconfig */;
+			baseConfigurationReference = 8182B977D03D86D068551B0F /* Pods-Fitbull.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -384,12 +388,15 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
+				DEVELOPMENT_TEAM = "UR644ZFFAK";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 			};
 			name = Debug;
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 73DDC0E70DA0CC37D113BD45 /* Pods-Fitbull.release.xcconfig */;
+			baseConfigurationReference = 652B271C2EA16317BD52FD2A /* Pods-Fitbull.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -414,6 +421,9 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
+				DEVELOPMENT_TEAM = "UR644ZFFAK";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 			};
 			name = Release;
 		};

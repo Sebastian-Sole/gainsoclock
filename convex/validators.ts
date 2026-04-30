@@ -5,8 +5,17 @@ export const exerciseTypeValidator = v.union(
   v.literal("reps_time"),
   v.literal("time_only"),
   v.literal("time_distance"),
-  v.literal("reps_only")
+  v.literal("reps_only"),
+  v.literal("intervals")
 );
+
+const setVariantValidator = v.union(v.literal("work"), v.literal("rest"));
+const intervalMetricValidator = v.union(
+  v.literal("pace"),
+  v.literal("distance"),
+  v.literal("speed")
+);
+const distanceUnitValidator = v.union(v.literal("km"), v.literal("mi"));
 
 export const workoutSetValidator = v.union(
   v.object({
@@ -15,6 +24,8 @@ export const workoutSetValidator = v.union(
     type: v.literal("reps_weight"),
     reps: v.number(),
     weight: v.number(),
+    variant: v.optional(setVariantValidator),
+    rpe: v.optional(v.number()),
   }),
   v.object({
     id: v.string(),
@@ -22,12 +33,16 @@ export const workoutSetValidator = v.union(
     type: v.literal("reps_time"),
     reps: v.number(),
     time: v.number(),
+    variant: v.optional(setVariantValidator),
+    rpe: v.optional(v.number()),
   }),
   v.object({
     id: v.string(),
     completed: v.boolean(),
     type: v.literal("time_only"),
     time: v.number(),
+    variant: v.optional(setVariantValidator),
+    rpe: v.optional(v.number()),
   }),
   v.object({
     id: v.string(),
@@ -35,12 +50,29 @@ export const workoutSetValidator = v.union(
     type: v.literal("time_distance"),
     time: v.number(),
     distance: v.number(),
+    variant: v.optional(setVariantValidator),
+    rpe: v.optional(v.number()),
   }),
   v.object({
     id: v.string(),
     completed: v.boolean(),
     type: v.literal("reps_only"),
     reps: v.number(),
+    variant: v.optional(setVariantValidator),
+    rpe: v.optional(v.number()),
+  }),
+  v.object({
+    id: v.string(),
+    completed: v.boolean(),
+    type: v.literal("intervals"),
+    variant: setVariantValidator,
+    metric: intervalMetricValidator,
+    time: v.number(),
+    distanceUnit: distanceUnitValidator,
+    distance: v.optional(v.number()),
+    paceSeconds: v.optional(v.number()),
+    speed: v.optional(v.number()),
+    rpe: v.optional(v.number()),
   })
 );
 
@@ -62,6 +94,12 @@ export const flatSetValidator = v.object({
   weight: v.optional(v.number()),
   time: v.optional(v.number()),
   distance: v.optional(v.number()),
+  rpe: v.optional(v.number()),
+  variant: v.optional(setVariantValidator),
+  metric: v.optional(intervalMetricValidator),
+  paceSeconds: v.optional(v.number()),
+  speed: v.optional(v.number()),
+  distanceUnit: v.optional(distanceUnitValidator),
 });
 
 // Template exercise join table payload
@@ -154,3 +192,55 @@ export const weekStartDayValidator = v.union(
   v.literal("monday"),
   v.literal("sunday")
 );
+
+// Onboarding V2 / profile validators
+export const goalValidator = v.union(
+  v.literal("stronger"),
+  v.literal("leaner"),
+  v.literal("healthier"),
+  v.literal("routine")
+);
+
+export const experienceValidator = v.union(
+  v.literal("beginner"),
+  v.literal("returning"),
+  v.literal("experienced")
+);
+
+// "marketing" is intentionally NOT in V1 (HealthKit-Privacy C1).
+export const consentPurposeValidator = v.union(
+  v.literal("health_data_personalization"),
+  v.literal("ai_coach_inference"),
+  v.literal("analytics")
+);
+
+export const subscriptionStatusValidator = v.union(
+  v.literal("free"),
+  v.literal("trial"),
+  v.literal("pro"),
+  v.literal("grace"),
+  v.literal("paused"),
+  v.literal("lapsed")
+);
+
+export const subscriptionSourceValidator = v.union(
+  v.literal("rc_intro"),
+  v.literal("rc_paid"),
+  v.literal("rc_temp"),
+  v.literal("app_local")
+);
+
+export const dataSourceValidator = v.union(
+  v.literal("healthkit"),
+  v.literal("manual"),
+  v.literal("mixed")
+);
+
+export const biologicalSexValidator = v.union(
+  v.literal("male"),
+  v.literal("female")
+);
+
+// Compile-time coverage for Convex. `lib/subscription-constants.ts` remains
+// the single source of truth for the literal entitlement string.
+export const ENTITLEMENT_IDS = ["fitbull_pro"] as const;

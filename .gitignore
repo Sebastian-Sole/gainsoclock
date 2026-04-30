@@ -40,3 +40,12 @@ app-example
 
 # generated native folders
 /android
+
+# Maestro artifacts (screenshots, debug output). User-scope runs write to ~/.maestro/.
+.maestro/screenshots/
+.maestro/debug-output/
+.maestro/**/*.png
+
+# Claude Code local state
+.claude/settings.local.json
+.claude/worktrees/

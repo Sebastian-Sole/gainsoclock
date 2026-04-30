@@ -31,6 +31,9 @@ interface SettingsState {
   notificationsMorningPlanEnabled: boolean;
   notificationsMorningPlanTime: string; // "HH:mm"
 
+  // Exercise tracking
+  rpeEnabled: boolean;
+
   setWeightUnit: (unit: WeightUnit) => void;
   setDistanceUnit: (unit: DistanceUnit) => void;
   setDefaultRestTime: (seconds: number) => void;
@@ -48,7 +51,8 @@ interface SettingsState {
   setNotificationsReminderTime: (time: string) => void;
   setNotificationsMorningPlanEnabled: (enabled: boolean) => void;
   setNotificationsMorningPlanTime: (time: string) => void;
-  hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string; prefillFromLastWorkout?: boolean; defaultSetsCount?: number; defaultRepsCount?: number; notificationsRestTimerEnabled?: boolean; notificationsPostWorkoutEnabled?: boolean; notificationsPostWorkoutDelay?: number; notificationsReminderEnabled?: boolean; notificationsReminderTime?: string; notificationsMorningPlanEnabled?: boolean; notificationsMorningPlanTime?: string }) => void;
+  setRpeEnabled: (enabled: boolean) => void;
+  hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string; prefillFromLastWorkout?: boolean; defaultSetsCount?: number; defaultRepsCount?: number; notificationsRestTimerEnabled?: boolean; notificationsPostWorkoutEnabled?: boolean; notificationsPostWorkoutDelay?: number; notificationsReminderEnabled?: boolean; notificationsReminderTime?: string; notificationsMorningPlanEnabled?: boolean; notificationsMorningPlanTime?: string; rpeEnabled?: boolean }) => void;
 }
 
 function syncSettings(state: SettingsState) {
@@ -68,6 +72,7 @@ function syncSettings(state: SettingsState) {
     notificationsReminderTime: state.notificationsReminderTime,
     notificationsMorningPlanEnabled: state.notificationsMorningPlanEnabled,
     notificationsMorningPlanTime: state.notificationsMorningPlanTime,
+    rpeEnabled: state.rpeEnabled,
   });
 }
 
@@ -92,6 +97,7 @@ export const useSettingsStore = create<SettingsState>()(
       notificationsReminderTime: '18:00',
       notificationsMorningPlanEnabled: true,
       notificationsMorningPlanTime: '07:00',
+      rpeEnabled: false,
 
       setWeightUnit: (unit) => {
         set({ weightUnit: unit });
@@ -173,6 +179,11 @@ export const useSettingsStore = create<SettingsState>()(
         syncSettings(get());
       },
 
+      setRpeEnabled: (enabled) => {
+        set({ rpeEnabled: enabled });
+        syncSettings(get());
+      },
+
       setCustomRange: (from, to) => {
         set({
           customRangeFrom: from.toISOString(),
@@ -198,6 +209,7 @@ export const useSettingsStore = create<SettingsState>()(
           notificationsReminderTime: serverSettings.notificationsReminderTime ?? '18:00',
           notificationsMorningPlanEnabled: serverSettings.notificationsMorningPlanEnabled ?? true,
           notificationsMorningPlanTime: serverSettings.notificationsMorningPlanTime ?? '07:00',
+          rpeEnabled: serverSettings.rpeEnabled ?? false,
         });
       },
     }),

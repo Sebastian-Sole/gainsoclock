@@ -36,4 +36,10 @@ export const EXERCISE_TYPE_CONFIG: Record<
     description: 'Track repetitions only',
     columns: ['Set', 'Reps', ''],
   },
+  intervals: {
+    label: 'Intervals',
+    icon: 'Activity',
+    description: 'Work / rest pairs with pace, distance, or speed',
+    columns: ['Interval', 'Effort', 'Time', ''],
+  },
 };
