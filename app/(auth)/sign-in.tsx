@@ -15,12 +15,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
+import * as WebBrowser from "expo-web-browser";
 
 import { Text } from "@/components/ui/text";
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
 import { capture } from "@/lib/analytics";
 import { SIWA_COLLISION_COPY } from "@/lib/privacy-notice";
 import { useOnboardingStatus } from "@/hooks/use-onboarding-status";
+
+const TERMS_URL = "https://www.fitbull.app/terms";
+const PRIVACY_URL = "https://www.fitbull.app/privacy";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -263,7 +267,7 @@ export default function SignInScreen() {
             accessibilityRole="button"
             accessibilityLabel="Sign in with email"
             accessibilityState={{ disabled: isLoading }}
-            className="mb-6 min-h-[44px] items-center justify-center rounded-xl bg-primary py-4 active:bg-primary/90"
+            className="mb-4 min-h-[44px] items-center justify-center rounded-xl bg-primary py-4 active:bg-primary/90"
             style={isLoading ? { opacity: 0.5 } : undefined}
             testID="signin-submit"
           >
@@ -278,6 +282,38 @@ export default function SignInScreen() {
               </Text>
             )}
           </Pressable>
+
+          {/* Legal acceptance line — basis for account access. Toggleable
+              consents (analytics, AI, health) live in Settings → Privacy. */}
+          <View className="mb-6 flex-row flex-wrap items-center justify-center gap-x-1 px-4">
+            <Text className="text-center text-xs text-muted-foreground">
+              By continuing, you agree to our{" "}
+            </Text>
+            <Pressable
+              onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)}
+              accessibilityRole="link"
+              accessibilityLabel={TERMS_URL}
+              hitSlop={8}
+            >
+              <Text className="text-xs font-medium text-foreground underline">
+                Terms
+              </Text>
+            </Pressable>
+            <Text className="text-xs text-muted-foreground">
+              , which describe how we use OpenAI to power the AI coach, and our{" "}
+            </Text>
+            <Pressable
+              onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)}
+              accessibilityRole="link"
+              accessibilityLabel={PRIVACY_URL}
+              hitSlop={8}
+            >
+              <Text className="text-xs font-medium text-foreground underline">
+                Privacy Policy
+              </Text>
+            </Pressable>
+            <Text className="text-xs text-muted-foreground">.</Text>
+          </View>
 
           {/* Sign-up link */}
           <Pressable

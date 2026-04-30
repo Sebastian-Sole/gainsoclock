@@ -14,14 +14,15 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuthActions } from "@convex-dev/auth/react";
+import * as WebBrowser from "expo-web-browser";
 
 import { Text } from "@/components/ui/text";
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
 import { capture } from "@/lib/analytics";
-import {
-  PRIVACY_NOTICE_SHORT,
-  SIWA_COLLISION_COPY,
-} from "@/lib/privacy-notice";
+import { SIWA_COLLISION_COPY } from "@/lib/privacy-notice";
+
+const TERMS_URL = "https://www.fitbull.app/terms";
+const PRIVACY_URL = "https://www.fitbull.app/privacy";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -274,38 +275,6 @@ export default function SignUpScreen() {
             className="mb-4 min-h-[44px] rounded-xl border border-input bg-card px-4 py-4 text-[16px] text-foreground"
           />
 
-          {/* Privacy + Terms (Art. 13 notice-at-collection) */}
-          <View className="mb-4 flex-row flex-wrap items-center justify-center gap-1">
-            <Text className="text-center text-xs text-muted-foreground">
-              {PRIVACY_NOTICE_SHORT.replace(
-                " Privacy Policy and Terms.",
-                ""
-              )}{" "}
-            </Text>
-            <Pressable
-              onPress={() => router.push("/legal/privacy" as never)}
-              accessibilityRole="link"
-              accessibilityLabel="Open Privacy Policy"
-              hitSlop={8}
-            >
-              <Text className="text-xs font-medium text-primary underline">
-                Privacy Policy
-              </Text>
-            </Pressable>
-            <Text className="text-xs text-muted-foreground"> and </Text>
-            <Pressable
-              onPress={() => router.push("/legal/terms" as never)}
-              accessibilityRole="link"
-              accessibilityLabel="Open Terms of Service"
-              hitSlop={8}
-            >
-              <Text className="text-xs font-medium text-primary underline">
-                Terms
-              </Text>
-            </Pressable>
-            <Text className="text-xs text-muted-foreground">.</Text>
-          </View>
-
           {/* Submit */}
           <Pressable
             onPress={handleEmailSignUp}
@@ -313,7 +282,7 @@ export default function SignUpScreen() {
             accessibilityRole="button"
             accessibilityLabel="Create account with email"
             accessibilityState={{ disabled: isLoading }}
-            className="mb-6 min-h-[44px] items-center justify-center rounded-xl bg-primary py-4 active:bg-primary/90"
+            className="mb-4 min-h-[44px] items-center justify-center rounded-xl bg-primary py-4 active:bg-primary/90"
             style={
               isLoading ? { opacity: 0.5 } : undefined
             }
@@ -330,6 +299,38 @@ export default function SignUpScreen() {
               </Text>
             )}
           </Pressable>
+
+          {/* Legal acceptance line — basis for account creation. Toggleable
+              consents (analytics, AI, health) live in Settings → Privacy. */}
+          <View className="mb-6 flex-row flex-wrap items-center justify-center gap-x-1 px-4">
+            <Text className="text-center text-xs text-muted-foreground">
+              By continuing, you agree to our{" "}
+            </Text>
+            <Pressable
+              onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)}
+              accessibilityRole="link"
+              accessibilityLabel={TERMS_URL}
+              hitSlop={8}
+            >
+              <Text className="text-xs font-medium text-foreground underline">
+                Terms
+              </Text>
+            </Pressable>
+            <Text className="text-xs text-muted-foreground">
+              , which describe how we use OpenAI to power the AI coach, and our{" "}
+            </Text>
+            <Pressable
+              onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)}
+              accessibilityRole="link"
+              accessibilityLabel={PRIVACY_URL}
+              hitSlop={8}
+            >
+              <Text className="text-xs font-medium text-foreground underline">
+                Privacy Policy
+              </Text>
+            </Pressable>
+            <Text className="text-xs text-muted-foreground">.</Text>
+          </View>
 
           {/* Sign-in link */}
           <Pressable

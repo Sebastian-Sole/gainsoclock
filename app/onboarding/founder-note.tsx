@@ -89,7 +89,7 @@ export default function FounderNoteScreen() {
   const handleContinue = () => {
     capture({ name: 'founder_note_continue', props: {} });
     lightHaptic();
-    router.replace('/onboarding/paywall');
+    router.replace('/onboarding/healthkit');
   };
 
   return (

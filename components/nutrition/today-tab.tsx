@@ -7,6 +7,7 @@ import { api } from '@/convex/_generated/api';
 import { format } from 'date-fns';
 
 import { Icon } from '@/components/ui/icon';
+import { AnalyticsConsentCard } from '@/components/home/analytics-consent-card';
 import { MacroProgress } from './macro-progress';
 import { MealLogCard } from './meal-log-card';
 import { LogMealModal } from './log-meal-modal';
@@ -68,6 +69,9 @@ export function TodayTab() {
         showsVerticalScrollIndicator={false}
         contentContainerClassName="px-4 pb-8"
       >
+        {/* Analytics consent (one-time, self-gated) */}
+        <AnalyticsConsentCard />
+
         {/* Macro Progress */}
         <View className="rounded-xl border border-border bg-card p-4 mb-4">
           <MacroProgress consumed={consumed} goals={goals} onEditGoals={() => setShowGoalsModal(true)} />

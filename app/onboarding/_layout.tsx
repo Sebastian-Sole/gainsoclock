@@ -23,6 +23,7 @@ export default function OnboardingLayout() {
           options={{ gestureEnabled: false }}
         />
         <Stack.Screen name="founder-note" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="healthkit" options={{ gestureEnabled: false }} />
         <Stack.Screen name="paywall" options={{ gestureEnabled: false }} />
       </Stack>
     </SafeAreaView>

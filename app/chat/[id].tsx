@@ -27,6 +27,12 @@ export default function ChatConversationScreen() {
   const approveAction = useMutation(api.chat.approveAction);
   const executeApproval = useMutation(api.aiTools.executeApproval);
   const [isApprovingAll, setIsApprovingAll] = useState(false);
+  const handleSend = useCallback(
+    async (content: string) => {
+      await sendMessage(content);
+    },
+    [sendMessage]
+  );
 
   const pendingApprovals = useMemo(
     () =>
@@ -155,7 +161,7 @@ export default function ChatConversationScreen() {
       )}
 
       {/* Input */}
-      <ChatInput onSend={sendMessage} disabled={isSending || isStreaming || isOffline} />
+      <ChatInput onSend={handleSend} disabled={isSending || isStreaming || isOffline} />
     </SafeAreaView>
   );
 }

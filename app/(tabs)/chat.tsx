@@ -163,6 +163,12 @@ function ActiveChatView({
 }) {
   const { isOffline } = useNetwork();
   const { messages, sendMessage, isSending, isStreaming } = useChat(conversationId);
+  const handleSend = useCallback(
+    async (content: string) => {
+      await sendMessage(content);
+    },
+    [sendMessage]
+  );
   const approveAction = useMutation(api.chat.approveAction);
   const executeApproval = useMutation(api.aiTools.executeApproval);
   const [isApprovingAll, setIsApprovingAll] = useState(false);
@@ -279,7 +285,7 @@ function ActiveChatView({
         </View>
       )}
 
-      <ChatInput onSend={sendMessage} disabled={isSending || isStreaming || isOffline} />
+      <ChatInput onSend={handleSend} disabled={isSending || isStreaming || isOffline} />
     </View>
   );
 }

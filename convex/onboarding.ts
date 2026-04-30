@@ -259,6 +259,41 @@ export const getConsents = query({
   },
 });
 
+// Single-purpose consent toggle. Append-only (Security CR4): every flip is a
+// new row, never an in-place mutation. This is the entry point used by the
+// Settings → Privacy panel and any just-in-time consent prompt outside the
+// dead `completeOnboardingV2` bulk path. Callers compute `versionHash` via
+// `lib/consent.ts#hashConsentCopy(purpose)` so the row records exactly which
+// copy the user agreed to.
+//
+// Cascading side effects (aha kill, profile erasure, PostHog erasure) live in
+// `withdrawConsent` and are intentionally NOT triggered here — `setConsent` is
+// the lightweight toggle; the heavy GDPR Art. 17 cascades belong in the
+// withdrawal flow only.
+export const setConsent = mutation({
+  args: {
+    purpose: consentPurposeValidator,
+    granted: v.boolean(),
+    versionHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const now = new Date().toISOString();
+    await ctx.db.insert("userConsents", {
+      userId,
+      purpose: args.purpose,
+      granted: args.granted,
+      version: args.versionHash,
+      grantedAt: now,
+      // No `clientIntakeId` — this is the post-onboarding entry point.
+      // `revokedAt` is also omitted: append-only semantics mean the latest row
+      // (`granted: false`) stands as the withdrawal record on its own.
+    });
+  },
+});
+
 export const withdrawConsent = mutation({
   args: { purpose: consentPurposeValidator },
   handler: async (ctx, { purpose }) => {

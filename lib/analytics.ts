@@ -38,6 +38,11 @@ export type AnalyticsEvent =
   | { name: "healthkit_chat_prompt_shown"; props: Record<string, never> }
   | { name: "healthkit_chat_prompt_granted"; props: Record<string, never> }
   | { name: "healthkit_chat_prompt_dismissed"; props: Record<string, never> }
+  | { name: "analytics_consent_prompt_shown"; props: Record<string, never> }
+  | {
+      name: "analytics_consent_prompt_choice";
+      props: { granted: boolean };
+    }
   | {
       name: "manual_stats_complete";
       props: { dataSource: "healthkit" | "manual" | "mixed" };
@@ -84,6 +89,16 @@ export type AnalyticsEvent =
   | { name: "demo_workouts_skipped"; props: Record<string, never> }
   | { name: "founder_note_shown"; props: Record<string, never> }
   | { name: "founder_note_continue"; props: Record<string, never> }
+  | { name: "onboarding_setup_shown"; props: Record<string, never> }
+  | { name: "onboarding_setup_continue"; props: Record<string, never> }
+  | {
+      name: "onboarding_setup_healthkit_connect_tapped";
+      props: Record<string, never>;
+    }
+  | {
+      name: "onboarding_setup_analytics_toggled";
+      props: { granted: boolean };
+    }
   | { name: `activation_gate_${string}`; props: Record<string, never> };
 
 // --- HealthKit firewall -----------------------------------------------------
@@ -160,6 +175,10 @@ const PRE_CONSENT_BUFFERABLE: ReadonlySet<AnalyticsEvent["name"]> = new Set([
   "demo_workouts_skipped",
   "founder_note_shown",
   "founder_note_continue",
+  "onboarding_setup_shown",
+  "onboarding_setup_continue",
+  "onboarding_setup_healthkit_connect_tapped",
+  "onboarding_setup_analytics_toggled",
 ]);
 
 const MAX_BUFFERED_EVENTS = 50;

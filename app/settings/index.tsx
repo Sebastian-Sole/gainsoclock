@@ -580,17 +580,17 @@ export default function SettingsScreen() {
         </Text>
         <View className="rounded-xl bg-card">
           <Pressable
-            onPress={() => router.push("/settings/privacy" as never)}
+            onPress={() => router.push("/settings/privacy")}
             className="flex-row items-center gap-3 px-4 py-4"
             accessibilityRole="button"
-            accessibilityLabel="Privacy and consents"
+            accessibilityLabel="Privacy and Consent"
             testID="settings-privacy"
           >
             <Icon as={ShieldCheck} size={20} className="text-primary" />
             <View className="flex-1">
-              <Text className="font-medium">Privacy &amp; consents</Text>
+              <Text className="font-medium">Privacy &amp; Consent</Text>
               <Text className="text-sm text-muted-foreground">
-                Manage HealthKit, AI coach, and analytics consents
+                Manage health, AI coach, and analytics consents
               </Text>
             </View>
             <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
@@ -613,7 +613,7 @@ export default function SettingsScreen() {
           </Pressable>
           <Separator />
           <Pressable
-            onPress={() => router.push("/settings/delete-account" as never)}
+            onPress={() => router.push("/settings/delete-account")}
             className="flex-row items-center gap-3 px-4 py-4"
             accessibilityRole="button"
             accessibilityLabel="Delete account"
