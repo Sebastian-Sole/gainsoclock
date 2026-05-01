@@ -124,7 +124,23 @@ export default function SignUpScreen() {
       if (!identityToken) {
         throw new Error("Apple sign-in did not return an identity token");
       }
-      await signIn("apple", { id_token: identityToken });
+      // Apple only sends `fullName` on the FIRST sign-in for a given
+      // (Apple ID, app) pair; on subsequent attempts these fields are null.
+      // The server-side `apple-native` provider persists the name on the
+      // `users` row when present.
+      const fullName = _credential.fullName
+        ? [
+            _credential.fullName.givenName,
+            _credential.fullName.familyName,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .trim() || undefined
+        : undefined;
+      await signIn("apple-native", {
+        id_token: identityToken,
+        ...(fullName ? { name: fullName } : {}),
+      });
       capture({ name: "auth_succeeded", props: { method: "apple" } });
       focusHeading();
     } catch (err) {

@@ -11,6 +11,7 @@
 import type * as aiTools from "../aiTools.js";
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
+import type * as authInternal from "../authInternal.js";
 import type * as chat from "../chat.js";
 import type * as chatActions from "../chatActions.js";
 import type * as chatInternal from "../chatInternal.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   aiTools: typeof aiTools;
   analytics: typeof analytics;
   auth: typeof auth;
+  authInternal: typeof authInternal;
   chat: typeof chat;
   chatActions: typeof chatActions;
   chatInternal: typeof chatInternal;
