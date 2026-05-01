@@ -56,7 +56,15 @@ const AppleNative = ConvexCredentials<DataModel>({
         audience,
       });
       payload = result.payload as Record<string, unknown>;
-    } catch {
+    } catch (err) {
+      // Log the underlying jose error (audience mismatch, expired token,
+      // signature failure, etc.) so prod debugging doesn't have to guess.
+      // The error payload from jose is safe to log — it doesn't echo the
+      // raw token, just the failure reason and the offending claim values.
+      const reason = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `[apple-native] JWT verification failed: ${reason} (audience=${audience})`
+      );
       throw new Error("InvalidAccountId");
     }
 
