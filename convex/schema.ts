@@ -165,10 +165,14 @@ export default defineSchema({
   userProfile: defineTable({
     userId: v.id("users"),
     clientIntakeId: v.optional(v.string()),
-    goals: v.array(goalValidator),
-    primaryGoal: goalValidator,
-    experience: experienceValidator,
-    trainingDaysOfWeek: v.array(v.number()), // 0-6, max len 7
+    // The four fields below were required in the V2 intake flow. The demo
+    // onboarding pivot (b3c3dca) no longer collects them, so they're optional
+    // now; consumers (notably `convex/onboardingActions.ts`) must defensively
+    // handle undefined. Existing rows from the old intake already have values.
+    goals: v.optional(v.array(goalValidator)),
+    primaryGoal: v.optional(goalValidator),
+    experience: v.optional(experienceValidator),
+    trainingDaysOfWeek: v.optional(v.array(v.number())), // 0-6, max len 7
     ageYears: v.optional(v.number()), // 16-100
     biologicalSex: v.optional(biologicalSexValidator),
     weightKg: v.optional(v.number()), // 30-250

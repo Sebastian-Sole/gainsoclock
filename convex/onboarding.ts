@@ -401,9 +401,29 @@ export const updateHealthStats = mutation({
       .query("userProfile")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
-    if (!profile) throw new Error("onboarding/profile_missing");
 
     const now = new Date().toISOString();
+
+    if (!profile) {
+      // Demo-onboarding flow: users may reach the HealthKit prompt (or chat
+      // HealthKit primer) without ever having created a userProfile row.
+      // Insert a minimal row here. The four legacy intake fields (`goals`,
+      // `primaryGoal`, `experience`, `trainingDaysOfWeek`) are intentionally
+      // omitted — consumers must handle undefined.
+      const profileId = await ctx.db.insert("userProfile", {
+        userId,
+        ...(args.weightKg !== undefined ? { weightKg: args.weightKg } : {}),
+        ...(args.heightCm !== undefined ? { heightCm: args.heightCm } : {}),
+        ...(args.bodyFatPercent !== undefined
+          ? { bodyFatPercent: args.bodyFatPercent }
+          : {}),
+        dataSource: args.dataSource,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return { profileId };
+    }
+
     await ctx.db.patch(profile._id, {
       ...(args.weightKg !== undefined ? { weightKg: args.weightKg } : {}),
       ...(args.heightCm !== undefined ? { heightCm: args.heightCm } : {}),

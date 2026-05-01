@@ -42,13 +42,18 @@ const LIFETIME_CAP = 5;
 const STALENESS_WINDOW_MS = 60_000;
 const FLUSH_INTERVAL_MS = 250;
 
+// Profile fields below marked optional reflect the schema after the demo-
+// onboarding pivot — the V2 intake flow is dead, so a row may be inserted by
+// `updateHealthStats` with only `dataSource`. Aha generation still requires
+// the intake fields and short-circuits with `aha/profile_incomplete` if any
+// are missing.
 type Profile = {
   _id: Id<"userProfile">;
   userId: Id<"users">;
-  goals: string[];
-  primaryGoal: string;
-  experience: ExperienceTier;
-  trainingDaysOfWeek: number[];
+  goals?: string[];
+  primaryGoal?: string;
+  experience?: ExperienceTier;
+  trainingDaysOfWeek?: number[];
   ageYears?: number;
   weightKg?: number;
   heightCm?: number;
@@ -106,8 +111,9 @@ function assertSanityBounds(profile: Profile): void {
     }
   }
   if (
-    profile.trainingDaysOfWeek.length < 1 ||
-    profile.trainingDaysOfWeek.length > 7
+    profile.trainingDaysOfWeek !== undefined &&
+    (profile.trainingDaysOfWeek.length < 1 ||
+      profile.trainingDaysOfWeek.length > 7)
   ) {
     throw new Error("aha/training_days_out_of_range");
   }
@@ -314,6 +320,25 @@ export const runAhaGeneration = internalAction({
 
     assertSanityBounds(profile);
     assertAgeGate(profile);
+
+    // Demo-onboarding pivot: profile rows can now exist without the legacy
+    // intake fields (created by `updateHealthStats` from the HealthKit prompt
+    // when no V2 intake ran). Aha generation still needs all four to build
+    // the OpenAI prompt; bail with a clear reason rather than crashing on
+    // `.length` / undefined `experience`.
+    if (
+      profile.goals === undefined ||
+      profile.primaryGoal === undefined ||
+      profile.experience === undefined ||
+      profile.trainingDaysOfWeek === undefined
+    ) {
+      await ctx.runMutation(internal.onboardingInternal.markAhaFailed, {
+        userId,
+        generationId,
+        reason: "profile_incomplete",
+      });
+      throw new Error("aha/profile_incomplete");
+    }
 
     // Rate limit (AI-Safety #8)
     if ((profile.ahaGenerationCount ?? 0) >= LIFETIME_CAP) {
