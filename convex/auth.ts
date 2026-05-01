@@ -42,12 +42,12 @@ const AppleNative = ConvexCredentials<DataModel>({
         ? nameParam
         : undefined;
 
-    const audience = process.env.AUTH_APPLE_ID;
-    if (!audience) {
-      throw new Error(
-        "AUTH_APPLE_ID env var is not set on the Convex deployment"
-      );
-    }
+    // Native iOS SIWA puts the iOS bundle identifier in the JWT's `aud`
+    // claim — NOT a Service ID. Service IDs (e.g. `com.foo.bar.auth`) are
+    // only used for the web OAuth flow we don't ship. Hardcoded because
+    // this must match `app.json#expo.ios.bundleIdentifier` exactly; an env
+    // var is one typo away from breaking auth.
+    const audience = "com.soleinnovations.fitbull";
 
     let payload: Record<string, unknown>;
     try {
