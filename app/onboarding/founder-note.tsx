@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
-import { Pressable, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 import Animated, {
     Easing,
     cancelAnimation,
@@ -10,9 +10,7 @@ import Animated, {
     withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SvgXml } from 'react-native-svg';
 
-import { SEBASTIAN_SIGNATURE_SVG } from '@/assets/signatures/sebastian';
 import { Text } from '@/components/ui/text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -137,14 +135,11 @@ export default function FounderNoteScreen() {
               accessibilityLabel="Signature: Sebastian"
               accessibilityRole="image"
             >
-              <View style={{ height: 56, width: 200 }}>
-                <SvgXml
-                  xml={SEBASTIAN_SIGNATURE_SVG}
-                  width="100%"
-                  height="100%"
-                  color={signatureColor}
-                />
-              </View>
+              <Image
+                source={require('@/assets/images/founder-signature.png')}
+                style={{ width: 120, height: 31, tintColor: signatureColor }}
+                resizeMode="contain"
+              />
             </Animated.View>
             <Text className="mt-1 text-[13px] text-muted-foreground">
               Sebastian Sole · Founder
