@@ -2,7 +2,6 @@ import { useQuery } from "convex/react";
 import { useEffect } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
-import { useNetwork } from "@/hooks/use-network";
 import { useAuthCacheStore } from "@/stores/auth-cache-store";
 
 export type UserProfile = Doc<"userProfile">;
@@ -30,7 +29,6 @@ export type OnboardingStatus =
 
 export function useOnboardingStatus(): OnboardingStatus {
   const serverStatus = useQuery(api.user.getOnboardingStatus);
-  const { isOffline } = useNetwork();
   const cachedCompleted = useAuthCacheStore((s) => s.hasCompletedOnboarding);
 
   // Write-through: when the server confirms completion, hold truth in the
@@ -41,13 +39,14 @@ export function useOnboardingStatus(): OnboardingStatus {
     }
   }, [serverStatus?.hasCompletedOnboarding, cachedCompleted]);
 
+  // Server undecided (Convex still resolving, or unreachable on this
+  // network) → trust the persisted cache instead of blocking. The query
+  // continues in the background and the live answer takes over the moment
+  // it arrives.
   if (serverStatus === undefined) {
-    if (isOffline) {
-      return cachedCompleted
-        ? { status: "complete", profile: null, consents: null }
-        : { status: "pending" };
-    }
-    return { status: "loading" };
+    return cachedCompleted
+      ? { status: "complete", profile: null, consents: null }
+      : { status: "pending" };
   }
 
   if (serverStatus === null) {

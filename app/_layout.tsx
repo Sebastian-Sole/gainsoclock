@@ -1,10 +1,12 @@
 import "../global.css";
 
+import * as Sentry from "@sentry/react-native";
 import {
   configureReanimatedLogger,
   ReanimatedLogLevel,
 } from "react-native-reanimated";
 import { useEffect, useRef } from "react";
+import { Text, View } from "react-native";
 import { ThemeProvider } from "@react-navigation/native";
 import { Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -29,6 +31,16 @@ import {
 } from "@/lib/analytics";
 import { api } from "@/convex/_generated/api";
 
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
+
+Sentry.init({
+  dsn: SENTRY_DSN,
+  enabled: Boolean(SENTRY_DSN),
+  sendDefaultPii: false,
+  tracesSampleRate: __DEV__ ? 1.0 : 0.1,
+  environment: __DEV__ ? "development" : "production",
+});
+
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
   strict: false,
@@ -36,15 +48,54 @@ configureReanimatedLogger({
 
 SplashScreen.preventAutoHideAsync();
 
-if (!process.env.EXPO_PUBLIC_CONVEX_URL) {
-  throw new Error(
-    "Missing EXPO_PUBLIC_CONVEX_URL — add it to .env.local (run `npx convex dev` to get the URL)"
+const CONVEX_URL = process.env.EXPO_PUBLIC_CONVEX_URL;
+const convex = CONVEX_URL
+  ? new ConvexReactClient(CONVEX_URL, { unsavedChangesWarning: false })
+  : null;
+
+if (!convex) {
+  Sentry.captureMessage(
+    "Boot failed: EXPO_PUBLIC_CONVEX_URL is not set in the build environment.",
+    "fatal"
   );
 }
 
-const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL, {
-  unsavedChangesWarning: false,
-});
+function BootErrorScreen({ message }: { message: string }) {
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "#000",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+      }}
+    >
+      <Text
+        style={{
+          color: "#fff",
+          fontSize: 16,
+          textAlign: "center",
+          marginBottom: 8,
+        }}
+      >
+        Fitbull failed to start.
+      </Text>
+      <Text
+        style={{
+          color: "#999",
+          fontSize: 13,
+          textAlign: "center",
+        }}
+      >
+        {message}
+      </Text>
+    </View>
+  );
+}
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -88,10 +139,6 @@ function RootNavigator() {
     if (!pathname) return;
     startReplayForRoute(pathname);
   }, [pathname]);
-
-  if (isLoading) {
-    return null;
-  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -153,7 +200,12 @@ function RootNavigator() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
+  if (!convex) {
+    return (
+      <BootErrorScreen message="Build is missing EXPO_PUBLIC_CONVEX_URL. Contact support." />
+    );
+  }
   return (
     <NetworkProvider>
       <ConvexAuthProvider client={convex} storage={secureStorage}>
@@ -166,3 +218,5 @@ export default function RootLayout() {
     </NetworkProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);
