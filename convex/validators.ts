@@ -243,4 +243,4 @@ export const biologicalSexValidator = v.union(
 
 // Compile-time coverage for Convex. `lib/subscription-constants.ts` remains
 // the single source of truth for the literal entitlement string.
-export const ENTITLEMENT_IDS = ["fitbull_pro"] as const;
+export const ENTITLEMENT_IDS = ["Gainsoclock Pro"] as const;
