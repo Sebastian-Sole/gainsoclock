@@ -50,7 +50,7 @@ export default function MethodologyScreen() {
   return (
     <>
       <Stack.Screen options={{ title: "Methodology" }} />
-      <SafeAreaView edges={["top"]} className="flex-1 bg-background">
+      <SafeAreaView edges={["bottom"]} className="flex-1 bg-background">
         <ScrollView
           className="flex-1"
           contentContainerClassName="px-6 pb-12 pt-4"

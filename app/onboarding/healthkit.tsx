@@ -1,9 +1,8 @@
 import { useRouter } from 'expo-router';
-import { Check, Heart } from 'lucide-react-native';
+import { Heart } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   Platform,
   Pressable,
   View,
@@ -31,13 +30,13 @@ import { capture } from '@/lib/analytics';
 import { lightHaptic } from '@/lib/haptics';
 import { HEALTHKIT_READ_SCOPES } from '@/lib/healthkit';
 
-type HealthKitState = 'idle' | 'pending' | 'connected' | 'skipped';
-
 /**
  * One-shot onboarding setup screen between the founder note and the paywall.
  * Bundles two preferences that benefit from an explicit moment:
- *   1. Apple Health connection — required decision (Connect or Skip) before
- *      Continue enables.
+ *   1. Apple Health — an explanatory card whose only action is the shared
+ *      Continue CTA. Per App Store Guideline 5.1.1(iv), the priming message
+ *      flows straight into the system HealthKit prompt on Continue: there is
+ *      no "Skip" exit and no priming verb ("Connect") on the button.
  *   2. Analytics — default ON, single switch the user can flip off.
  *
  * GDPR risk note: pre-checked analytics consent is technically non-compliant
@@ -53,19 +52,13 @@ export default function OnboardingHealthkitScreen() {
   const router = useRouter();
   const reduceMotion = useReduceMotion();
   const { setConsent } = useConsent();
-  const {
-    isAvailable,
-    enable,
-    getAuthorizationStatus,
-    getLatestStats,
-  } = useHealthKit();
+  const { isAvailable, enable, getLatestStats } = useHealthKit();
   const updateHealthStats = useMutation(api.onboarding.updateHealthStats);
 
   // Default on — user can flip to off before continuing. Either way we always
   // write a consent row at Continue (the user has been shown the toggle and
   // had the chance to decide).
   const [analyticsToggle, setAnalyticsToggle] = useState<boolean>(true);
-  const [healthState, setHealthState] = useState<HealthKitState>('idle');
   const [continuePending, setContinuePending] = useState(false);
   const shownRef = useRef(false);
 
@@ -156,42 +149,20 @@ export default function OnboardingHealthkitScreen() {
     opacity: ctaOpacity.value,
   }));
 
-  const handleConnectHealth = useCallback(async () => {
-    if (healthState === 'pending' || healthState === 'connected') return;
-    capture({
-      name: 'onboarding_setup_healthkit_connect_tapped',
-      props: {},
-    });
-    lightHaptic();
-    setHealthState('pending');
-
+  // Request HealthKit read access. Best-effort: persists the consent row and
+  // syncs any available body stats when the user grants. Returns nothing —
+  // the user always proceeds to the paywall regardless of the outcome.
+  const requestHealthAccess = useCallback(async () => {
     try {
-      // If iOS already remembers a `sharingDenied` state, the system prompt
-      // will not re-appear — route the user to Settings instead.
-      const status = await getAuthorizationStatus();
-      if (status === 'sharingDenied') {
-        await Linking.openSettings();
-        setHealthState('idle');
-        return;
-      }
-
-      await enable();
-      const afterStatus = await getAuthorizationStatus();
-      if (afterStatus === 'sharingDenied') {
-        await Linking.openSettings();
-        setHealthState('idle');
-        return;
-      }
+      const granted = await enable();
+      if (!granted) return;
 
       // Persist the consent row before reading values, so the audit trail
       // pre-dates any data we forward to Convex.
       try {
         await setConsent('health_data_personalization', true);
       } catch (error) {
-        console.warn(
-          '[onboarding-healthkit] setConsent failed',
-          error,
-        );
+        console.warn('[onboarding-healthkit] setConsent failed', error);
       }
 
       capture({
@@ -221,26 +192,10 @@ export default function OnboardingHealthkitScreen() {
           );
         }
       }
-
-      setHealthState('connected');
     } catch (error) {
-      console.warn('[onboarding-healthkit] connect failed', error);
-      setHealthState('idle');
+      console.warn('[onboarding-healthkit] health request failed', error);
     }
-  }, [
-    healthState,
-    enable,
-    getAuthorizationStatus,
-    getLatestStats,
-    setConsent,
-    updateHealthStats,
-  ]);
-
-  const handleSkipHealth = useCallback(() => {
-    if (healthState === 'pending' || healthState === 'connected') return;
-    lightHaptic();
-    setHealthState('skipped');
-  }, [healthState]);
+  }, [enable, getLatestStats, setConsent, updateHealthStats]);
 
   const handleAnalyticsToggle = useCallback((next: boolean) => {
     lightHaptic();
@@ -251,10 +206,20 @@ export default function OnboardingHealthkitScreen() {
     });
   }, []);
 
+  const showHealthCard = isAvailable || Platform.OS === 'ios';
+
   const handleContinue = useCallback(async () => {
     if (continuePending) return;
     setContinuePending(true);
     lightHaptic();
+    capture({ name: 'onboarding_setup_continue', props: {} });
+
+    // Apple 5.1.1(iv): the explanatory card flows straight into the system
+    // HealthKit prompt here — no skip, no priming verb on the button. We show
+    // the prompt (iOS) and then always advance, whatever the user decides.
+    if (showHealthCard) {
+      await requestHealthAccess();
+    }
 
     // Always write the consent row — the user saw the toggle and had a chance
     // to flip it. The default is `true` (see GDPR note at file top).
@@ -267,19 +232,17 @@ export default function OnboardingHealthkitScreen() {
       );
     }
 
-    capture({ name: 'onboarding_setup_continue', props: {} });
     router.replace('/onboarding/paywall');
-  }, [analyticsToggle, continuePending, router, setConsent]);
+  }, [
+    analyticsToggle,
+    continuePending,
+    requestHealthAccess,
+    router,
+    setConsent,
+    showHealthCard,
+  ]);
 
-  const showHealthCard = isAvailable || Platform.OS === 'ios';
-  const isHealthBusy = healthState === 'pending';
-  const isHealthConnected = healthState === 'connected';
-  const isHealthSkipped = healthState === 'skipped';
-  // Continue requires an explicit HealthKit decision — either Connect or Skip.
-  // Non-iOS platforms hide the card entirely so we treat that as resolved.
-  const hasHealthDecision =
-    !showHealthCard || isHealthConnected || isHealthSkipped;
-  const isContinueDisabled = continuePending || !hasHealthDecision;
+  const isContinueDisabled = continuePending;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -305,73 +268,21 @@ export default function OnboardingHealthkitScreen() {
             <Animated.View
               style={healthStyle}
               className="rounded-2xl border border-border bg-card p-5"
-              accessibilityLabel="Connect Apple Health"
+              accessibilityLabel="Apple Health"
             >
               <View className="h-11 w-11 items-center justify-center rounded-full bg-primary/10">
                 <Icon as={Heart} size={22} className="text-primary" />
               </View>
 
               <Text className="mt-4 text-[18px] font-semibold text-foreground">
-                Connect Apple Health
+                Apple Health
               </Text>
               <Text className="mt-1 text-[14px] leading-6 text-muted-foreground">
                 Fitbull reads your weight, height, and body-fat percentage to
                 personalize your coach. We never read sleep, heart rate, or
-                workout history.
+                workout history. Tap Continue to choose what to share — you
+                stay in control on the next screen.
               </Text>
-
-              {isHealthConnected ? (
-                <View
-                  className="mt-4 flex-row items-center gap-2"
-                  accessibilityLiveRegion="polite"
-                >
-                  <Icon as={Check} size={18} className="text-primary" />
-                  <Text className="text-[14px] font-medium text-foreground">
-                    Apple Health connected
-                  </Text>
-                </View>
-              ) : (
-                <View className="mt-5 flex-row items-center gap-3">
-                  <Pressable
-                    onPress={handleConnectHealth}
-                    disabled={isHealthBusy}
-                    accessibilityRole="button"
-                    accessibilityLabel="Connect Apple Health"
-                    accessibilityState={{ disabled: isHealthBusy }}
-                    testID="onboarding-healthkit-connect"
-                    className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 active:opacity-80"
-                  >
-                    {isHealthBusy ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : null}
-                    <Text className="text-[15px] font-semibold text-primary-foreground">
-                      {isHealthBusy ? 'Connecting' : 'Connect'}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={handleSkipHealth}
-                    disabled={isHealthBusy}
-                    accessibilityRole="button"
-                    accessibilityLabel="Skip Apple Health"
-                    accessibilityState={{ disabled: isHealthBusy }}
-                    testID="onboarding-healthkit-skip"
-                    className="px-3 py-3 active:opacity-60"
-                  >
-                    <Text className="text-[15px] font-medium text-muted-foreground">
-                      Skip
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
-
-              {isHealthSkipped ? (
-                <Text
-                  className="mt-3 text-[12px] text-muted-foreground"
-                  accessibilityLiveRegion="polite"
-                >
-                  You can connect later in Settings.
-                </Text>
-              ) : null}
             </Animated.View>
           ) : null}
 
@@ -409,29 +320,19 @@ export default function OnboardingHealthkitScreen() {
             disabled={isContinueDisabled}
             accessibilityRole="button"
             accessibilityLabel="Continue"
-            accessibilityHint={
-              !hasHealthDecision
-                ? 'Choose Connect or Skip on Apple Health to continue'
-                : undefined
-            }
             accessibilityState={{ disabled: isContinueDisabled }}
             testID="onboarding-healthkit-continue"
-            className={`items-center rounded-2xl py-4 active:opacity-80 ${
+            className={`flex-row items-center justify-center gap-2 rounded-2xl py-4 active:opacity-80 ${
               isContinueDisabled ? 'bg-primary/40' : 'bg-primary'
             }`}
           >
+            {continuePending ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : null}
             <Text className="text-base font-semibold text-primary-foreground">
               Continue
             </Text>
           </Pressable>
-          {!hasHealthDecision ? (
-            <Text
-              className="mt-2 text-center text-[12px] text-muted-foreground"
-              accessibilityLiveRegion="polite"
-            >
-              Choose Connect or Skip on Apple Health to continue.
-            </Text>
-          ) : null}
         </Animated.View>
       </View>
     </SafeAreaView>

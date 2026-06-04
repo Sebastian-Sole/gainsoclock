@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, ScrollView, TextInput, Pressable, Platform, Keyboard } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -68,6 +69,7 @@ function calculateBMR(sex: Sex, weightKg: number, heightCm: number, age: number)
 }
 
 export default function CalorieCalculator() {
+  const router = useRouter();
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const primaryColor = Colors[isDark ? 'dark' : 'light'].tint;
@@ -499,6 +501,27 @@ export default function CalorieCalculator() {
             </View>
           </View>
         )}
+
+        {/* Sources & disclaimer (App Store Guideline 1.4.1) — always visible
+            so the medical citations are easy to find, calculated or not. */}
+        <View className="mt-6 mb-8 gap-2 rounded-xl border border-border bg-card px-4 py-4">
+          <Text className="text-xs leading-5 text-muted-foreground">
+            Estimates use the Mifflin-St Jeor equation for BMR and a
+            7,700 kcal/kg energy balance for weight-change targets. These are
+            general estimates, not medical advice — consult a qualified
+            healthcare professional before changing your diet.
+          </Text>
+          <Pressable
+            onPress={() => router.push('/methodology')}
+            accessibilityRole="link"
+            accessibilityLabel="View sources and methodology"
+            hitSlop={8}
+          >
+            <Text className="text-sm font-medium text-primary underline">
+              View sources & methodology
+            </Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

@@ -191,6 +191,7 @@ function RootNavigator() {
             name="purchase-success"
             options={{ headerShown: false, presentation: "fullScreenModal" }}
           />
+          <Stack.Screen name="methodology" options={{ title: "Methodology" }} />
         </Stack>
         <PortalHost />
         <StatusBar style="auto" />
