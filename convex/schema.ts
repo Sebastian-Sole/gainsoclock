@@ -19,6 +19,8 @@ import {
   subscriptionSourceValidator,
   dataSourceValidator,
   biologicalSexValidator,
+  weeklyReviewStatsValidator,
+  weeklyReviewRecommendationValidator,
 } from "./validators";
 
 export default defineSchema({
@@ -382,6 +384,18 @@ export default defineSchema({
     activeEnergyKcal: v.optional(v.number()),
     updatedAt: v.number(), // ms epoch
   }).index("by_user_date", ["userId", "date"]),
+
+  // Weekly training review (proactive AI coach) — one row per user per
+  // ISO week, keyed by the Monday of that week (user-local "YYYY-MM-DD").
+  weeklyReviews: defineTable({
+    userId: v.id("users"),
+    weekStart: v.string(), // "YYYY-MM-DD" of the Monday (user-local)
+    stats: weeklyReviewStatsValidator,
+    narrative: v.optional(v.string()),
+    recommendation: v.optional(weeklyReviewRecommendationValidator),
+    generatedAt: v.number(), // ms epoch
+    llmUsed: v.boolean(),
+  }).index("by_user_week", ["userId", "weekStart"]),
 
   // Daily nutrition goals per user
   nutritionGoals: defineTable({

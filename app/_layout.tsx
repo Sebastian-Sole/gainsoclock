@@ -184,6 +184,10 @@ function RootNavigator() {
             options={{ headerShown: false, presentation: "modal" }}
           />
           <Stack.Screen
+            name="review"
+            options={{ headerShown: false, presentation: "modal" }}
+          />
+          <Stack.Screen
             name="settings"
             options={{ headerShown: false, presentation: "modal" }}
           />

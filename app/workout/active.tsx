@@ -19,11 +19,17 @@ import { formatDuration, formatTime } from '@/lib/format';
 import { mediumHaptic, successHaptic } from '@/lib/haptics';
 import { saveWorkoutToHealthKit } from '@/lib/healthkit';
 import { syncToConvex } from '@/lib/convex-sync';
+import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Exercise, IntervalSet, WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
 import { schedulePostWorkoutNotification, rescheduleReminderAfterWorkout, setActiveWorkoutVisible } from '@/lib/notifications';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useTemplateStore } from '@/stores/template-store';
+
+// How long to wait for AI workout feedback before falling back to the static
+// post-workout summary. Never blocks completion UX — only delays scheduling
+// of the (already minutes-delayed) notification.
+const FEEDBACK_TIMEOUT_MS = 6000;
 
 interface MemoizedSetRowProps {
   set: WorkoutSet;
@@ -84,6 +90,8 @@ export default function ActiveWorkoutScreen() {
   const templateNotes = useTemplateStore((s) =>
     activeWorkout?.templateId ? s.templates.find((t) => t.id === activeWorkout.templateId)?.notes : undefined
   );
+
+  const generateWorkoutFeedback = useAction(api.workoutFeedback.generateFeedback);
 
   const elapsed = useWorkoutTimer(activeWorkout?.startedAt ?? null);
   const { isActive: isRestActive, remaining: restRemaining, stop: stopRest } = useRestTimer();
@@ -224,14 +232,32 @@ export default function ActiveWorkoutScreen() {
             addLog(log);
             saveWorkoutToHealthKit(log);
 
-            // Schedule post-workout summary notification
-            schedulePostWorkoutNotification({
+            // Schedule post-workout summary notification. Fire the AI
+            // feedback action in the background, raced against a timeout:
+            // if feedback arrives in time it's appended to the body,
+            // otherwise (slow / failed / null for non-Pro) the static
+            // summary is scheduled exactly as before. Fire-and-forget —
+            // completion UX never waits on this.
+            const summaryParams = {
               templateName: log.templateName,
               exerciseCount: log.exercises.length,
               completedSets,
               durationSeconds: log.durationSeconds,
               delayMinutes: useSettingsStore.getState().notificationsPostWorkoutDelay,
-            });
+            };
+            void (async () => {
+              const feedback = await Promise.race([
+                generateWorkoutFeedback({ workoutLogClientId: log.id })
+                  .then((result) => result?.feedback ?? null)
+                  .catch(() => null),
+                new Promise<null>((resolve) =>
+                  setTimeout(() => resolve(null), FEEDBACK_TIMEOUT_MS),
+                ),
+              ]);
+              schedulePostWorkoutNotification(
+                feedback ? { ...summaryParams, feedback } : summaryParams,
+              );
+            })();
 
             // Cancel today's workout reminder (workout done)
             rescheduleReminderAfterWorkout();

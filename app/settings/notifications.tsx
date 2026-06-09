@@ -5,6 +5,7 @@ import { Text } from "@/components/ui/text";
 import { useRouter } from "expo-router";
 import {
   AlarmClock,
+  BarChart3,
   Bell,
   ChevronLeft,
   MessageSquare,
@@ -18,6 +19,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ensurePermission } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 import { useSettingsStore } from "@/stores/settings-store";
+
+// Locale-aware short weekday labels, index 0 = Sunday (matches the
+// notificationsWeeklyReviewDay setting). Jan 4 2026 is a Sunday.
+const WEEKDAY_LABELS = Array.from({ length: 7 }, (_, i) =>
+  new Date(2026, 0, 4 + i).toLocaleDateString([], { weekday: "short" }),
+);
 
 export default function NotificationSettingsScreen() {
   const router = useRouter();
@@ -36,9 +43,16 @@ export default function NotificationSettingsScreen() {
   const setNotifMorningPlan = useSettingsStore((s) => s.setNotificationsMorningPlanEnabled);
   const notifMorningPlanTime = useSettingsStore((s) => s.notificationsMorningPlanTime);
   const setNotifMorningPlanTime = useSettingsStore((s) => s.setNotificationsMorningPlanTime);
+  const notifWeeklyReview = useSettingsStore((s) => s.notificationsWeeklyReviewEnabled);
+  const setNotifWeeklyReview = useSettingsStore((s) => s.setNotificationsWeeklyReviewEnabled);
+  const notifWeeklyReviewDay = useSettingsStore((s) => s.notificationsWeeklyReviewDay);
+  const setNotifWeeklyReviewDay = useSettingsStore((s) => s.setNotificationsWeeklyReviewDay);
+  const notifWeeklyReviewTime = useSettingsStore((s) => s.notificationsWeeklyReviewTime);
+  const setNotifWeeklyReviewTime = useSettingsStore((s) => s.setNotificationsWeeklyReviewTime);
 
   const [showReminderPicker, setShowReminderPicker] = useState(false);
   const [showMorningPicker, setShowMorningPicker] = useState(false);
+  const [showWeeklyReviewPicker, setShowWeeklyReviewPicker] = useState(false);
 
   const handleNotificationToggle = useCallback(
     async (setter: (enabled: boolean) => void, enabled: boolean) => {
@@ -226,6 +240,94 @@ export default function NotificationSettingsScreen() {
                     const h = String(date.getHours()).padStart(2, "0");
                     const m = String(date.getMinutes()).padStart(2, "0");
                     setNotifMorningPlanTime(`${h}:${m}`);
+                  }
+                }}
+              />
+            )}
+          </View>
+        </View>
+
+        {/* AI Coach */}
+        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+          AI COACH
+        </Text>
+        <View className="rounded-xl bg-card">
+          {/* Weekly Review */}
+          <View className="px-4 py-4">
+            <View className="flex-row items-center gap-3">
+              <Icon as={BarChart3} size={20} className="text-primary" />
+              <View className="flex-1">
+                <Text className="font-medium">Weekly Review</Text>
+                <Text className="text-sm text-muted-foreground">
+                  Your training week, reviewed
+                </Text>
+              </View>
+              <Switch
+                checked={notifWeeklyReview}
+                onCheckedChange={(v) => handleNotificationToggle(setNotifWeeklyReview, v)}
+                testID="notifications-weekly-review-toggle"
+                accessibilityRole="switch"
+                accessibilityLabel="Weekly review notification"
+                accessibilityState={{ checked: notifWeeklyReview }}
+              />
+            </View>
+            {notifWeeklyReview && (
+              <View className="mt-3 ml-8 flex-row flex-wrap gap-2">
+                {WEEKDAY_LABELS.map((label, day) => (
+                  <Pressable
+                    key={label}
+                    onPress={() => setNotifWeeklyReviewDay(day)}
+                    testID={`notifications-weekly-review-day-${day}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Send weekly review on ${label}`}
+                    accessibilityState={{ selected: notifWeeklyReviewDay === day }}
+                    className={cn(
+                      "rounded-lg px-3 py-1.5",
+                      notifWeeklyReviewDay === day
+                        ? "bg-primary"
+                        : "border border-border",
+                    )}
+                  >
+                    <Text
+                      className={cn(
+                        "text-sm font-medium",
+                        notifWeeklyReviewDay === day
+                          ? "text-primary-foreground"
+                          : "text-foreground",
+                      )}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+            {notifWeeklyReview && (
+              <Pressable
+                onPress={() => setShowWeeklyReviewPicker(true)}
+                testID="notifications-weekly-review-time"
+                accessibilityRole="button"
+                accessibilityLabel={`Weekly review time, ${formatTimeDisplay(notifWeeklyReviewTime)}`}
+                accessibilityHint="Opens a time picker"
+                className="mt-3 ml-8 flex-row items-center gap-2"
+              >
+                <Text className="text-sm text-muted-foreground">Time:</Text>
+                <Text className="text-sm font-medium text-primary">
+                  {formatTimeDisplay(notifWeeklyReviewTime)}
+                </Text>
+              </Pressable>
+            )}
+            {notifWeeklyReview && showWeeklyReviewPicker && (
+              <DateTimePicker
+                value={timeToDate(notifWeeklyReviewTime)}
+                mode="time"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(_, date) => {
+                  setShowWeeklyReviewPicker(Platform.OS === "ios");
+                  if (date) {
+                    const h = String(date.getHours()).padStart(2, "0");
+                    const m = String(date.getMinutes()).padStart(2, "0");
+                    setNotifWeeklyReviewTime(`${h}:${m}`);
                   }
                 }}
               />

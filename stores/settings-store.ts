@@ -32,6 +32,9 @@ interface SettingsState {
   notificationsReminderTime: string; // "HH:mm"
   notificationsMorningPlanEnabled: boolean;
   notificationsMorningPlanTime: string; // "HH:mm"
+  notificationsWeeklyReviewEnabled: boolean;
+  notificationsWeeklyReviewDay: number; // 0-6, 0 = Sunday
+  notificationsWeeklyReviewTime: string; // "HH:mm"
 
   // Exercise tracking
   rpeEnabled: boolean;
@@ -55,6 +58,9 @@ interface SettingsState {
   setNotificationsReminderTime: (time: string) => void;
   setNotificationsMorningPlanEnabled: (enabled: boolean) => void;
   setNotificationsMorningPlanTime: (time: string) => void;
+  setNotificationsWeeklyReviewEnabled: (enabled: boolean) => void;
+  setNotificationsWeeklyReviewDay: (day: number) => void;
+  setNotificationsWeeklyReviewTime: (time: string) => void;
   setRpeEnabled: (enabled: boolean) => void;
   hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string; prefillFromLastWorkout?: boolean; defaultSetsCount?: number; defaultRepsCount?: number; notificationsRestTimerEnabled?: boolean; notificationsPostWorkoutEnabled?: boolean; notificationsPostWorkoutDelay?: number; notificationsReminderEnabled?: boolean; notificationsReminderTime?: string; notificationsMorningPlanEnabled?: boolean; notificationsMorningPlanTime?: string; rpeEnabled?: boolean }) => void;
 }
@@ -103,6 +109,9 @@ export const useSettingsStore = create<SettingsState>()(
       notificationsReminderTime: '18:00',
       notificationsMorningPlanEnabled: true,
       notificationsMorningPlanTime: '07:00',
+      notificationsWeeklyReviewEnabled: true,
+      notificationsWeeklyReviewDay: 0,
+      notificationsWeeklyReviewTime: '18:00',
       rpeEnabled: false,
 
       setWeightUnit: (unit) => {
@@ -193,6 +202,23 @@ export const useSettingsStore = create<SettingsState>()(
       setNotificationsMorningPlanTime: (time) => {
         set({ notificationsMorningPlanTime: time });
         syncSettings(get());
+      },
+
+      // Weekly review settings are persisted locally only for now —
+      // api.settings.upsert does not accept these fields yet, and sending
+      // unknown args would fail Convex validation and break all settings
+      // sync. Add them to syncSettings + hydrateFromServer once the backend
+      // validator includes them (Phase 2 integration).
+      setNotificationsWeeklyReviewEnabled: (enabled) => {
+        set({ notificationsWeeklyReviewEnabled: enabled });
+      },
+
+      setNotificationsWeeklyReviewDay: (day) => {
+        set({ notificationsWeeklyReviewDay: day });
+      },
+
+      setNotificationsWeeklyReviewTime: (time) => {
+        set({ notificationsWeeklyReviewTime: time });
       },
 
       setRpeEnabled: (enabled) => {

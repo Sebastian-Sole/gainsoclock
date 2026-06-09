@@ -9,6 +9,7 @@ export const IDENTIFIERS = {
   POST_WORKOUT: "post-workout",
   DAILY_REMINDER: "daily-reminder",
   MORNING_PLAN: "morning-plan",
+  WEEKLY_REVIEW: "weekly-review",
 } as const;
 
 // --- Permissions ---
@@ -127,6 +128,8 @@ interface PostWorkoutParams {
   completedSets: number;
   durationSeconds: number;
   delayMinutes: number;
+  /** Optional AI coach feedback appended after the stats line */
+  feedback?: string;
 }
 
 export async function schedulePostWorkoutNotification(
@@ -143,12 +146,13 @@ export async function schedulePostWorkoutNotification(
   ).catch(() => {});
 
   const duration = formatDuration(params.durationSeconds);
+  const statsLine = `${params.templateName}: ${params.completedSets} sets across ${params.exerciseCount} exercises in ${duration}`;
 
   return Notifications.scheduleNotificationAsync({
     identifier: IDENTIFIERS.POST_WORKOUT,
     content: {
       title: "Great workout! 💪",
-      body: `${params.templateName}: ${params.completedSets} sets across ${params.exerciseCount} exercises in ${duration}`,
+      body: params.feedback ? `${statsLine}\n${params.feedback}` : statsLine,
       sound: "default",
     },
     trigger: {
@@ -282,6 +286,51 @@ export async function scheduleMorningPlanNotification(
 export async function cancelMorningPlanNotification(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(
     IDENTIFIERS.MORNING_PLAN,
+  ).catch(() => {});
+}
+
+// --- Weekly Review (Type 5) ---
+
+interface WeeklyReviewParams {
+  /** 0-6, 0 = Sunday (matches settings store) */
+  day: number;
+  hour: number;
+  minute: number;
+}
+
+export async function scheduleWeeklyReviewNotification(
+  params: WeeklyReviewParams,
+): Promise<void> {
+  const { notificationsWeeklyReviewEnabled } = useSettingsStore.getState();
+  if (!notificationsWeeklyReviewEnabled) return;
+
+  if (!(await ensureGranted())) return;
+
+  await cancelWeeklyReviewNotification();
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: IDENTIFIERS.WEEKLY_REVIEW,
+    content: {
+      title: "Your weekly training review is ready 📊",
+      body: "See how your week stacked up and what to focus on next.",
+      sound: "default",
+      // Tapping routes to the review screen — handled by the notification
+      // response listener in hooks/use-notification-setup.ts.
+      data: { url: "/review" },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+      // expo-notifications weekday is 1-7 with 1 = Sunday; settings use 0-6.
+      weekday: params.day + 1,
+      hour: params.hour,
+      minute: params.minute,
+    },
+  });
+}
+
+export async function cancelWeeklyReviewNotification(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(
+    IDENTIFIERS.WEEKLY_REVIEW,
   ).catch(() => {});
 }
 

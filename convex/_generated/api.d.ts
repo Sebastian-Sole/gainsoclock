@@ -38,6 +38,8 @@ import type * as subscriptions from "../subscriptions.js";
 import type * as templates from "../templates.js";
 import type * as user from "../user.js";
 import type * as validators from "../validators.js";
+import type * as weeklyReview from "../weeklyReview.js";
+import type * as workoutFeedback from "../workoutFeedback.js";
 import type * as workoutLogs from "../workoutLogs.js";
 
 import type {
@@ -77,6 +79,8 @@ declare const fullApi: ApiFromModules<{
   templates: typeof templates;
   user: typeof user;
   validators: typeof validators;
+  weeklyReview: typeof weeklyReview;
+  workoutFeedback: typeof workoutFeedback;
   workoutLogs: typeof workoutLogs;
 }>;
 
