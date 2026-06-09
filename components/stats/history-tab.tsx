@@ -7,9 +7,12 @@ import React, { useMemo, useState } from 'react';
 import { Alert, FlatList, Modal, Pressable, View } from 'react-native';
 
 import { Calendar } from '@/components/history/calendar';
+import { ExternalWorkoutCard } from '@/components/history/external-workout-card';
 import { Icon } from '@/components/ui/icon';
 import { WorkoutLogCard } from '@/components/history/workout-log-card';
 import { Colors } from '@/constants/theme';
+import { useExternalWorkouts, type ExternalWorkout } from '@/hooks/use-external-workouts';
+import type { WorkoutLog } from '@/lib/types';
 import { useHistoryStore } from '@/stores/history-store';
 import { useTemplateStore } from '@/stores/template-store';
 
@@ -19,6 +22,11 @@ interface HistoryTabProps {
   onMonthChange: (month: Date) => void;
   onSelectDate: (date: Date) => void;
 }
+
+/** One row in the selected day's timeline — a Fitbull log or an imported workout. */
+type DayEntry =
+  | { kind: 'log'; startedAt: number; log: WorkoutLog }
+  | { kind: 'external'; startedAt: number; workout: ExternalWorkout };
 
 export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelectDate }: HistoryTabProps) {
   const { colorScheme } = useColorScheme();
@@ -30,6 +38,9 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
   const fetchedRangeFrom = useHistoryStore((s) => s.fetchedRangeFrom);
   const templates = useTemplateStore((s) => s.templates);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+
+  // [] while loading / signed out / import off — never blocks local history.
+  const externalWorkouts = useExternalWorkouts(currentMonth);
 
   const workoutDates = useMemo(() => {
     const dates = new Set<string>();
@@ -44,12 +55,31 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
     return dates;
   }, [currentMonth, logs]);
 
-  const logsForSelectedDate = useMemo(() => {
+  const externalWorkoutDates = useMemo(() => {
+    const dates = new Set<string>();
+    externalWorkouts.forEach((w) => {
+      dates.add(format(new Date(w.startedAt), 'yyyy-MM-dd'));
+    });
+    return dates;
+  }, [externalWorkouts]);
+
+  const entriesForSelectedDate = useMemo(() => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    return logs.filter(
-      (log) => format(new Date(log.startedAt), 'yyyy-MM-dd') === dateStr
-    );
-  }, [selectedDate, logs]);
+    const entries: DayEntry[] = [];
+    logs.forEach((log) => {
+      if (format(new Date(log.startedAt), 'yyyy-MM-dd') === dateStr) {
+        entries.push({ kind: 'log', startedAt: new Date(log.startedAt).getTime(), log });
+      }
+    });
+    externalWorkouts.forEach((workout) => {
+      if (format(new Date(workout.startedAt), 'yyyy-MM-dd') === dateStr) {
+        entries.push({ kind: 'external', startedAt: workout.startedAt, workout });
+      }
+    });
+    return entries.sort((a, b) => a.startedAt - b.startedAt);
+  }, [selectedDate, logs, externalWorkouts]);
+
+  const hasFitbullLog = entriesForSelectedDate.some((e) => e.kind === 'log');
 
   const isFutureDate = () => {
     const today = new Date();
@@ -85,6 +115,7 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
         currentMonth={currentMonth}
         selectedDate={selectedDate}
         workoutDates={workoutDates}
+        externalWorkoutDates={externalWorkoutDates}
         isLoading={startOfMonth(currentMonth).toISOString() < fetchedRangeFrom}
         onSelectDate={onSelectDate}
         onPrevMonth={() => {
@@ -99,7 +130,7 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
         {format(selectedDate, 'EEEE, MMMM d, yyyy')}
       </Text>
 
-      {logsForSelectedDate.length === 0 ? (
+      {entriesForSelectedDate.length === 0 ? (
         <View className="items-center rounded-xl border border-dashed border-border py-12">
           <Icon as={CalendarDays} size={32} className="text-primary" />
           <Text className="mt-3 text-muted-foreground">No workouts on this day</Text>
@@ -113,15 +144,21 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
         </View>
       ) : (
         <>
-          {logsForSelectedDate.map((log) => (
-            <WorkoutLogCard key={log.id} log={log} />
-          ))}
+          {entriesForSelectedDate.map((entry) =>
+            entry.kind === 'log' ? (
+              <WorkoutLogCard key={entry.log.id} log={entry.log} />
+            ) : (
+              <ExternalWorkoutCard key={entry.workout._id} workout={entry.workout} />
+            )
+          )}
           <Pressable
             onPress={handleAddWorkout}
             className="mt-3 flex-row items-center justify-center gap-2 rounded-lg bg-primary/10 px-4 py-2.5"
           >
             <Plus size={16} color={primaryColor} />
-            <Text className="text-sm font-medium text-primary">Log Another Workout</Text>
+            <Text className="text-sm font-medium text-primary">
+              {hasFitbullLog ? 'Log Another Workout' : 'Log a Workout'}
+            </Text>
           </Pressable>
         </>
       )}

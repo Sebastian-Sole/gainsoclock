@@ -391,7 +391,89 @@ interface UserContext {
   } | null;
 }
 
-function buildSystemPrompt(context: UserContext): string {
+interface HealthContext {
+  dailyMetrics: {
+    date: string;
+    asleepSeconds?: number;
+    restingHeartRateBpm?: number;
+    hrvMs?: number;
+    steps?: number;
+    bodyMassKg?: number;
+    activeEnergyKcal?: number;
+  }[];
+  externalWorkoutCount7d: number;
+  activityTypes7d: string[];
+  lastExternalWorkout: {
+    activityType: string;
+    sourceName: string;
+    startedAt: number;
+  } | null;
+}
+
+/**
+ * Builds the "Recent health & recovery" prompt section from Apple Health
+ * data. Returns "" when no data exists so the section is omitted entirely
+ * (the model must never see fabricated recovery data).
+ */
+function buildHealthSection(health: HealthContext): string {
+  const lines: string[] = [];
+
+  // dailyMetrics is ordered date desc, so find() returns the latest value.
+  const sleepValues = health.dailyMetrics
+    .map((d) => d.asleepSeconds)
+    .filter((s): s is number => s !== undefined);
+  if (sleepValues.length > 0) {
+    const avgHours =
+      sleepValues.reduce((a, b) => a + b, 0) / sleepValues.length / 3600;
+    lines.push(
+      `- Average sleep (last 7 days): ${avgHours.toFixed(1)}h/night (${sleepValues.length} night${sleepValues.length === 1 ? "" : "s"} tracked)`
+    );
+  }
+
+  const latestRhr = health.dailyMetrics.find(
+    (d) => d.restingHeartRateBpm !== undefined
+  )?.restingHeartRateBpm;
+  if (latestRhr !== undefined) {
+    lines.push(`- Latest resting heart rate: ${Math.round(latestRhr)} bpm`);
+  }
+
+  const hrvValues = health.dailyMetrics
+    .map((d) => d.hrvMs)
+    .filter((h): h is number => h !== undefined);
+  const latestHrv = hrvValues[0];
+  if (latestHrv !== undefined && hrvValues.length > 0) {
+    const avgHrv = hrvValues.reduce((a, b) => a + b, 0) / hrvValues.length;
+    const trend =
+      latestHrv > avgHrv * 1.05
+        ? "above"
+        : latestHrv < avgHrv * 0.95
+          ? "below"
+          : "near";
+    lines.push(
+      `- HRV: latest ${Math.round(latestHrv)}ms — ${trend} 7-day average (${Math.round(avgHrv)}ms)`
+    );
+  }
+
+  if (health.externalWorkoutCount7d > 0) {
+    lines.push(
+      `- External workouts this week: ${health.externalWorkoutCount7d} (${health.activityTypes7d.join(", ")})`
+    );
+    if (health.lastExternalWorkout) {
+      const w = health.lastExternalWorkout;
+      const date = new Date(w.startedAt).toISOString().split("T")[0];
+      lines.push(`- Most recent: ${w.activityType} via ${w.sourceName} on ${date}`);
+    }
+  }
+
+  if (lines.length === 0) return "";
+
+  return `\n## Recent Health & Recovery (from Apple Health)\n${lines.join("\n")}\n`;
+}
+
+function buildSystemPrompt(
+  context: UserContext,
+  health: HealthContext
+): string {
   const exerciseList =
     context.exercises.length > 0
       ? context.exercises.map((e) => `- ${e.name} (${e.type})`).join("\n")
@@ -488,7 +570,7 @@ ${exerciseHistorySection}
 - Total workouts: ${context.stats.totalWorkouts}
 - Workouts per week (30-day avg): ${context.stats.workoutsPerWeek}
 - Current streak: ${context.stats.currentStreak} days
-
+${buildHealthSection(health)}
 ## Active Plan
 ${planSection}
 
@@ -553,6 +635,12 @@ export const sendMessage = action({
       userId,
     });
 
+    // 2b. Gather recent health & recovery context (Apple Health imports)
+    const healthContext = await ctx.runQuery(
+      internal.healthData.getHealthContextForUser,
+      { userId },
+    );
+
     // 3. Load conversation history
     const history = await ctx.runQuery(internal.chat.getHistory, {
       userId,
@@ -561,7 +649,7 @@ export const sendMessage = action({
 
     // 4. Build messages array for OpenAI
     const messages: ChatCompletionMessageParam[] = [
-      { role: "system", content: buildSystemPrompt(context) },
+      { role: "system", content: buildSystemPrompt(context, healthContext) },
       ...history
         .filter((m) => m.role !== "system")
         .map((m) => ({

@@ -8,11 +8,13 @@ interface CalendarDayProps {
   isToday: boolean;
   isSelected: boolean;
   hasWorkout: boolean;
+  /** Day has imported (Apple Health) workouts but no Fitbull workout. */
+  hasExternalWorkoutOnly: boolean;
   isCurrentMonth: boolean;
   onPress: () => void;
 }
 
-export const CalendarDay = React.memo(function CalendarDay({ day, isToday, isSelected, hasWorkout, isCurrentMonth, onPress }: CalendarDayProps) {
+export const CalendarDay = React.memo(function CalendarDay({ day, isToday, isSelected, hasWorkout, hasExternalWorkoutOnly, isCurrentMonth, onPress }: CalendarDayProps) {
   return (
     <Pressable
       onPress={onPress}
@@ -37,6 +39,14 @@ export const CalendarDay = React.memo(function CalendarDay({ day, isToday, isSel
         >
           {day}
         </Text>
+        {hasExternalWorkoutOnly && (
+          <View
+            className={cn(
+              'absolute bottom-1 h-1 w-1 rounded-full',
+              isSelected ? 'bg-primary-foreground' : 'bg-muted-foreground'
+            )}
+          />
+        )}
       </View>
     </Pressable>
   );
@@ -45,5 +55,6 @@ export const CalendarDay = React.memo(function CalendarDay({ day, isToday, isSel
   prev.isToday === next.isToday &&
   prev.isSelected === next.isSelected &&
   prev.hasWorkout === next.hasWorkout &&
+  prev.hasExternalWorkoutOnly === next.hasExternalWorkoutOnly &&
   prev.isCurrentMonth === next.isCurrentMonth
 );

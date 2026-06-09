@@ -15,6 +15,8 @@ interface SettingsState {
   defaultRestTime: number;
   hapticsEnabled: boolean;
   healthKitEnabled: boolean;
+  healthImportEnabled: boolean;
+  healthImportLastSyncAt: number | null; // epoch ms
   weekStartDay: WeekStartDay;
   prefillFromLastWorkout: boolean;
   defaultSetsCount: number;
@@ -39,6 +41,8 @@ interface SettingsState {
   setDefaultRestTime: (seconds: number) => void;
   setHapticsEnabled: (enabled: boolean) => void;
   setHealthKitEnabled: (enabled: boolean) => void;
+  setHealthImportEnabled: (enabled: boolean) => void;
+  setHealthImportLastSyncAt: (timestamp: number | null) => void;
   setWeekStartDay: (day: WeekStartDay) => void;
   setPrefillFromLastWorkout: (enabled: boolean) => void;
   setDefaultSetsCount: (count: number) => void;
@@ -84,6 +88,8 @@ export const useSettingsStore = create<SettingsState>()(
       defaultRestTime: 90,
       hapticsEnabled: true,
       healthKitEnabled: false,
+      healthImportEnabled: false,
+      healthImportLastSyncAt: null,
       prefillFromLastWorkout: true,
       defaultSetsCount: 3,
       defaultRepsCount: 10,
@@ -122,6 +128,16 @@ export const useSettingsStore = create<SettingsState>()(
       setHealthKitEnabled: (enabled) => {
         set({ healthKitEnabled: enabled });
         // Not synced to Convex — Apple Health is a per-device setting
+      },
+
+      setHealthImportEnabled: (enabled) => {
+        set({ healthImportEnabled: enabled });
+        // Not synced to Convex — Apple Health is a per-device setting
+      },
+
+      setHealthImportLastSyncAt: (timestamp) => {
+        set({ healthImportLastSyncAt: timestamp });
+        // Not synced to Convex — per-device sync bookkeeping
       },
 
       setPrefillFromLastWorkout: (enabled) => {

@@ -14,6 +14,7 @@ import { setConvexClient, syncToConvex } from "@/lib/convex-sync";
 import { setAnalyticsConsent } from "@/lib/analytics";
 import type { ExerciseType } from "@/lib/types";
 import { useDataMigration } from "@/hooks/use-data-migration";
+import { useHealthImport } from "@/hooks/use-health-import";
 import { configurePurchases } from "@/hooks/use-purchases";
 import { useNetwork } from "@/hooks/use-network";
 import { useNotificationSetup } from "@/hooks/use-notification-setup";
@@ -72,6 +73,10 @@ function SyncEngine() {
 
   // Set up notification scheduling (recurring reminders, morning plan alerts)
   useNotificationSetup();
+
+  // Import Apple Health data (external workouts + daily metrics) on
+  // foreground, when the user has opted in (iOS only, no-op elsewhere)
+  useHealthImport();
 
   // Initialize RevenueCat SDK
   useEffect(() => {

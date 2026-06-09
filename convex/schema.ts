@@ -353,6 +353,36 @@ export default defineSchema({
     .index("by_user_date", ["userId", "date"])
     .index("by_user_clientId", ["userId", "clientId"]),
 
+  // Workouts imported from HealthKit (Apple Watch, Garmin, Strava, ...)
+  externalWorkouts: defineTable({
+    userId: v.id("users"),
+    healthKitUuid: v.string(), // HK sample UUID (dedup key per user)
+    activityType: v.string(), // normalized, e.g. "running", "cycling"
+    sourceName: v.string(), // e.g. "Apple Watch", "Garmin Connect"
+    sourceBundleId: v.optional(v.string()),
+    startedAt: v.number(), // ms epoch
+    endedAt: v.number(), // ms epoch
+    durationSeconds: v.number(),
+    activeEnergyKcal: v.optional(v.number()),
+    distanceMeters: v.optional(v.number()),
+    avgHeartRateBpm: v.optional(v.number()),
+  })
+    .index("by_user_uuid", ["userId", "healthKitUuid"])
+    .index("by_user_startedAt", ["userId", "startedAt"]),
+
+  // Daily health metrics from HealthKit — one row per user per local day
+  healthDailyMetrics: defineTable({
+    userId: v.id("users"),
+    date: v.string(), // "YYYY-MM-DD" (local)
+    asleepSeconds: v.optional(v.number()),
+    restingHeartRateBpm: v.optional(v.number()),
+    hrvMs: v.optional(v.number()),
+    steps: v.optional(v.number()),
+    bodyMassKg: v.optional(v.number()),
+    activeEnergyKcal: v.optional(v.number()),
+    updatedAt: v.number(), // ms epoch
+  }).index("by_user_date", ["userId", "date"]),
+
   // Daily nutrition goals per user
   nutritionGoals: defineTable({
     userId: v.id("users"),
