@@ -12,6 +12,7 @@ import { TemplatePreview } from './template-preview';
 import { PlanPreview } from './plan-preview';
 import { UpdatePlanPreview } from './update-plan-preview';
 import { RecipePreview } from './recipe-preview';
+import { MealLogPreview } from './meal-log-preview';
 import type { Id } from '@/convex/_generated/dataModel';
 
 interface ApprovalCardProps {
@@ -84,6 +85,9 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
           {approval.type === 'create_recipe' && (
             <RecipePreview data={payload} collapsed />
           )}
+          {approval.type === 'log_meal' && (
+            <MealLogPreview data={payload} collapsed />
+          )}
           <View className="flex-row items-center justify-center gap-1 mt-2 pt-2 border-t border-border">
             <Text className="text-xs text-muted-foreground">Tap to view details</Text>
             <Icon as={ChevronDown} size={12} className="text-muted-foreground" />
@@ -154,6 +158,9 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
             )}
             {approval.type === 'create_recipe' && (
               <RecipePreview data={payload} />
+            )}
+            {approval.type === 'log_meal' && (
+              <MealLogPreview data={payload} />
             )}
           </ScrollView>
 
