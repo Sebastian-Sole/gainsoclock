@@ -69,6 +69,18 @@ export interface StreakStats {
   longestStreak: number;
   longestStreakStart: string;
   longestStreakEnd: string;
+  /**
+   * Whether today already has a workout (Fitbull log or synced external).
+   * Today not yet covered doesn't break the streak (grace until midnight)
+   * but doesn't count either. Set by `hooks/use-stats.ts`; undefined when
+   * streaks come from the legacy `computeStreaks` path.
+   */
+  todayCovered?: boolean;
+  /**
+   * Whether the current streak includes days covered only by synced
+   * external workouts. Set by `hooks/use-stats.ts`.
+   */
+  includesExternal?: boolean;
 }
 
 export interface MonthRecord {
@@ -229,6 +241,10 @@ function computeExerciseStats(logs: WorkoutLog[]): ExerciseStats[] {
   );
 }
 
+// Legacy logs-only streaks. `hooks/use-stats.ts` overrides this with the
+// rest-day-aware + external-workout-aware computation in `lib/streaks.ts`;
+// this remains as the fallback baked into `computeAllStats` for callers
+// that only have workout logs.
 function computeStreaks(logs: WorkoutLog[], now: Date): StreakStats {
   const dates = getUniqueDates(logs);
 

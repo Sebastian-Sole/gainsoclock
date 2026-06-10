@@ -32,6 +32,16 @@ export function StreaksSection({ streaks }: StreaksSectionProps) {
             <Text className="text-sm text-muted-foreground">
               {streaks.currentStreak > 0 ? 'Current Streak' : 'No active streak'}
             </Text>
+            {streaks.includesExternal ? (
+              <Text className="text-xs text-muted-foreground">
+                Includes synced workouts
+              </Text>
+            ) : null}
+            {streaks.currentStreak > 0 && streaks.todayCovered === false ? (
+              <Text className="text-xs font-medium text-primary">
+                Train today to keep your {streaks.currentStreak}-day streak
+              </Text>
+            ) : null}
           </View>
         </View>
 

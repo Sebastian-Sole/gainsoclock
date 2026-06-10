@@ -18,6 +18,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient, useConvexAuth, useQuery } from "convex/react";
 
+import { UnlockToastHost } from "@/components/achievements/unlock-toast";
 import { NAV_THEME } from "@/lib/theme";
 import secureStorage from "@/lib/secure-storage";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
@@ -188,6 +189,10 @@ function RootNavigator() {
             options={{ headerShown: false, presentation: "modal" }}
           />
           <Stack.Screen
+            name="achievements"
+            options={{ headerShown: false, presentation: "modal" }}
+          />
+          <Stack.Screen
             name="scan"
             options={{ headerShown: false, presentation: "modal" }}
           />
@@ -201,6 +206,7 @@ function RootNavigator() {
           />
         </Stack>
         <PortalHost />
+        <UnlockToastHost />
         <StatusBar style="auto" />
       </ThemeProvider>
     </SafeAreaProvider>
