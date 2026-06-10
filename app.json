@@ -36,6 +36,19 @@
     "plugins": [
       "expo-router",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Fitbull uses your photo library so you can log meals from photos of your food.",
+          "cameraPermission": "Fitbull uses the camera so you can snap a photo of your meal to log it."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Fitbull uses the camera to scan food barcodes and photograph meals for logging."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",

@@ -35,6 +35,8 @@ interface SettingsState {
   notificationsWeeklyReviewEnabled: boolean;
   notificationsWeeklyReviewDay: number; // 0-6, 0 = Sunday
   notificationsWeeklyReviewTime: string; // "HH:mm"
+  notificationsProteinNudgeEnabled: boolean;
+  notificationsProteinNudgeTime: string; // "HH:mm"
 
   // Exercise tracking
   rpeEnabled: boolean;
@@ -61,6 +63,8 @@ interface SettingsState {
   setNotificationsWeeklyReviewEnabled: (enabled: boolean) => void;
   setNotificationsWeeklyReviewDay: (day: number) => void;
   setNotificationsWeeklyReviewTime: (time: string) => void;
+  setNotificationsProteinNudgeEnabled: (enabled: boolean) => void;
+  setNotificationsProteinNudgeTime: (time: string) => void;
   setRpeEnabled: (enabled: boolean) => void;
   hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string; prefillFromLastWorkout?: boolean; defaultSetsCount?: number; defaultRepsCount?: number; notificationsRestTimerEnabled?: boolean; notificationsPostWorkoutEnabled?: boolean; notificationsPostWorkoutDelay?: number; notificationsReminderEnabled?: boolean; notificationsReminderTime?: string; notificationsMorningPlanEnabled?: boolean; notificationsMorningPlanTime?: string; rpeEnabled?: boolean }) => void;
 }
@@ -112,6 +116,8 @@ export const useSettingsStore = create<SettingsState>()(
       notificationsWeeklyReviewEnabled: true,
       notificationsWeeklyReviewDay: 0,
       notificationsWeeklyReviewTime: '18:00',
+      notificationsProteinNudgeEnabled: false,
+      notificationsProteinNudgeTime: '19:30',
       rpeEnabled: false,
 
       setWeightUnit: (unit) => {
@@ -219,6 +225,19 @@ export const useSettingsStore = create<SettingsState>()(
 
       setNotificationsWeeklyReviewTime: (time) => {
         set({ notificationsWeeklyReviewTime: time });
+      },
+
+      // Protein nudge settings are persisted locally only — same situation as
+      // the weekly review settings above: api.settings.upsert does not accept
+      // these fields yet, and sending unknown args would fail Convex
+      // validation and break all settings sync. Add to syncSettings +
+      // hydrateFromServer once the backend validator includes them.
+      setNotificationsProteinNudgeEnabled: (enabled) => {
+        set({ notificationsProteinNudgeEnabled: enabled });
+      },
+
+      setNotificationsProteinNudgeTime: (time) => {
+        set({ notificationsProteinNudgeTime: time });
       },
 
       setRpeEnabled: (enabled) => {

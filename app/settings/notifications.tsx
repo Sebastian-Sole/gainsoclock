@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import {
   AlarmClock,
   BarChart3,
+  Beef,
   Bell,
   ChevronLeft,
   MessageSquare,
@@ -16,8 +17,9 @@ import React, { useCallback, useState } from "react";
 import { Platform, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ensurePermission } from "@/lib/notifications";
+import { ensurePermission, recomputeProteinNudge } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
+import { getTodayProteinConsumed } from "@/stores/meal-log-store";
 import { useSettingsStore } from "@/stores/settings-store";
 
 // Locale-aware short weekday labels, index 0 = Sunday (matches the
@@ -49,10 +51,15 @@ export default function NotificationSettingsScreen() {
   const setNotifWeeklyReviewDay = useSettingsStore((s) => s.setNotificationsWeeklyReviewDay);
   const notifWeeklyReviewTime = useSettingsStore((s) => s.notificationsWeeklyReviewTime);
   const setNotifWeeklyReviewTime = useSettingsStore((s) => s.setNotificationsWeeklyReviewTime);
+  const notifProteinNudge = useSettingsStore((s) => s.notificationsProteinNudgeEnabled);
+  const setNotifProteinNudge = useSettingsStore((s) => s.setNotificationsProteinNudgeEnabled);
+  const notifProteinNudgeTime = useSettingsStore((s) => s.notificationsProteinNudgeTime);
+  const setNotifProteinNudgeTime = useSettingsStore((s) => s.setNotificationsProteinNudgeTime);
 
   const [showReminderPicker, setShowReminderPicker] = useState(false);
   const [showMorningPicker, setShowMorningPicker] = useState(false);
   const [showWeeklyReviewPicker, setShowWeeklyReviewPicker] = useState(false);
+  const [showProteinNudgePicker, setShowProteinNudgePicker] = useState(false);
 
   const handleNotificationToggle = useCallback(
     async (setter: (enabled: boolean) => void, enabled: boolean) => {
@@ -328,6 +335,69 @@ export default function NotificationSettingsScreen() {
                     const h = String(date.getHours()).padStart(2, "0");
                     const m = String(date.getMinutes()).padStart(2, "0");
                     setNotifWeeklyReviewTime(`${h}:${m}`);
+                  }
+                }}
+              />
+            )}
+          </View>
+        </View>
+
+        {/* Nutrition */}
+        <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+          NUTRITION
+        </Text>
+        <View className="rounded-xl bg-card">
+          {/* Evening Protein Nudge */}
+          <View className="px-4 py-4">
+            <View className="flex-row items-center gap-3">
+              <Icon as={Beef} size={20} className="text-primary" />
+              <View className="flex-1">
+                <Text className="font-medium">Evening Protein Nudge</Text>
+                <Text className="text-sm text-muted-foreground">
+                  Remind if you&apos;re short of your protein goal
+                </Text>
+              </View>
+              <Switch
+                checked={notifProteinNudge}
+                onCheckedChange={(v) =>
+                  handleNotificationToggle((enabled) => {
+                    setNotifProteinNudge(enabled);
+                    void recomputeProteinNudge(getTodayProteinConsumed());
+                  }, v)
+                }
+                testID="notifications-protein-nudge-toggle"
+                accessibilityRole="switch"
+                accessibilityLabel="Evening protein nudge notification"
+                accessibilityState={{ checked: notifProteinNudge }}
+              />
+            </View>
+            {notifProteinNudge && (
+              <Pressable
+                onPress={() => setShowProteinNudgePicker(true)}
+                testID="notifications-protein-nudge-time"
+                accessibilityRole="button"
+                accessibilityLabel={`Protein nudge time, ${formatTimeDisplay(notifProteinNudgeTime)}`}
+                accessibilityHint="Opens a time picker"
+                className="mt-3 ml-8 flex-row items-center gap-2"
+              >
+                <Text className="text-sm text-muted-foreground">Time:</Text>
+                <Text className="text-sm font-medium text-primary">
+                  {formatTimeDisplay(notifProteinNudgeTime)}
+                </Text>
+              </Pressable>
+            )}
+            {notifProteinNudge && showProteinNudgePicker && (
+              <DateTimePicker
+                value={timeToDate(notifProteinNudgeTime)}
+                mode="time"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(_, date) => {
+                  setShowProteinNudgePicker(Platform.OS === "ios");
+                  if (date) {
+                    const h = String(date.getHours()).padStart(2, "0");
+                    const m = String(date.getMinutes()).padStart(2, "0");
+                    setNotifProteinNudgeTime(`${h}:${m}`);
+                    void recomputeProteinNudge(getTodayProteinConsumed());
                   }
                 }}
               />

@@ -3,3 +3,6 @@ export const OPENAI_AHA_FALLBACK_MODEL =
   process.env.OPENAI_AHA_FALLBACK_MODEL ?? "gpt-5.2-chat-latest";
 // Chat uses the same primary model; fallback ladder shared for consistency.
 export const OPENAI_CHAT_MODEL = OPENAI_AHA_MODEL;
+// Meal-photo analysis needs a vision-capable model (image_url input).
+export const OPENAI_VISION_MODEL =
+  process.env.OPENAI_VISION_MODEL ?? "gpt-4o";

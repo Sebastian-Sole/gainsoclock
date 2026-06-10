@@ -1,4 +1,5 @@
 import { formatDuration } from "@/lib/format";
+import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import * as Notifications from "expo-notifications";
 import { Alert, Linking } from "react-native";
@@ -10,6 +11,7 @@ export const IDENTIFIERS = {
   DAILY_REMINDER: "daily-reminder",
   MORNING_PLAN: "morning-plan",
   WEEKLY_REVIEW: "weekly-review",
+  PROTEIN_NUDGE: "protein-nudge",
 } as const;
 
 // --- Permissions ---
@@ -331,6 +333,80 @@ export async function scheduleWeeklyReviewNotification(
 export async function cancelWeeklyReviewNotification(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(
     IDENTIFIERS.WEEKLY_REVIEW,
+  ).catch(() => {});
+}
+
+// --- Evening Protein Nudge (Type 7) ---
+
+/**
+ * Schedule (or cancel) the one-shot evening protein nudge for TODAY based on
+ * the user's remaining protein. Callers pass the protein consumed so far today
+ * (summed from the meal-log store) — this module deliberately does not import
+ * the meal-log store to avoid a circular dependency (the store calls this
+ * function after every meal-log change).
+ *
+ * Cancels and skips scheduling when any of these hold:
+ * - the nudge is disabled (opt-in setting, default off)
+ * - no protein goal is set (goal <= 0)
+ * - the goal is already met
+ * - the configured time has already passed today
+ */
+export async function recomputeProteinNudge(
+  proteinConsumedToday: number,
+): Promise<void> {
+  const { notificationsProteinNudgeEnabled, notificationsProteinNudgeTime } =
+    useSettingsStore.getState();
+  const proteinGoal = useNutritionGoalsStore.getState().goals.protein;
+
+  const [hour, minute] = notificationsProteinNudgeTime.split(":").map(Number);
+  const now = new Date();
+  const target = new Date(now);
+  if (Number.isFinite(hour) && Number.isFinite(minute)) {
+    target.setHours(hour, minute, 0, 0);
+  }
+
+  const remaining = Math.round(proteinGoal - proteinConsumedToday);
+
+  const shouldSkip =
+    !notificationsProteinNudgeEnabled ||
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute) ||
+    proteinGoal <= 0 ||
+    remaining <= 0 ||
+    target.getTime() <= now.getTime();
+
+  if (shouldSkip) {
+    await cancelProteinNudgeNotification();
+    return;
+  }
+
+  if (!(await ensureGranted())) return;
+
+  // Cancel + reschedule so the body always reflects the current numbers.
+  await cancelProteinNudgeNotification();
+
+  const secondsUntil = Math.max(
+    1,
+    Math.floor((target.getTime() - now.getTime()) / 1000),
+  );
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: IDENTIFIERS.PROTEIN_NUDGE,
+    content: {
+      title: "Protein check-in 🥛",
+      body: `You're ${remaining}g short of your protein goal — a shake or Greek yogurt closes the gap.`,
+      sound: "default",
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: secondsUntil,
+    },
+  });
+}
+
+export async function cancelProteinNudgeNotification(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(
+    IDENTIFIERS.PROTEIN_NUDGE,
   ).catch(() => {});
 }
 

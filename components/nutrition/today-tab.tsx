@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { View, ScrollView, Pressable, AppState } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Plus, UtensilsCrossed } from 'lucide-react-native';
+import { Camera, Plus, ScanBarcode, UtensilsCrossed } from 'lucide-react-native';
 import { useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
 import { api } from '@/convex/_generated/api';
 import { format } from 'date-fns';
 
@@ -11,8 +12,10 @@ import { AnalyticsConsentCard } from '@/components/home/analytics-consent-card';
 import { MacroProgress } from './macro-progress';
 import { MealLogCard } from './meal-log-card';
 import { LogMealModal } from './log-meal-modal';
+import { PhotoMealSheet } from './photo-meal-sheet';
 import { EditGoalsModal } from './edit-goals-modal';
-import { useMealLogStore } from '@/stores/meal-log-store';
+import { recomputeProteinNudge } from '@/lib/notifications';
+import { useMealLogStore, getTodayProteinConsumed } from '@/stores/meal-log-store';
 import { useNutritionGoalsStore } from '@/stores/nutrition-goals-store';
 import type { Macros } from '@/lib/types';
 
@@ -21,16 +24,22 @@ function getToday(): string {
 }
 
 export function TodayTab() {
+  const router = useRouter();
   const [showLogModal, setShowLogModal] = useState(false);
+  const [showPhotoSheet, setShowPhotoSheet] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [today, setToday] = useState(getToday);
 
-  // Recalculate today's date when the app comes to the foreground
+  // Recalculate today's date when the app comes to the foreground, and
+  // recompute the evening protein nudge with current numbers (meal-log
+  // changes themselves trigger recompute inside the meal-log store).
   useEffect(() => {
+    void recomputeProteinNudge(getTodayProteinConsumed());
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
         const now = getToday();
         setToday((prev) => (prev !== now ? now : prev));
+        void recomputeProteinNudge(getTodayProteinConsumed());
       }
     });
     return () => subscription.remove();
@@ -80,14 +89,41 @@ export function TodayTab() {
         {/* Log Meal Button */}
         <Pressable
           onPress={() => setShowLogModal(true)}
-          className="flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3 mb-4"
+          className="flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3 mb-3"
+          accessibilityRole="button"
+          accessibilityLabel="Log a meal"
+          testID="nutrition-log-meal"
         >
           <Icon as={Plus} size={18} className="text-primary-foreground" />
           <Text className="font-semibold text-primary-foreground">Log Meal</Text>
         </Pressable>
 
+        {/* Photo + Barcode entry points */}
+        <View className="flex-row gap-3 mb-4">
+          <Pressable
+            onPress={() => setShowPhotoSheet(true)}
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border py-3"
+            accessibilityRole="button"
+            accessibilityLabel="Log a meal from a photo"
+            testID="nutrition-log-photo"
+          >
+            <Icon as={Camera} size={18} className="text-primary" />
+            <Text className="font-medium text-foreground">Snap a Photo</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/scan')}
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border py-3"
+            accessibilityRole="button"
+            accessibilityLabel="Log a meal by scanning a barcode"
+            testID="nutrition-log-barcode"
+          >
+            <Icon as={ScanBarcode} size={18} className="text-primary" />
+            <Text className="font-medium text-foreground">Scan Barcode</Text>
+          </Pressable>
+        </View>
+
         {/* Today's Meals */}
-        <Text className="mb-3 text-sm font-medium text-muted-foreground">TODAY'S MEALS</Text>
+        <Text className="mb-3 text-sm font-medium text-muted-foreground">TODAY&apos;S MEALS</Text>
 
         {todayMeals.length === 0 ? (
           <View className="items-center rounded-xl border border-dashed border-border px-8 py-10">
@@ -96,7 +132,7 @@ export function TodayTab() {
               No meals logged today
             </Text>
             <Text className="mt-1 text-center text-sm text-muted-foreground">
-              Tap "Log Meal" to track your nutrition
+              Tap &quot;Log Meal&quot; to track your nutrition
             </Text>
           </View>
         ) : (
@@ -111,6 +147,12 @@ export function TodayTab() {
       <LogMealModal
         visible={showLogModal}
         onClose={() => setShowLogModal(false)}
+        date={today}
+      />
+
+      <PhotoMealSheet
+        visible={showPhotoSheet}
+        onClose={() => setShowPhotoSheet(false)}
         date={today}
       />
 

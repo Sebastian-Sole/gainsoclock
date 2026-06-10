@@ -8,11 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		25349E77F36A92A53003457F /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96F9B2C09C71546732D08F47 /* ExpoModulesProvider.swift */; };
-		28177D106B13F94A6EB2E985 /* libPods-Fitbull.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 59BD9BD70B904C47D262636B /* libPods-Fitbull.a */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		556299BCF4A86C86DD3536E5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 954002341E45D3BF77125971 /* PrivacyInfo.xcprivacy */; };
+		783F69FA03C91F1368C43011 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BC371AAC749E7C921F5EACC /* ExpoModulesProvider.swift */; };
+		9FD768EFE0F3328EFD29A35D /* libPods-Fitbull.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9BBFC21D38CE81BF26F7413F /* libPods-Fitbull.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		EA0AF396351DE17D1F2ADDCF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D768E207A96271D9D95D5243 /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
@@ -20,16 +20,16 @@
 		13B07F961A680F5B00A75B9A /* Fitbull.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fitbull.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Fitbull/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Fitbull/Info.plist; sourceTree = "<group>"; };
-		59BD9BD70B904C47D262636B /* libPods-Fitbull.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Fitbull.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		652B271C2EA16317BD52FD2A /* Pods-Fitbull.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Fitbull.release.xcconfig"; path = "Target Support Files/Pods-Fitbull/Pods-Fitbull.release.xcconfig"; sourceTree = "<group>"; };
-		8182B977D03D86D068551B0F /* Pods-Fitbull.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Fitbull.debug.xcconfig"; path = "Target Support Files/Pods-Fitbull/Pods-Fitbull.debug.xcconfig"; sourceTree = "<group>"; };
-		954002341E45D3BF77125971 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Fitbull/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		96F9B2C09C71546732D08F47 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Fitbull/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		2E88931A7535807165CAA594 /* Pods-Fitbull.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Fitbull.debug.xcconfig"; path = "Target Support Files/Pods-Fitbull/Pods-Fitbull.debug.xcconfig"; sourceTree = "<group>"; };
+		4BC371AAC749E7C921F5EACC /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Fitbull/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		9BBFC21D38CE81BF26F7413F /* libPods-Fitbull.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Fitbull.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Fitbull/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		D768E207A96271D9D95D5243 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Fitbull/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Fitbull/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Fitbull-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Fitbull-Bridging-Header.h"; path = "Fitbull/Fitbull-Bridging-Header.h"; sourceTree = "<group>"; };
+		F422345F0591A1F69A1E499C /* Pods-Fitbull.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Fitbull.release.xcconfig"; path = "Target Support Files/Pods-Fitbull/Pods-Fitbull.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				28177D106B13F94A6EB2E985 /* libPods-Fitbull.a in Frameworks */,
+				9FD768EFE0F3328EFD29A35D /* libPods-Fitbull.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,36 +53,26 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				954002341E45D3BF77125971 /* PrivacyInfo.xcprivacy */,
+				D768E207A96271D9D95D5243 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Fitbull;
 			sourceTree = "<group>";
 		};
-		221729DADE048128E1F84B37 /* Pods */ = {
+		235DE20386781BD418CF8740 /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				8182B977D03D86D068551B0F /* Pods-Fitbull.debug.xcconfig */,
-				652B271C2EA16317BD52FD2A /* Pods-Fitbull.release.xcconfig */,
+				B6D21BD3D7A4282C6B5C4184 /* Fitbull */,
 			);
-			name = Pods;
-			path = Pods;
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				59BD9BD70B904C47D262636B /* libPods-Fitbull.a */,
+				9BBFC21D38CE81BF26F7413F /* libPods-Fitbull.a */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		7DCC66D14F7250BE123DCCC9 /* Fitbull */ = {
-			isa = PBXGroup;
-			children = (
-				96F9B2C09C71546732D08F47 /* ExpoModulesProvider.swift */,
-			);
-			name = Fitbull;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -99,8 +89,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				221729DADE048128E1F84B37 /* Pods */,
-				FDC1E957B04AF50A200562BF /* ExpoModulesProviders */,
+				C6509BA7ED703C6C21C33469 /* Pods */,
+				235DE20386781BD418CF8740 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -115,6 +105,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		B6D21BD3D7A4282C6B5C4184 /* Fitbull */ = {
+			isa = PBXGroup;
+			children = (
+				4BC371AAC749E7C921F5EACC /* ExpoModulesProvider.swift */,
+			);
+			name = Fitbull;
+			sourceTree = "<group>";
+		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
 			isa = PBXGroup;
 			children = (
@@ -124,12 +122,14 @@
 			path = Fitbull/Supporting;
 			sourceTree = "<group>";
 		};
-		FDC1E957B04AF50A200562BF /* ExpoModulesProviders */ = {
+		C6509BA7ED703C6C21C33469 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				7DCC66D14F7250BE123DCCC9 /* Fitbull */,
+				2E88931A7535807165CAA594 /* Pods-Fitbull.debug.xcconfig */,
+				F422345F0591A1F69A1E499C /* Pods-Fitbull.release.xcconfig */,
 			);
-			name = ExpoModulesProviders;
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -140,14 +140,14 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Fitbull" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				32B65A8DD29102672F1D2B7E /* [Expo] Configure project */,
+				FCA0B10F877B3E8041C78EEF /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				00D2DE032CCBB04656A09D11 /* [CP] Embed Pods Frameworks */,
-				A1E1236B17F44E87A1684837 /* Upload Debug Symbols to Sentry */,
+				0D8F817A2142407DA11C75EC /* Upload Debug Symbols to Sentry */,
+				5D8E006631B2B323AE5A7411 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -167,8 +167,8 @@
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
-						DevelopmentTeam = UR644ZFFAK;
 						LastSwiftMigration = 1250;
+						DevelopmentTeam = "UR644ZFFAK";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -199,35 +199,13 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				556299BCF4A86C86DD3536E5 /* PrivacyInfo.xcprivacy in Resources */,
+				EA0AF396351DE17D1F2ADDCF /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		00D2DE032CCBB04656A09D11 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Fitbull/Pods-Fitbull-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Fitbull/Pods-Fitbull-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 		00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -267,29 +245,41 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		32B65A8DD29102672F1D2B7E /* [Expo] Configure project */ = {
+		0D8F817A2142407DA11C75EC /* Upload Debug Symbols to Sentry */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
-			inputFileListPaths = (
-			);
 			inputPaths = (
-				"$(SRCROOT)/.xcode.env",
-				"$(SRCROOT)/.xcode.env.local",
-				"$(SRCROOT)/Fitbull/Fitbull.entitlements",
-				"$(SRCROOT)/Pods/Target Support Files/Pods-Fitbull/expo-configure-project.sh",
 			);
-			name = "[Expo] Configure project";
-			outputFileListPaths = (
-			);
+			name = "Upload Debug Symbols to Sentry";
 			outputPaths = (
-				"$(SRCROOT)/Pods/Target Support Files/Pods-Fitbull/ExpoModulesProvider.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Fitbull/expo-configure-project.sh\"\n";
+			shellScript = "/bin/sh `${NODE_BINARY:-node} --print \"require('path').dirname(require.resolve('@sentry/react-native/package.json')) + '/scripts/sentry-xcode-debug-files.sh'\"`";
+		};
+		5D8E006631B2B323AE5A7411 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Fitbull/Pods-Fitbull-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Fitbull/Pods-Fitbull-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -343,19 +333,29 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Fitbull/Pods-Fitbull-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		A1E1236B17F44E87A1684837 /* Upload Debug Symbols to Sentry */ = {
+		FCA0B10F877B3E8041C78EEF /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
-			inputPaths = (
+			inputFileListPaths = (
 			);
-			name = "Upload Debug Symbols to Sentry";
+			inputPaths = (
+				"$(SRCROOT)/.xcode.env",
+				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/Fitbull/Fitbull.entitlements",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-Fitbull/expo-configure-project.sh",
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
 			outputPaths = (
+				"$(SRCROOT)/Pods/Target Support Files/Pods-Fitbull/ExpoModulesProvider.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/sh `${NODE_BINARY:-node} --print \"require('path').dirname(require.resolve('@sentry/react-native/package.json')) + '/scripts/sentry-xcode-debug-files.sh'\"`";
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Fitbull/expo-configure-project.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -365,7 +365,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				25349E77F36A92A53003457F /* ExpoModulesProvider.swift in Sources */,
+				783F69FA03C91F1368C43011 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -374,15 +374,12 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 8182B977D03D86D068551B0F /* Pods-Fitbull.debug.xcconfig */;
+			baseConfigurationReference = 2E88931A7535807165CAA594 /* Pods-Fitbull.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Fitbull/Fitbull.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = UR644ZFFAK;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -408,20 +405,20 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
+				DEVELOPMENT_TEAM = "UR644ZFFAK";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 			};
 			name = Debug;
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 652B271C2EA16317BD52FD2A /* Pods-Fitbull.release.xcconfig */;
+			baseConfigurationReference = F422345F0591A1F69A1E499C /* Pods-Fitbull.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Fitbull/Fitbull.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = UR644ZFFAK;
 				INFOPLIST_FILE = Fitbull/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -441,6 +438,9 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
+				DEVELOPMENT_TEAM = "UR644ZFFAK";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 			};
 			name = Release;
 		};

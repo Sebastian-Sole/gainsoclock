@@ -335,6 +335,48 @@ const TOOLS: ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "log_meal",
+      description:
+        "Log a meal the user already ate, with AI-estimated macros. Use when the user describes food they consumed (e.g. 'I had a chicken burrito and a coke'). Returns the meal for user approval before saving to their nutrition log.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description:
+              "Short meal name, e.g. 'Chicken burrito + Coke'",
+          },
+          date: {
+            type: "string",
+            description:
+              "ISO date (YYYY-MM-DD) the meal was eaten. Omit for today.",
+          },
+          macros: {
+            type: "object",
+            description:
+              "Estimated totals for the whole described meal (calories in kcal, protein/carbs/fat in grams)",
+            properties: {
+              calories: { type: "number" },
+              protein: { type: "number" },
+              carbs: { type: "number" },
+              fat: { type: "number" },
+            },
+            required: ["calories", "protein", "carbs", "fat"],
+          },
+          portionDescription: {
+            type: "string",
+            description:
+              "The portion assumption behind the estimate, e.g. 'large burrito (~350g) + 330ml regular coke'",
+          },
+          notes: { type: "string" },
+        },
+        required: ["title", "macros"],
+      },
+    },
+  },
 ];
 
 // ── System Prompt Builder ──────────────────────────────────────
@@ -580,6 +622,8 @@ ${planSection}
   * COMPLEX requests (e.g., "create a 12-week training program", "design a meal plan for cutting", "build a PPL split for my goals") — These require personalization. Ask 2-3 targeted clarifying questions BEFORE generating anything. Ask about relevant factors like: experience level, available equipment, training frequency, specific goals, injury history, time constraints, or dietary restrictions. It is far better to ask a few questions and create something perfect than to guess and produce something generic.
   * When in doubt, lean toward just answering. Only ask questions when the request genuinely benefits from personalization AND the answer would meaningfully change based on the user's response. You can always infer reasonable defaults from the user's exercise history and stats above.
 - When creating templates, plans, or recipes, ALWAYS use the tool functions. Do NOT just describe them in text.
+- When the user describes food they ALREADY ATE ("I had...", "I ate...", "just finished a..."), use the log_meal tool — not suggest_recipe. suggest_recipe is only for proposing meals the user might cook/eat in the future.
+- For log_meal: estimate macros conservatively from typical portion sizes and state your portion assumption in portionDescription. Make exactly ONE log_meal call per distinct meal (combine items eaten together, e.g. a burrito and a coke at lunch, into one call; separate meals like "breakfast and lunch" get one call each). Only ask about portion size when it genuinely changes the estimate AND the description is truly ambiguous — otherwise assume a standard portion and log it.
 - IMPORTANT: Before calling any tool function, you MUST first write a brief explanation in your text response. Explain what you're creating and why — e.g. the reasoning behind exercise selection, set/rep schemes, plan structure, or recipe choices. This gives the user context before they see the approval card. Keep it concise (2-4 sentences).
 - When creating templates, ALWAYS include suggestedReps and suggestedWeight (or suggestedTime/suggestedDistance for time/distance exercises) for each exercise. Base these on the user's exercise performance history above. If no history exists for an exercise, use sensible defaults for the exercise type and apparent experience level.
 - When creating a workout plan, use create_workout_plan and include ALL necessary templates in the templates array.
@@ -748,6 +792,7 @@ export const sendMessage = action({
           if (name === "create_workout_template") return "create_template";
           if (name === "create_workout_plan") return "create_plan";
           if (name === "update_workout_plan") return "update_plan";
+          if (name === "log_meal") return "log_meal";
           return "create_recipe";
         }
 
