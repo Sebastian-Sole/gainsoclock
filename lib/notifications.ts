@@ -303,12 +303,20 @@ interface WeeklyReviewParams {
 export async function scheduleWeeklyReviewNotification(
   params: WeeklyReviewParams,
 ): Promise<void> {
+  // Cancel before any early return so the scheduled state always reflects
+  // current settings — a previously scheduled notification must not survive
+  // the setting being turned off or permission being revoked.
+  await cancelWeeklyReviewNotification();
+
   const { notificationsWeeklyReviewEnabled } = useSettingsStore.getState();
   if (!notificationsWeeklyReviewEnabled) return;
 
-  if (!(await ensureGranted())) return;
+  // Guard persisted state drift: expo-notifications requires weekday 1-7.
+  const day = Number.isInteger(params.day)
+    ? Math.min(6, Math.max(0, params.day))
+    : 0;
 
-  await cancelWeeklyReviewNotification();
+  if (!(await ensureGranted())) return;
 
   await Notifications.scheduleNotificationAsync({
     identifier: IDENTIFIERS.WEEKLY_REVIEW,
@@ -323,7 +331,7 @@ export async function scheduleWeeklyReviewNotification(
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
       // expo-notifications weekday is 1-7 with 1 = Sunday; settings use 0-6.
-      weekday: params.day + 1,
+      weekday: day + 1,
       hour: params.hour,
       minute: params.minute,
     },
@@ -375,15 +383,14 @@ export async function recomputeProteinNudge(
     remaining <= 0 ||
     target.getTime() <= now.getTime();
 
-  if (shouldSkip) {
-    await cancelProteinNudgeNotification();
-    return;
-  }
+  // Cancel first, before the skip/permission checks, so a previously
+  // scheduled nudge never outlives the conditions that scheduled it
+  // (stale copy/time after permission revocation or setting changes).
+  await cancelProteinNudgeNotification();
+
+  if (shouldSkip) return;
 
   if (!(await ensureGranted())) return;
-
-  // Cancel + reschedule so the body always reflects the current numbers.
-  await cancelProteinNudgeNotification();
 
   const secondsUntil = Math.max(
     1,

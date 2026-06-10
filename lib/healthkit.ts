@@ -30,17 +30,31 @@ export type LatestHealthStats = {
   bodyFatPercent: number | null;
 };
 
-export const HEALTHKIT_READ_SCOPES = [
+// Baseline reads: requested at onboarding and by the main "Sync with Apple
+// Health" toggle. The onboarding primer copy (app/onboarding/healthkit.tsx)
+// describes exactly these — body stats prefill. 5.1.1(iv): the permission
+// sheet shown during onboarding must never list scopes the primer doesn't
+// explain, so import scopes are requested separately (below), only from the
+// "Import workouts & health data" toggle whose copy describes them.
+export const HEALTHKIT_BASELINE_READ_SCOPES = [
   'HKQuantityTypeIdentifierBodyMass',
   'HKQuantityTypeIdentifierHeight',
   'HKQuantityTypeIdentifierBodyFatPercentage',
-  // Health-data-mesh read scopes (see scope-lock comment at the top).
+] as const;
+
+// Health-data-mesh read scopes (see scope-lock comment at the top).
+export const HEALTHKIT_IMPORT_READ_SCOPES = [
   'HKWorkoutTypeIdentifier',
   'HKCategoryTypeIdentifierSleepAnalysis',
   'HKQuantityTypeIdentifierRestingHeartRate',
   'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
   'HKQuantityTypeIdentifierStepCount',
   'HKQuantityTypeIdentifierActiveEnergyBurned',
+] as const;
+
+export const HEALTHKIT_READ_SCOPES = [
+  ...HEALTHKIT_BASELINE_READ_SCOPES,
+  ...HEALTHKIT_IMPORT_READ_SCOPES,
 ] as const;
 
 export const HEALTHKIT_WRITE_SCOPES = [
@@ -82,12 +96,33 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
 
   try {
     await hk.requestAuthorization({
-      toRead: HEALTHKIT_READ_SCOPES,
+      toRead: HEALTHKIT_BASELINE_READ_SCOPES,
       toShare: HEALTHKIT_WRITE_SCOPES,
     });
     return true;
   } catch (error) {
     console.warn('[HealthKit] Authorization failed:', error);
+    return false;
+  }
+}
+
+// Incremental authorization for the import feature only. HealthKit allows
+// requesting additional scopes after the initial grant; the sheet lists just
+// the new types. Called from the "Import workouts & health data" toggle.
+export async function requestHealthImportPermissions(): Promise<boolean> {
+  if (!isHealthKitAvailable()) return false;
+
+  const hk = await getHealthKit();
+  if (!hk) return false;
+
+  try {
+    await hk.requestAuthorization({
+      toRead: HEALTHKIT_IMPORT_READ_SCOPES,
+      toShare: [],
+    });
+    return true;
+  } catch (error) {
+    console.warn('[HealthKit] Import authorization failed:', error);
     return false;
   }
 }
@@ -415,13 +450,13 @@ export async function queryExternalWorkouts(
 
 type DailyQuantityField = Exclude<keyof DailyHealthMetrics, 'date' | 'asleepSeconds'>;
 
-const DAILY_QUANTITY_METRICS: ReadonlyArray<{
+const DAILY_QUANTITY_METRICS: readonly {
   field: DailyQuantityField;
   identifier: QuantityTypeIdentifier;
   statistic: 'cumulativeSum' | 'mostRecent';
   unit: string;
   round: boolean;
-}> = [
+}[] = [
   {
     field: 'restingHeartRateBpm',
     identifier: 'HKQuantityTypeIdentifierRestingHeartRate',

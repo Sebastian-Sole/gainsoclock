@@ -11,6 +11,7 @@ import OpenAI from "openai";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalQuery } from "./_generated/server";
+import { hasHealthPersonalizationConsent } from "./healthData";
 import { OPENAI_CHAT_MODEL } from "./openaiConfig";
 
 // Bounds for PR detection (same approach as convex/weeklyReview.ts:
@@ -222,11 +223,16 @@ export const getFeedbackContext = internalQuery({
     }
 
     // Last 7 days of health metrics (newest first via the date index).
-    const metrics = await ctx.db
-      .query("healthDailyMetrics")
-      .withIndex("by_user_date", (q) => q.eq("userId", args.userId))
-      .order("desc")
-      .take(7);
+    // Only included in the AI prompt when the user has granted
+    // health_data_personalization — feedback still works without them,
+    // it just speaks to the workout alone.
+    const metrics = (await hasHealthPersonalizationConsent(ctx, args.userId))
+      ? await ctx.db
+          .query("healthDailyMetrics")
+          .withIndex("by_user_date", (q) => q.eq("userId", args.userId))
+          .order("desc")
+          .take(7)
+      : [];
 
     const sleepValues = metrics
       .map((m) => m.asleepSeconds)

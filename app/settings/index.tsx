@@ -45,7 +45,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useHealthImport } from "@/hooks/use-health-import";
 import { useHealthKit } from "@/hooks/use-healthkit";
 import { usePurchases } from "@/hooks/use-purchases";
-import { requestHealthKitPermissions } from "@/lib/healthkit";
+import { requestHealthImportPermissions } from "@/lib/healthkit";
 import { NumericInput } from "@/components/shared/numeric-input";
 import { REST_TIME_PRESETS } from "@/lib/constants";
 import { formatTime } from "@/lib/format";
@@ -241,11 +241,12 @@ export default function SettingsScreen() {
       setHealthImportEnabled(false);
       return;
     }
-    // Request authorization first so the expanded read scopes prompt appears
-    // before the first import runs.
+    // Request the import-only scopes (incremental authorization) so the
+    // expanded read prompt appears here — where the toggle copy explains it —
+    // and never during onboarding (5.1.1(iv)).
     setHealthImportRequesting(true);
     try {
-      const granted = await requestHealthKitPermissions();
+      const granted = await requestHealthImportPermissions();
       if (granted) {
         setHealthImportEnabled(true);
       }

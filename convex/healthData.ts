@@ -212,11 +212,36 @@ export const getHealthSummary = query({
   },
 });
 
+// Whether the user's latest health_data_personalization consent is granted.
+// Gate every path that feeds imported health data into AI inference (chat
+// context, weekly review LLM, post-workout feedback) on this. Showing the
+// user their own imported data in-app (History timeline, review stats grid)
+// is core functionality of the import toggle and is deliberately NOT gated
+// here.
+export async function hasHealthPersonalizationConsent(
+  ctx: QueryCtx,
+  userId: Id<"users">
+): Promise<boolean> {
+  const latest = await ctx.db
+    .query("userConsents")
+    .withIndex("by_user_purpose_grantedAt", (q) =>
+      q.eq("userId", userId).eq("purpose", "health_data_personalization")
+    )
+    .order("desc")
+    .first();
+  return latest?.granted === true;
+}
+
 // Same summary shape, callable from actions (chatActions) with an explicit
-// userId — the action has already authenticated the user.
+// userId — the action has already authenticated the user. Returns null when
+// the user has not granted health_data_personalization, so health data
+// never reaches an AI prompt without consent.
 export const getHealthContextForUser = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
+    if (!(await hasHealthPersonalizationConsent(ctx, args.userId))) {
+      return null;
+    }
     return await buildHealthSummary(ctx, args.userId);
   },
 });

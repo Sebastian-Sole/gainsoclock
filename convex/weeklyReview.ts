@@ -556,7 +556,9 @@ function buildReviewUserPrompt(
   weekStart: string,
   stats: WeekStats,
   highlights: ProgressionHighlight[],
-  health: HealthContext
+  // null when the user has not granted health_data_personalization —
+  // recovery lines are omitted entirely in that case.
+  health: HealthContext | null
 ): string {
   const lines: string[] = [
     `Week of ${weekStart} (Monday to Sunday).`,
@@ -581,7 +583,7 @@ function buildReviewUserPrompt(
 
   // Recovery context (last 7 days, may extend past the review week).
   const recoveryLines: string[] = [];
-  const hrvValues = health.dailyMetrics
+  const hrvValues = (health?.dailyMetrics ?? [])
     .map((d) => d.hrvMs)
     .filter((x): x is number => x !== undefined);
   if (hrvValues.length > 0) {
@@ -591,13 +593,13 @@ function buildReviewUserPrompt(
       `- HRV: latest ${Math.round(latest)}ms vs ${Math.round(avg)}ms 7-day average`
     );
   }
-  const latestRhr = health.dailyMetrics.find(
+  const latestRhr = health?.dailyMetrics.find(
     (d) => d.restingHeartRateBpm !== undefined
   )?.restingHeartRateBpm;
   if (latestRhr !== undefined) {
     recoveryLines.push(`- Latest resting heart rate: ${Math.round(latestRhr)} bpm`);
   }
-  if (health.externalWorkoutCount7d > 0) {
+  if (health && health.externalWorkoutCount7d > 0) {
     recoveryLines.push(
       `- Cross-training last 7 days: ${health.externalWorkoutCount7d} sessions (${health.activityTypes7d.join(", ")})`
     );
@@ -694,7 +696,7 @@ export const generateReview = action({
 
     if (isPro) {
       try {
-        const health: HealthContext = await ctx.runQuery(
+        const health: HealthContext | null = await ctx.runQuery(
           internal.healthData.getHealthContextForUser,
           { userId }
         );

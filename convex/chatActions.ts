@@ -455,9 +455,12 @@ interface HealthContext {
 /**
  * Builds the "Recent health & recovery" prompt section from Apple Health
  * data. Returns "" when no data exists so the section is omitted entirely
- * (the model must never see fabricated recovery data).
+ * (the model must never see fabricated recovery data). `health` is null
+ * when the user has not granted health_data_personalization — the section
+ * is omitted the same way.
  */
-function buildHealthSection(health: HealthContext): string {
+function buildHealthSection(health: HealthContext | null): string {
+  if (!health) return "";
   const lines: string[] = [];
 
   // dailyMetrics is ordered date desc, so find() returns the latest value.
@@ -514,7 +517,7 @@ function buildHealthSection(health: HealthContext): string {
 
 function buildSystemPrompt(
   context: UserContext,
-  health: HealthContext
+  health: HealthContext | null
 ): string {
   const exerciseList =
     context.exercises.length > 0
