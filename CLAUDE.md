@@ -30,7 +30,9 @@ Cross-platform fitness, nutrition, and AI-coaching app for iOS, Android, and web
 - `pnpm clean:build` — `expo prebuild --clean --platform ios` (nuke native ios/ when it drifts)
 - `maestro test .maestro/` — end-to-end flows (iOS Simulator). Preflight: Maestro CLI + IDB installed, simulator booted with the dev client. Details in `.claude/skills/maestro-e2e/SKILL.md`.
 
-There is no unit-test script yet. Run `/verify` for the full chain and `/e2e` for Maestro flows.
+- `pnpm test` — Vitest over `lib/**` pure modules (decision: `docs/decisions/test-runner.md`). Characterization tests for the dangerous untested core (offline-queue drop, two-timezone date math, comma-decimal/bounds parsers, calorie math). Component testing is not yet in scope.
+
+Run `/verify` for the full chain and `/e2e` for Maestro flows.
 
 ## Directory Map
 
