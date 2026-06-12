@@ -71,6 +71,13 @@ const MemoizedSetRow = React.memo(function MemoizedSetRow({
   );
 });
 
+// Isolates the 1 Hz workout-timer tick to a leaf component so the whole
+// active-workout screen no longer re-renders every second.
+function WorkoutTimerDisplay({ startedAt }: { startedAt: string | null }) {
+  const elapsed = useWorkoutTimer(startedAt);
+  return <Text className="text-sm text-primary font-medium">{formatDuration(elapsed)}</Text>;
+}
+
 export default function ActiveWorkoutScreen() {
   const router = useRouter();
 
@@ -96,7 +103,6 @@ export default function ActiveWorkoutScreen() {
 
   const generateWorkoutFeedback = useAction(api.workoutFeedback.generateFeedback);
 
-  const elapsed = useWorkoutTimer(activeWorkout?.startedAt ?? null);
   const { isActive: isRestActive, remaining: restRemaining, stop: stopRest } = useRestTimer();
 
   // Flag the rest-timer notification handler: suppress the alert only while
@@ -226,6 +232,13 @@ export default function ActiveWorkoutScreen() {
               sets: e.sets,
             }));
 
+            // Compute elapsed directly from the workout's start time (matching
+            // use-workout-timer's arithmetic) now that the 1 Hz `elapsed` state
+            // lives inside WorkoutTimerDisplay rather than this screen.
+            const durationSeconds = workout.startedAt
+              ? Math.floor((Date.now() - new Date(workout.startedAt).getTime()) / 1000)
+              : 0;
+
             const log: WorkoutLog = {
               id: generateId(),
               templateId: workout.templateId,
@@ -233,7 +246,7 @@ export default function ActiveWorkoutScreen() {
               exercises: logExercises,
               startedAt: workout.startedAt,
               completedAt: new Date().toISOString(),
-              durationSeconds: elapsed,
+              durationSeconds,
             };
             addLog(log);
             saveWorkoutToHealthKit(log);
@@ -330,7 +343,7 @@ export default function ActiveWorkoutScreen() {
             <>
               <View key="workout-header" className="flex-1">
                 <Text className="text-lg font-bold" numberOfLines={1}>{activeWorkout.templateName}</Text>
-                <Text className="text-sm text-primary font-medium">{formatDuration(elapsed)}</Text>
+                <WorkoutTimerDisplay startedAt={activeWorkout.startedAt} />
               </View>
               <View className="flex-row items-center gap-2">
                 <Badge variant="secondary">
