@@ -460,7 +460,20 @@ export const getStatus = query({
 export const checkSubscription = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    if (process.env.DEV_BYPASS_SUBSCRIPTION === "true") return true;
+    // Dev-only bypass: must equal THIS deployment's site URL, so a value
+    // copied to another deployment (e.g. prod) is inert. Set it to the dev
+    // deployment's CONVEX_SITE_URL value to activate.
+    const bypass = process.env.DEV_BYPASS_SUBSCRIPTION;
+    if (
+      bypass !== undefined &&
+      bypass.length > 0 &&
+      bypass === process.env.CONVEX_SITE_URL
+    ) {
+      console.warn(
+        `[subscriptions] DEV_BYPASS_SUBSCRIPTION active — Pro gate bypassed for ${args.userId}`,
+      );
+      return true;
+    }
 
     const subscriptions = await ctx.db
       .query("userSubscriptions")
