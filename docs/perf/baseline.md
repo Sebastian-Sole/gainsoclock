@@ -1,21 +1,20 @@
-# Cold-start & Bundle Baseline (plan-03)
+# Cold-start & Bundle Baseline
 
-Tracks the analytics-foundation phase's impact on cold-start and bundle size.
-Plan-10 will gate ship on these numbers, so they need a real measurement
-once a dev build is in front of an iPhone 12 (or low-power-mode simulator
-proxy).
+Tracks cold-start and bundle size going forward from commit `4500535`.
+The plan-03 before/after deltas were never captured; this row restarts the
+baseline. Future perf-relevant PRs (new heavyweight dep, provider added to
+`_layout`) should re-run Step 2 of plan-022 and append a row.
 
 ## Cold-start (app launch → first paint, ms)
 
 Measured via `console.time("cold-start")` in `app/_layout.tsx` (`__DEV__`-gated).
-Three runs, median.
+Three runs, median. Marker wired in plan-022.
 
 | When | Build | Device | Median (ms) | Notes |
 |---|---|---|---|---|
-| _TODO before plan-03 lands_ | dev | iPhone 12 (or sim, low-power) | _pending_ | run before merging plan-03; capture from `git stash` baseline |
-| _TODO after plan-03 lands_ | dev | iPhone 12 (or sim, low-power) | _pending_ | PostHog provider mounted, `InteractionManager.runAfterInteractions` deferring init |
+| Current baseline (2026-06-13, commit `4500535`) | dev | iPhone 12 (or sim, low-power) | _operator: run 3× per the procedure above with the plan-022 marker and record the median_ | manual device step required |
 
-**Acceptance:** delta ≤ +400ms (Performance #5).
+**Acceptance (go-forward delta):** ≤ +400ms vs. the row above (Performance #5).
 
 If the delta is over budget, the most likely cause is a child component
 calling `usePostHog()` synchronously and forcing eager init. The fix is to
@@ -24,15 +23,20 @@ ready, so consumers never need to subscribe to the client directly.
 
 ## Bundle (gzipped, iOS)
 
-Measured via `npx expo export --platform ios` and comparing the gzipped
-output of `dist/_expo/static/js/ios/*.hbc.gz`.
+Measured via `npx expo export --platform ios`; gzip the `.hbc` output:
+`gzip -k9c dist/_expo/static/js/ios/*.hbc | wc -c`.
 
-| When | Total (KB gz) | Delta (KB gz) |
-|---|---|---|
-| _TODO before plan-03_ | _pending_ | — |
-| _TODO after plan-03_ | _pending_ | _pending_ |
+| When | Commit | Total (KB gz) | Delta (KB gz) |
+|---|---|---|---|
+| Current baseline (2026-06-13) | `4500535` | 4,042 | — (baseline row) |
 
-**Acceptance:** delta ≤ 350 KB gzipped (Performance #3).
+**Acceptance (go-forward delta):** ≤ 350 KB gzipped vs. the most recent row (Performance #3).
+Note: the raw `.hbc` is 10,960 KB (11.2 MB); gzipped 4,042 KB. If this number is
+startling, plan-027 addresses the likely lucide barrel-import cause.
+
+If over budget, dynamic-import the session-replay module from the provider
+(it's the heaviest part of `posthog-react-native`) and accept that replay
+becomes opt-in via a feature flag.
 
 If over budget, dynamic-import the session-replay module from the provider
 (it's the heaviest part of `posthog-react-native`) and accept that replay

@@ -94,15 +94,13 @@ DevTools → "Components" tab while on the route.
 
 | Route | Count | Notes |
 |---|---|---|
-| `app/onboarding/goal` | | |
-| `app/onboarding/experience` | | |
-| `app/onboarding/days` | | |
+| `app/onboarding/welcome` | | |
+| `app/onboarding/demo-chat` | | |
+| `app/onboarding/demo-meals` | | |
+| `app/onboarding/demo-workouts` | | |
+| `app/onboarding/founder-note` | | |
 | `app/onboarding/healthkit` | | |
-| `app/onboarding/healthkit-prefill` | | |
-| `app/onboarding/manual-stats` | | |
-| `app/onboarding/consent` | | |
-| `app/onboarding/analysis` | | |
-| `app/onboarding/aha` | | |
+| `app/onboarding/paywall` | | |
 | `app/(tabs)/index` (home) | | |
 | `app/(tabs)/chat` | | |
 | `app/(tabs)/plan` | | |
@@ -159,11 +157,8 @@ Every surface introduced in plans 00–09, light + dark. Minimum WCAG 2.1 AA:
 | S4 days | | | |
 | S5 primer | | | |
 | S5a prefill | | | |
-| S5b manual-stats | | | |
-| S6 consent | | | |
-| S7 analysis | | | |
-| S8 aha | | | |
-| S11 paywall | | | |
+| S5b–S8 (deleted intake screens, removed in onboarding rebuild) | n/a | n/a | — |
+| Paywall (`app/onboarding/paywall`) | | | |
 | Post-paywall activation checklist | | | |
 | Settings (Delete account, Restore purchases) | | | |
 
