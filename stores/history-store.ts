@@ -16,6 +16,12 @@ function flattenSet(s: WorkoutSet) {
     ...('weight' in s && { weight: s.weight }),
     ...('time' in s && { time: s.time }),
     ...('distance' in s && { distance: s.distance }),
+    ...(s.rpe !== undefined && { rpe: s.rpe }),
+    ...(s.variant !== undefined && { variant: s.variant }),
+    ...('metric' in s && { metric: s.metric }),
+    ...('paceSeconds' in s && s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
+    ...('speed' in s && s.speed !== undefined && { speed: s.speed }),
+    ...('distanceUnit' in s && { distanceUnit: s.distanceUnit }),
   };
 }
 
@@ -71,6 +77,12 @@ interface HistoryState {
         weight?: number;
         time?: number;
         distance?: number;
+        rpe?: number;
+        variant?: string;
+        metric?: string;
+        paceSeconds?: number;
+        speed?: number;
+        distanceUnit?: string;
       }>;
     }>;
   }>) => void;
@@ -209,6 +221,12 @@ export const useHistoryStore = create<HistoryState>()(
                   ...('weight' in s && s.weight !== undefined && { weight: s.weight }),
                   ...('time' in s && s.time !== undefined && { time: s.time }),
                   ...('distance' in s && s.distance !== undefined && { distance: s.distance }),
+                  ...(s.rpe !== undefined && { rpe: s.rpe }),
+                  ...(s.variant !== undefined && { variant: s.variant }),
+                  ...(s.metric !== undefined && { metric: s.metric }),
+                  ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
+                  ...(s.speed !== undefined && { speed: s.speed }),
+                  ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
                 })) as WorkoutSet[],
               })),
               startedAt: sl.startedAt,
