@@ -252,6 +252,7 @@ export default function SignInScreen() {
             keyboardType="email-address"
             textContentType="emailAddress"
             accessibilityLabelledBy="signin-email-label"
+            testID="signin-email-input"
             className="mb-4 min-h-[44px] rounded-xl border border-input bg-card px-4 py-4 text-[16px] text-foreground"
           />
 
@@ -273,6 +274,7 @@ export default function SignInScreen() {
             secureTextEntry
             textContentType="password"
             accessibilityLabelledBy="signin-password-label"
+            testID="signin-password-input"
             className="mb-6 min-h-[44px] rounded-xl border border-input bg-card px-4 py-4 text-[16px] text-foreground"
           />
 

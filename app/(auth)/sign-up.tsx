@@ -246,6 +246,7 @@ export default function SignUpScreen() {
             keyboardType="email-address"
             textContentType="emailAddress"
             accessibilityLabelledBy="signup-email-label"
+            testID="signup-email-input"
             className="mb-4 min-h-[44px] rounded-xl border border-input bg-card px-4 py-4 text-[16px] text-foreground"
           />
 
@@ -267,6 +268,7 @@ export default function SignUpScreen() {
             secureTextEntry
             textContentType="newPassword"
             accessibilityLabelledBy="signup-password-label"
+            testID="signup-password-input"
             className="mb-4 min-h-[44px] rounded-xl border border-input bg-card px-4 py-4 text-[16px] text-foreground"
           />
 
@@ -288,6 +290,7 @@ export default function SignUpScreen() {
             secureTextEntry
             textContentType="newPassword"
             accessibilityLabelledBy="signup-confirm-label"
+            testID="signup-confirm-input"
             className="mb-4 min-h-[44px] rounded-xl border border-input bg-card px-4 py-4 text-[16px] text-foreground"
           />
 

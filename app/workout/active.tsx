@@ -296,7 +296,7 @@ export default function ActiveWorkoutScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-background" testID="workout-active-screen">
       {/* Header — fixed height so rest-timer swap doesn't shift layout */}
       <View className={`h-16 flex-row items-center gap-2 border-b px-4 ${isRestActive ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
         <Pressable
@@ -483,6 +483,9 @@ export default function ActiveWorkoutScreen() {
         {/* Add Exercise Button */}
         <Pressable
           onPress={handleAddExercise}
+          accessibilityRole="button"
+          accessibilityLabel="Add exercise"
+          testID="workout-add-exercise"
           className="mt-6 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-4"
         >
           <Icon as={Plus} size={20} className="text-primary" />
@@ -494,6 +497,9 @@ export default function ActiveWorkoutScreen() {
       <View className="absolute inset-x-0 bottom-0 border-t border-border bg-background px-4 pb-8 pt-4">
         <Pressable
           onPress={handleEndWorkout}
+          accessibilityRole="button"
+          accessibilityLabel="End workout"
+          testID="workout-finish"
           className="items-center rounded-xl bg-destructive py-4"
         >
           <Text className="font-semibold text-destructive-foreground">End Workout</Text>

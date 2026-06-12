@@ -31,6 +31,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Workouts",
+          tabBarButtonTestID: "tab-workouts",
           tabBarIcon: ({ color, size }) => (
             <Dumbbell size={size} color={color} />
           ),
@@ -46,6 +47,7 @@ export default function TabLayout() {
         name="stats"
         options={{
           title: "Stats",
+          tabBarButtonTestID: "tab-stats",
           tabBarIcon: ({ color, size }) => (
             <ChartNoAxesCombined size={size} color={color} />
           ),
@@ -55,6 +57,7 @@ export default function TabLayout() {
         name="nutrition"
         options={{
           title: "Nutrition",
+          tabBarButtonTestID: "tab-nutrition",
           tabBarIcon: ({ color, size }) => (
             <UtensilsCrossed size={size} color={color} />
           ),
@@ -64,6 +67,7 @@ export default function TabLayout() {
         name="explore"
         options={{
           title: "Explore",
+          tabBarButtonTestID: "tab-explore",
           tabBarIcon: ({ color, size }) => (
             <Compass size={size} color={color} />
           ),
@@ -73,6 +77,7 @@ export default function TabLayout() {
         name="chat"
         options={{
           title: "Chat",
+          tabBarButtonTestID: "tab-chat",
           tabBarIcon: ({ color, size }) => (
             <MessageCircle size={size} color={color} />
           ),
