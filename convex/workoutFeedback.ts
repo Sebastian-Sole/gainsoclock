@@ -12,7 +12,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalQuery } from "./_generated/server";
 import { hasHealthPersonalizationConsent } from "./healthData";
-import { computeUtcDayStreak } from "./fitnessMetrics";
+import { computeUtcDayStreak, toKg } from "./fitnessMetrics";
 import { OPENAI_CHAT_MODEL } from "./openaiConfig";
 
 // Bounds for PR detection (same approach as convex/weeklyReview.ts:
@@ -163,8 +163,14 @@ export const getFeedbackContext = internalQuery({
       }
 
       // PR check (weighted lifts only): heaviest set vs recent prior history.
+      // Compared in kg so a user who switched units mid-history isn't given a
+      // bogus PR — matching convex/weeklyReview.ts. Weights are normalized
+      // with the user's current unit, which is consistent within an exercise
+      // unless they switched units mid-history (accepted approximation — the
+      // store doesn't record per-set units).
       let isPr = false;
       if (topWeight !== undefined) {
+        const topWeightKg = toKg(topWeight, weightUnit);
         const recentLogExercises = await ctx.db
           .query("workoutLogExercises")
           .withIndex("by_exercise", (q) =>
@@ -179,7 +185,7 @@ export const getFeedbackContext = internalQuery({
           .filter((p) => priorLogIds.has(p.workoutLogClientId))
           .slice(0, MAX_PRIOR_SESSIONS_PER_EXERCISE);
 
-        let priorBest: number | undefined;
+        let priorBestKg: number | undefined;
         for (const session of priorSessions) {
           const priorSets = await ctx.db
             .query("workoutSets")
@@ -192,12 +198,13 @@ export const getFeedbackContext = internalQuery({
           for (const s of priorSets) {
             if (!s.completed || s.weight === undefined || s.reps === undefined)
               continue;
-            if (priorBest === undefined || s.weight > priorBest) {
-              priorBest = s.weight;
+            const sWeightKg = toKg(s.weight, weightUnit);
+            if (priorBestKg === undefined || sWeightKg > priorBestKg) {
+              priorBestKg = sWeightKg;
             }
           }
         }
-        isPr = priorBest !== undefined && topWeight > priorBest;
+        isPr = priorBestKg !== undefined && topWeightKg > priorBestKg;
         if (isPr) prCount++;
       }
 
