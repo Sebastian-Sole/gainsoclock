@@ -39,6 +39,12 @@ function stripInlineJson(text: string): string {
   return cleaned.trim();
 }
 
+// Number of trailing (user+assistant) messages sent to OpenAI per request.
+// Keeps prompts well under the model context limit while preserving
+// session-scale memory; long-term memory lives in the user-context block,
+// not raw chat scrollback. Tune later with plan 029's size/cost data.
+const OPENAI_HISTORY_WINDOW = 30;
+
 // ── Tool Definitions ───────────────────────────────────────────
 
 const TOOLS: ChatCompletionTool[] = [
@@ -694,15 +700,17 @@ export const sendMessage = action({
       conversationClientId: args.conversationClientId,
     });
 
-    // 4. Build messages array for OpenAI
+    // 4. Build messages array for OpenAI. Window to the most recent
+    // exchange so prompt size stays bounded as conversations grow.
+    const recentHistory = history
+      .filter((m) => m.role !== "system")
+      .slice(-OPENAI_HISTORY_WINDOW);
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: buildSystemPrompt(context, healthContext) },
-      ...history
-        .filter((m) => m.role !== "system")
-        .map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
+      ...recentHistory.map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
     ];
 
     // 5. Insert placeholder assistant message

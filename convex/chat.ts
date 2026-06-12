@@ -8,6 +8,13 @@ import {
   toolCallValidator,
 } from "./validators";
 
+// Cap how many messages the message queries return. Bounds the client
+// payload and the per-tick streaming re-push cost (Convex reactivity
+// invalidates listMessages on every updateMessageContent patch) without
+// visibly truncating any realistic conversation screen. Tune later with
+// data from plan 029's instrumentation.
+const MESSAGE_QUERY_LIMIT = 200;
+
 // ── Conversations ──────────────────────────────────────────────
 
 export const listConversations = query({
@@ -99,6 +106,8 @@ export const listMessages = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
+    // Fetch the newest N by descending creation order, then restore
+    // chronological order in memory for rendering.
     const messages = await ctx.db
       .query("chatMessages")
       .withIndex("by_conversation", (q) =>
@@ -106,7 +115,8 @@ export const listMessages = query({
           .eq("userId", userId)
           .eq("conversationClientId", args.conversationClientId)
       )
-      .collect();
+      .order("desc")
+      .take(MESSAGE_QUERY_LIMIT);
 
     // Sort by creation time
     messages.sort(
@@ -270,6 +280,8 @@ export const getHistory = internalQuery({
     conversationClientId: v.string(),
   },
   handler: async (ctx, args) => {
+    // Fetch the newest N by descending creation order, then restore
+    // chronological order in memory for the OpenAI prompt.
     const messages = await ctx.db
       .query("chatMessages")
       .withIndex("by_conversation", (q) =>
@@ -277,7 +289,8 @@ export const getHistory = internalQuery({
           .eq("userId", args.userId)
           .eq("conversationClientId", args.conversationClientId)
       )
-      .collect();
+      .order("desc")
+      .take(MESSAGE_QUERY_LIMIT);
 
     messages.sort(
       (a, b) =>
