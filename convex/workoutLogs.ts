@@ -332,6 +332,21 @@ export const update = mutation({
   },
 });
 
+// True once the user has at least one completed workout log. Cheap existence
+// probe for UI gates (e.g. the HealthKit re-ask card) — not a count.
+export const hasAnyLog = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return false;
+    const first = await ctx.db
+      .query("workoutLogs")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    return first !== null;
+  },
+});
+
 export const bulkUpsert = mutation({
   args: {
     logs: v.array(
