@@ -9,7 +9,14 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import OpenAI from "openai";
 import { internal } from "./_generated/api";
-import { action, internalMutation, mutation } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import {
+  action,
+  internalMutation,
+  internalQuery,
+  mutation,
+} from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { OPENAI_VISION_MODEL } from "./openaiConfig";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -124,6 +131,23 @@ Rules:
 - List the key assumptions behind the numbers (e.g. "assumed 300g cooked rice", "assumed pan-fried in ~1 tbsp oil").
 - Set confidence by visual ambiguity: "high" when ingredients and portion are clearly visible, "medium" when some components are hidden or mixed, "low" when sauces, oils, or hidden ingredients make the estimate rough.`;
 
+// ── Ownership helpers ──────────────────────────────────────────
+
+/**
+ * Look up the ownership row for a stored photo. Returns the row when the
+ * given user owns it, or null otherwise (no row, or owned by someone else).
+ * Throws nothing — callers decide how to react to a null result.
+ */
+async function findPhotoOwnerRow(
+  ctx: QueryCtx,
+  storageId: Id<"_storage">
+) {
+  return await ctx.db
+    .query("mealPhotos")
+    .withIndex("by_storage", (q) => q.eq("storageId", storageId))
+    .unique();
+}
+
 // ── Public mutations ───────────────────────────────────────────
 
 /** Step 1 of photo logging: the client uploads the photo to this URL. */
@@ -134,6 +158,22 @@ export const generateMealPhotoUploadUrl = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/** Step 1b of photo logging: the client registers the uploaded photo so
+ *  ownership can be enforced on analyze/discard. */
+export const registerMealPhoto = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    await ctx.db.insert("mealPhotos", {
+      userId,
+      storageId: args.storageId,
+      createdAt: new Date().toISOString(),
+    });
   },
 });
 
@@ -148,7 +188,29 @@ export const discardMealPhoto = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
+    const row = await findPhotoOwnerRow(ctx, args.storageId);
+    // TODO(remove after 1 release): grace window for photos uploaded before
+    // ownership tracking shipped — those have no row, so allow the discard.
+    // Once all clients register on upload (Step 4), a missing row only ever
+    // means a foreign id and this branch can deny instead.
+    if (row && row.userId !== userId) throw new Error("not_photo_owner");
+
     await ctx.storage.delete(args.storageId);
+    if (row) await ctx.db.delete(row._id);
+  },
+});
+
+// ── Internal queries ───────────────────────────────────────────
+
+/**
+ * Actions have no `ctx.db`, so `analyzeMealPhoto` runs the ownership check
+ * through this query. Returns the owner's userId, or null when no row exists.
+ */
+export const getPhotoOwner = internalQuery({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args): Promise<Id<"users"> | null> => {
+    const row = await findPhotoOwnerRow(ctx, args.storageId);
+    return row ? row.userId : null;
   },
 });
 
@@ -159,6 +221,30 @@ export const deleteMealPhoto = internalMutation({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => {
     await ctx.storage.delete(args.storageId);
+  },
+});
+
+const ORPHAN_PHOTO_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Daily sweep: remove meal-photo storage objects (and their ownership rows)
+ * left behind by clients that crashed between upload and discard. The table
+ * is transient and tiny, so a collect+filter scan is fine.
+ */
+export const sweepOrphanPhotos = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cutoff = Date.now() - ORPHAN_PHOTO_MAX_AGE_MS;
+    const rows = await ctx.db.query("mealPhotos").collect();
+    for (const row of rows) {
+      if (new Date(row.createdAt).getTime() >= cutoff) continue;
+      try {
+        await ctx.storage.delete(row.storageId);
+      } catch {
+        // Already gone (e.g. discarded after the row was orphaned) — fine.
+      }
+      await ctx.db.delete(row._id);
+    }
   },
 });
 
@@ -182,6 +268,17 @@ export const analyzeMealPhoto = action({
     );
     if (!isPro) {
       return { status: "error", code: "pro_required" };
+    }
+
+    // Ownership check: the caller must have registered this photo. Clients
+    // always register before analyzing (Step 4), so a non-owning caller here
+    // is the IDOR we're closing — fail generically, don't leak a distinct code.
+    const owner: Id<"users"> | null = await ctx.runQuery(
+      internal.nutritionVision.getPhotoOwner,
+      { storageId: args.storageId }
+    );
+    if (owner !== userId) {
+      return { status: "error", code: "failed" };
     }
 
     const imageUrl = await ctx.storage.getUrl(args.storageId);
