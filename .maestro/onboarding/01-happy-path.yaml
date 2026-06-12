@@ -1,0 +1,83 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - onboarding
+---
+# Onboarding happy path against the SHIPPED sequence:
+#   sign-up -> welcome -> demo-chat -> demo-meals -> demo-workouts
+#   -> founder-note -> healthkit -> paywall -> /(tabs)
+#
+# The paywall is a SOFT paywall: it presents the native RevenueCat sheet and
+# every outcome (purchase, dismiss, RC unavailable) lands on /(tabs). The native
+# sheet is an optional-tap zone — we never assert inside it. Landing anchor is
+# `tab-workouts` (the first /(tabs) screen; settings is reached via a header
+# button, not a tab bar item).
+
+- runFlow: ../common/launch-app.yaml
+- runFlow: ../common/sign-up-email.yaml
+
+# Welcome
+- tapOn:
+    id: "onboarding-welcome-continue"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Demo: chat
+- tapOn:
+    id: "demo-chat-continue"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Demo: meals
+- tapOn:
+    id: "demo-meals-continue"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Demo: workouts
+- tapOn:
+    id: "demo-workouts-continue"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Founder note
+- tapOn:
+    id: "founder-note-continue"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# HealthKit primer -> Continue triggers the system HealthKit prompt (iOS).
+# We always advance whatever the user decides; the native permission dialog is
+# an optional-tap zone.
+- tapOn:
+    id: "onboarding-healthkit-continue"
+- runFlow:
+    when:
+      visible:
+        text: "Don.t Allow"
+    commands:
+      - tapOn:
+          text: "Don.t Allow"
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Paywall: native RevenueCat sheet. Optionally dismiss it; any outcome lands on
+# tabs. Try a few common close affordances, but don't fail if none are present.
+- runFlow:
+    when:
+      visible:
+        text: "Close"
+    commands:
+      - tapOn:
+          text: "Close"
+- runFlow:
+    when:
+      visible:
+        text: "X"
+    commands:
+      - tapOn:
+          text: "X"
+
+# Soft paywall always lands on /(tabs).
+- assertVisible:
+    id: "tab-workouts"
+    timeout: 30000

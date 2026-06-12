@@ -1,0 +1,24 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - canary
+  - weekly
+---
+# Canary Walker — weekly CI run (.github/workflows/canary-walker.yml).
+#
+# Exercises the three ship-critical happy paths against the SHIPPED screens:
+#   1. onboarding: sign-up -> demos -> founder-note -> healthkit -> paywall -> tabs
+#   2. workout:    start empty -> add exercise -> log a set -> finish
+#   3. nutrition:  quick-add a meal
+#
+# Each sub-flow is self-contained: it re-launches with clearState and re-runs
+# onboarding, so the three are independent (a failure in one does not corrupt
+# the others). The workflow then runs the PostHog event-chain assertion
+# (.github/scripts/canary-posthog-assert.mjs) over the canary user.
+#
+# Credentials come from -e EMAIL / -e PASSWORD (the workflow passes the canary
+# account). Native sheets (RevenueCat paywall, HealthKit prompt) are optional-
+# tap zones; the soft paywall always lands on /(tabs).
+
+- runFlow: ./onboarding/01-happy-path.yaml
+- runFlow: ./workout/log-workout.yaml
+- runFlow: ./nutrition/log-meal.yaml

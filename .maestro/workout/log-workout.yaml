@@ -1,48 +1,80 @@
 appId: com.soleinnovations.fitbull
 tags:
   - workout
-  - critical-path
 ---
-# Log a single set end-to-end. Assumes the user is signed in; run after onboarding flow
-# or seed the simulator with a signed-in state via Maestro Studio / runScript.
+# Log a workout end-to-end against the shipped workout path.
+#
+# A fresh install has no templates and an empty exercise library, so the
+# deterministic route is: Start Empty Workout -> Add Exercise -> Create New
+# Exercise -> Reps & Weight -> name -> sets -> rest -> Add Exercise. That
+# yields set rows we can fill via the forwarded set-row testIDs.
+#
+# Prereq: reach /(tabs) by completing onboarding (01-happy-path leaves us there).
 
-- runFlow: ../common/launch-app.yaml
+- runFlow: ../onboarding/01-happy-path.yaml
 
-# Navigate to the workout tab
+# Workouts tab (the first /(tabs) screen is already the workouts screen, but tap
+# the tab explicitly to be robust against landing screen changes).
 - tapOn:
-    id: "tab-workout"
+    id: "tab-workouts"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Start an empty workout -> active workout screen.
+- tapOn:
+    id: "start-empty-workout"
 - assertVisible:
-    id: "workout-screen"
+    id: "workout-active-screen"
+    timeout: 10000
 
-# Start a new workout from a template (first template in the list)
+# Add an exercise via the create wizard (exercise/create has no testIDs, so we
+# drive it with on-screen text; the picker library is empty on a fresh install).
 - tapOn:
-    id: "workout-start-from-template"
+    id: "workout-add-exercise"
 - tapOn:
-    id: "template-item-0"
+    text: "Create New Exercise"
+- tapOn:
+    text: "Reps & Weight"
+- tapOn:
+    text: "Next"
 
-# Log the first set
+# Step 1: name (the name field auto-focuses).
+- inputText: "Bench Press"
+- hideKeyboard
+- tapOn:
+    text: "Next"
+
+# Step 2: sets & reps (defaults are fine).
+- tapOn:
+    text: "Next"
+
+# Step 3: rest time -> save.
+- tapOn:
+    text: "Add Exercise"
+
+# Back on the active screen with a set row.
 - assertVisible:
-    id: "workout-active"
-- inputText: "50"
-  # target the first weight field
-  into:
+    id: "workout-active-screen"
+    timeout: 10000
+
+# Fill the first set: weight then reps, then mark complete.
+- tapOn:
     id: "set-0-weight"
-- inputText: "8"
-  into:
+- inputText: "60"
+- tapOn:
     id: "set-0-reps"
+- inputText: "5"
+- hideKeyboard
 - tapOn:
     id: "set-0-complete"
 
-# Verify the set shows as completed
-- assertVisible:
-    id: "set-0-completed-indicator"
-
-# Finish workout
+# Finish: End Workout -> Alert "Save" (by text; native alert).
 - tapOn:
     id: "workout-finish"
 - tapOn:
-    id: "workout-finish-confirm"
+    text: "Save"
 
-# Should land back on the workout tab with the new log in history
+# Completion screen.
 - assertVisible:
-    id: "workout-screen"
+    id: "workout-complete-screen"
+    timeout: 15000
