@@ -1,11 +1,13 @@
-import React from 'react';
-import { View, ScrollView, Pressable, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, View, ScrollView, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, Pin, Clock, Users, Pencil, Trash2, Sparkles } from 'lucide-react-native';
+import { useAction } from 'convex/react';
 
 import { Icon } from '@/components/ui/icon';
+import { api } from '@/convex/_generated/api';
 import { useRecipeStore } from '@/stores/recipe-store';
 import { lightHaptic } from '@/lib/haptics';
 
@@ -16,6 +18,8 @@ export default function RecipeDetailScreen() {
   const recipe = useRecipeStore((s) => s.getRecipe(id));
   const toggleSave = useRecipeStore((s) => s.toggleSaveRecipe);
   const deleteRecipe = useRecipeStore((s) => s.deleteRecipe);
+  const generateMacros = useAction(api.nutritionVision.generateRecipeMacros);
+  const [generating, setGenerating] = useState(false);
 
   const handleDelete = () => {
     Alert.alert('Delete Recipe', 'Are you sure you want to delete this recipe?', [
@@ -146,17 +150,45 @@ export default function RecipeDetailScreen() {
           </View>
         )}
 
-        {/* AI Macro Generation - TODO: Gate behind premium */}
+        {/* AI Macro Generation */}
         {!recipe.macros && (
           <Pressable
-            onPress={() => {
-              // TODO: Implement AI macro generation when premium subscription is integrated
-              Alert.alert('Coming Soon', 'AI-powered macro calculation will be available with a premium subscription.');
+            accessibilityRole="button"
+            accessibilityLabel="Generate macros with AI"
+            onPress={async () => {
+              if (generating || !recipe) return;
+              setGenerating(true);
+              try {
+                const result = await generateMacros({
+                  title: recipe.title,
+                  servings: recipe.servings,
+                  ingredients: recipe.ingredients.map((i) => ({
+                    name: i.name, amount: i.amount, unit: i.unit,
+                  })),
+                });
+                if (result.status === 'ok') {
+                  useRecipeStore.getState().updateRecipe(recipe.id, {
+                    macros: result.estimate.macros,
+                  });
+                } else if (result.code === 'pro_required') {
+                  Alert.alert('Pro Required', 'AI macro estimation is a Pro feature. Upgrade from Settings to continue.');
+                } else {
+                  Alert.alert("Couldn't estimate macros", 'Please try again, or enter macros manually.');
+                }
+              } finally {
+                setGenerating(false);
+              }
             }}
             className="mb-4 flex-row items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 py-3"
           >
-            <Icon as={Sparkles} size={18} className="text-primary" />
-            <Text className="font-medium text-primary">Generate Macros with AI</Text>
+            {generating ? (
+              <ActivityIndicator size="small" color="hsl(var(--primary))" />
+            ) : (
+              <>
+                <Icon as={Sparkles} size={18} className="text-primary" />
+                <Text className="font-medium text-primary">Generate Macros with AI</Text>
+              </>
+            )}
           </Pressable>
         )}
 
