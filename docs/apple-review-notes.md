@@ -92,9 +92,12 @@ non-paying user do?"
 
 **Response:**
 
-> The personalised plan reveal (aha moment — `app/onboarding/aha.tsx`) is
-> shown BEFORE the paywall and remains available after the paywall is
-> dismissed. A non-paying user can:
+> The pre-paywall experience (demo screens — `app/onboarding/demo-chat.tsx`,
+> `demo-meals.tsx`, `demo-workouts.tsx`, plus `founder-note.tsx`) is shown
+> BEFORE the soft paywall. The paywall is non-blocking: every outcome
+> (purchase, dismissal, or unauthenticated fall-through) routes to the home
+> tabs via `router.replace('/(tabs)')` (`app/onboarding/paywall.tsx:64,181`).
+> A non-paying user can:
 >
 > - See their personalised calorie / schedule / summary plan.
 > - Log workouts and view their history (Mural).
@@ -118,18 +121,28 @@ within the app and delete all user data."
 
 > Path: `app/settings/index.tsx` → "Delete account" (top section, visible
 > without scrolling on iPhone SE). The confirmation sheet calls
-> `convex/user.ts` → `deleteAccount` which:
+> `api.onboarding.deleteAccount` (`app/settings/delete-account.tsx:44`),
+> which schedules the internal cascade `deleteAccountCascade`
+> (`convex/onboarding.ts:500-630`). The cascade:
 >
-> - Deletes all user rows across every domain table (intake, consent,
->   workouts, meals, plans, coach messages, subscription, sessions).
-> - Calls PostHog `/api/person/{distinct_id}/` DELETE to purge analytics.
-> - Calls the HealthKit `externalUUID` cleanup in `lib/healthkit.ts`.
-> - Invalidates RevenueCat appUserID via REST.
+> - Deletes user rows across the workout, template, exercise, meal, recipe,
+>   nutrition-goal, plan, chat, subscription, profile, consent, onboarding,
+>   AI-safety-incident, and `@convex-dev/auth` session/account tables, then
+>   the user row.
+> - Calls PostHog `deletePostHogUser` to purge analytics.
+> - Returns `clientCleanupHint.healthkit` so the client performs the
+>   HealthKit `externalUUID` cleanup.
 >
-> Confirmation is synchronous; the user is signed out on completion. The
-> flow is exercised by a Maestro critical-path flow in
-> `.maestro/settings/delete-account.yaml` (to be added if reviewer asks
-> for video evidence).
+> Known gap (under remediation): the cascade does NOT currently delete
+> `externalWorkouts`, `healthDailyMetrics`, or `weeklyReviews`. See
+> `docs/compliance/age-gate-status.md` for the full deletion-coverage matrix
+> and severity note. Do not assert synchronous deletion of imported Apple
+> Health data until that gap is closed.
+>
+> The cascade is asynchronous (paginated across Convex limits); the client
+> signs out immediately on completion. A Maestro critical-path flow
+> (`.maestro/settings/delete-account.yaml`) can be added if the reviewer
+> asks for video evidence.
 
 ---
 
@@ -137,8 +150,8 @@ within the app and delete all user data."
 
 - Privacy Nutrition Label: see `docs/privacy-nutrition-label.md` for the
   exact declared categories in ASC.
-- Age gate: 13+ at sign-up (`components/onboarding/age-gate-block.tsx`).
-  Per-region stricter gates (16+ in NO/SE/DK under Art. 8 GDPR) are applied
-  at consent step (`app/onboarding/consent.tsx`), documented in
-  `docs/compliance/age-gate.md`.
+- Age gate: decision of record is 16+ (`docs/compliance/age-gate.md`).
+  Current enforcement status is under review — see
+  `docs/compliance/age-gate-status.md`. Do not assert that an in-app age gate
+  is active until that status is resolved.
 - TestFlight contact: sebastian.solelt@gmail.com for reviewer questions.

@@ -37,7 +37,13 @@ Shown in `AgeGateBlock`:
 "I'll come back later" path that would allow the user to continue through
 intake with a flagged profile — the decision is binding for the session.
 
-## Where it lives in code
+## Where it lived in code (as designed)
+
+> **Historical — not current.** This table records the enforcement as the
+> decision intended it. As of `4500535` these files/mutations are removed or
+> unreachable; see the Status section below and
+> `docs/compliance/age-gate-status.md`. The filenames below are kept only to
+> document the original design.
 
 | Layer | File | Behaviour |
 | --- | --- | --- |
@@ -61,6 +67,18 @@ deliberately unforgiving. A support path (email) exists outside this flow.
   independently; this gate is a product-level guard in addition.
 
 If the threshold ever moves, update `parseAgeYears` in `lib/format.ts`, the
-client bounds in `app/onboarding/healthkit-prefill.tsx` and
-`app/onboarding/manual-stats.tsx`, and `assertBounds` in
-`convex/onboarding.ts` in the same commit.
+client bounds on whatever intake screen collects age, and `assertBounds` in
+`convex/onboarding.ts` in the same commit. (The original intake screens named
+here have since been removed — see the Status section below.)
+
+## Status (2026-06-12)
+
+**This decision is not currently enforced in the shipped app.** As of commit
+`4500535`, onboarding collects no age, the client `AgeGateBlock` and the
+intake screens that once mounted it no longer exist, and the server bound in
+`assertBounds` guards a mutation (`completeOnboardingV2`) that no client calls.
+The decision text above is retained as the decision of record; the gap between
+it and the shipped product, the supporting evidence, and the operator options
+(reinstate the gate, or formally revise this decision) are documented in
+`docs/compliance/age-gate-status.md`. Resolve that memo before treating this
+document as describing live behaviour.
