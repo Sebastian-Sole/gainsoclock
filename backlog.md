@@ -31,3 +31,8 @@ Replace `listMeta` (fixed 200 logs) with a date-range query. Fetch current month
 - These are minor AI prompt context losses, not user-facing data
 
 **Impact:** Likely the single biggest DB I/O driver if chat is used frequently. Every message triggers multiple full-table scans.
+
+**Trigger (added 2026-06-12, plan 029):** the `ai_context_size` PostHog event
+now fires per chat message. Execute this optimization when EITHER holds for a
+weekly window: p95 `systemPromptChars` > 24,000, or p95 `totalWorkouts` > 300
+among chat users. Check: PostHog → events → ai_context_size, breakdown p95.

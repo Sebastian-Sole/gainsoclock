@@ -705,13 +705,30 @@ export const sendMessage = action({
     const recentHistory = history
       .filter((m) => m.role !== "system")
       .slice(-OPENAI_HISTORY_WINDOW);
+    const systemPrompt = buildSystemPrompt(context, healthContext);
     const messages: ChatCompletionMessageParam[] = [
-      { role: "system", content: buildSystemPrompt(context, healthContext) },
+      { role: "system", content: systemPrompt },
       ...recentHistory.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       })),
     ];
+
+    // Cost tripwire for backlog.md LATER #2 — counts only, never content.
+    void ctx
+      .runAction(internal.analytics.captureServer, {
+        distinctId: userId,
+        eventName: "ai_context_size",
+        properties: {
+          systemPromptChars: systemPrompt.length,
+          historyMessages: recentHistory.length,
+          historyMessagesRaw: history.length,
+          historyChars: recentHistory.reduce((n, m) => n + m.content.length, 0),
+          totalWorkouts: context.stats.totalWorkouts,
+          exerciseCount: context.exercises.length,
+        },
+      })
+      .catch(() => {});
 
     // 5. Insert placeholder assistant message
     const assistantMessageId = await ctx.runMutation(
