@@ -31,7 +31,7 @@ interface MealLogState {
     macros: { calories: number; protein: number; carbs: number; fat: number };
     notes?: string;
     loggedAt: string;
-  }>) => void;
+  }>, date: string) => void;
 }
 
 function todayLocal() {
@@ -99,7 +99,7 @@ export const useMealLogStore = create<MealLogState>()(
         recomputeProteinNudgeFromStore();
       },
 
-      hydrateFromServer: (meals) => {
+      hydrateFromServer: (meals, date) => {
         const localMeals = get().todayMeals;
         const localById = new Map(localMeals.map((m) => [m.id, m]));
 
@@ -127,14 +127,15 @@ export const useMealLogStore = create<MealLogState>()(
           }
         }
 
-        // Preserve local-only meals (not yet on server)
+        // Preserve local-only meals for the SAME day (not yet on server).
+        // Meals from other days are stale leftovers — drop them.
         for (const m of localMeals) {
-          if (!seenIds.has(m.id)) {
+          if (!seenIds.has(m.id) && m.date === date) {
             merged.push(m);
           }
         }
 
-        set({ todayMeals: merged, mealsDate: todayLocal() });
+        set({ todayMeals: merged, mealsDate: date });
         recomputeProteinNudgeFromStore();
       },
     }),
