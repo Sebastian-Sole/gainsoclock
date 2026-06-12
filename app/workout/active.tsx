@@ -35,22 +35,25 @@ interface MemoizedSetRowProps {
   set: WorkoutSet;
   index: number;
   exerciseId: string;
-  exercise: Exercise;
+  restTimeSeconds: number;
   onUpdateSet: (exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => void;
-  onToggleSet: (exerciseId: string, setId: string, exercise: Exercise) => void;
+  onToggleSet: (exerciseId: string, setId: string, restTimeSeconds: number, wasCompleted: boolean) => void;
   onRemoveSet: (exerciseId: string, setId: string) => void;
 }
 
 const MemoizedSetRow = React.memo(function MemoizedSetRow({
-  set, index, exerciseId, exercise, onUpdateSet, onToggleSet, onRemoveSet,
+  set, index, exerciseId, restTimeSeconds, onUpdateSet, onToggleSet, onRemoveSet,
 }: MemoizedSetRowProps) {
   const handleUpdate = useCallback(
     (updates: Partial<WorkoutSet>) => onUpdateSet(exerciseId, set.id, updates),
     [onUpdateSet, exerciseId, set.id]
   );
   const handleToggle = useCallback(
-    () => onToggleSet(exerciseId, set.id, exercise),
-    [onToggleSet, exerciseId, set.id, exercise]
+    // Pass the facts the toggle needs (rest time + prior completion state)
+    // instead of the whole `exercise` object, so this row keeps prop identity
+    // when a sibling set in the same exercise is edited.
+    () => onToggleSet(exerciseId, set.id, restTimeSeconds, set.completed),
+    [onToggleSet, exerciseId, set.id, restTimeSeconds, set.completed]
   );
   const handleRemove = useCallback(
     () => onRemoveSet(exerciseId, set.id),
@@ -115,17 +118,15 @@ export default function ActiveWorkoutScreen() {
     label: string;
   } | null>(null);
 
-  const handleToggleSet = useCallback((exerciseId: string, setId: string, exercise: Exercise) => {
+  const handleToggleSet = useCallback((exerciseId: string, setId: string, restTimeSeconds: number, wasCompleted: boolean) => {
     Keyboard.dismiss();
-    const set = exercise.sets.find((s) => s.id === setId);
-    const wasCompleted = set?.completed ?? false;
 
     toggleSetComplete(exerciseId, setId);
     mediumHaptic();
 
     // Start rest timer if set was just completed
-    if (!wasCompleted && exercise.restTimeSeconds > 0) {
-      startRestTimer(exercise.restTimeSeconds);
+    if (!wasCompleted && restTimeSeconds > 0) {
+      startRestTimer(restTimeSeconds);
     }
   }, [toggleSetComplete, startRestTimer]);
 
@@ -447,7 +448,7 @@ export default function ActiveWorkoutScreen() {
                     set={set}
                     index={setIndex}
                     exerciseId={exercise.id}
-                    exercise={exercise}
+                    restTimeSeconds={exercise.restTimeSeconds}
                     onUpdateSet={handleUpdateSet}
                     onToggleSet={handleToggleSet}
                     onRemoveSet={handleRemoveSet}
