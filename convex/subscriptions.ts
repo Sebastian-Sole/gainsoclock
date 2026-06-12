@@ -590,8 +590,16 @@ export const syncFromClient = action({
 });
 
 // Internal mutation: upsert subscription record (called by syncFromClient).
-// Maps the server-verified entitlement onto the state machine — `isActive`
-// becomes `pro` (rc_paid) or `free`.
+//
+// This is the client verification path. The RevenueCat webhook is the
+// authoritative writer of the rich state machine (`trial`/`grace`/`pro`/...);
+// this path must not clobber it. A row is "webhook-managed" once a webhook has
+// stamped it with `lastEventTimestampMs`. For such a row the client path may
+// only (a) refresh verification metadata and (b) promote from `free`/`lapsed`
+// when RC's REST API confirms an active entitlement — it must never demote a
+// webhook-managed row (the webhook delivers EXPIRATION authoritatively) nor
+// overwrite a rich status it doesn't understand. Rows the webhook has never
+// touched fall back to the legacy binary `pro` (rc_paid) / `free` mapping.
 export const upsertSubscription = internalMutation({
   args: {
     userId: v.id("users"),
@@ -615,7 +623,55 @@ export const upsertSubscription = internalMutation({
       ? "rc_paid"
       : undefined;
 
-    if (primary) {
+    const webhookManaged = primary?.lastEventTimestampMs != null;
+
+    if (primary && webhookManaged) {
+      const entitledNow =
+        primary.status === "pro" ||
+        primary.status === "trial" ||
+        primary.status === "grace";
+      if (!args.isActive) {
+        // Webhook delivers EXPIRATION authoritatively — never demote here.
+        // Record that we re-verified, nothing else.
+        await ctx.db.patch(primary._id, {
+          lastVerifiedAt: now,
+          updatedAt: now,
+        });
+      } else if (
+        entitledNow ||
+        (primary.status !== "free" && primary.status !== "lapsed")
+      ) {
+        // Already entitled (or in a state we don't understand, e.g. "paused"):
+        // refresh verification metadata only; leave the rich state untouched.
+        await ctx.db.patch(primary._id, {
+          productId: args.productId,
+          store: args.store,
+          expiresAt: args.expiresAt,
+          lastVerifiedAt: now,
+          updatedAt: now,
+        });
+      } else {
+        // Webhook-managed but currently `free`/`lapsed` while RC's REST API
+        // confirms an active entitlement → the webhook missed a purchase.
+        // Promote, preserving an in-flight trial if one is recorded.
+        const trialActive =
+          primary.trialExpiresAt != null && primary.trialExpiresAt > now;
+        await ctx.db.patch(primary._id, {
+          revenuecatAppUserId: args.userId,
+          entitlement: "pro",
+          isActive: true,
+          productId: args.productId,
+          store: args.store,
+          expiresAt: args.expiresAt,
+          status: trialActive ? "trial" : "pro",
+          source: "rc_paid",
+          willAutoRenew: true,
+          lastVerifiedAt: now,
+          updatedAt: now,
+        });
+      }
+    } else if (primary) {
+      // No webhook has ever touched this row — legacy binary mapping.
       await ctx.db.patch(primary._id, {
         revenuecatAppUserId: args.userId,
         entitlement: "pro",
@@ -757,6 +813,29 @@ export const updateFromWebhook = internalMutation({
                 nowIso,
               ),
             };
+            // Demote the losing source row. RC keys the TRANSFER event to the
+            // winner only, so the losing branch in `computeNextState` never
+            // fires for this event — without this patch the source row keeps
+            // its `pro` state and one subscription grants two Pro accounts.
+            if (sourceRow._id !== workingRow?._id) {
+              await ctx.db.patch(sourceRow._id, {
+                status: "free",
+                source: undefined,
+                trialExpiresAt: undefined,
+                willAutoRenew: false,
+                expiresAt: undefined,
+                isActive: false,
+                sourceHistory: appendHistory(
+                  rowToState(sourceRow).sourceHistory,
+                  "transfer_away",
+                  "transfer_away",
+                  nowIso,
+                ),
+                updatedAt: nowIso,
+                lastEventId: event.id,
+                lastEventTimestampMs: event.event_timestamp_ms,
+              });
+            }
             break;
           }
         }
