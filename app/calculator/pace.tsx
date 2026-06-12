@@ -8,6 +8,7 @@ import { useColorScheme } from 'nativewind';
 import { Colors } from '@/constants/theme';
 import { useSettingsStore, type DistanceUnit } from '@/stores/settings-store';
 import { cn } from '@/lib/utils';
+import { parseLocaleNumber } from '@/lib/format';
 
 function formatPace(totalMinutes: number): string {
   if (!isFinite(totalMinutes) || totalMinutes <= 0) return '--:--';
@@ -36,7 +37,7 @@ export default function PaceCalculator() {
 
   const handleCalculate = () => {
     Keyboard.dismiss();
-    const d = parseFloat(distance);
+    const d = parseLocaleNumber(distance) ?? NaN;
     const h = parseInt(hours || '0', 10);
     const m = parseInt(minutes || '0', 10);
     const s = parseInt(seconds || '0', 10);

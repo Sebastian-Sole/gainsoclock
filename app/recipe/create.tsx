@@ -15,6 +15,7 @@ import { Plus, Trash2, ChevronDown, ChevronUp, Lock } from 'lucide-react-native'
 import { lightHaptic } from '@/lib/haptics';
 import { useRecipeStore } from '@/stores/recipe-store';
 import type { Ingredient, Macros } from '@/lib/types';
+import { parseLocaleNumber } from '@/lib/format';
 
 const SOURCE_TAGS = ['AI Generated', 'User Created'];
 
@@ -164,7 +165,7 @@ export default function CreateRecipeScreen() {
         const current = ing.macros ?? { calories: 0, protein: 0, carbs: 0, fat: 0 };
         return {
           ...ing,
-          macros: { ...current, [field]: parseFloat(value) || 0 },
+          macros: { ...current, [field]: parseLocaleNumber(value) || 0 },
         };
       })
     );

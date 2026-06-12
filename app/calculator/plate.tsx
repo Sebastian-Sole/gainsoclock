@@ -8,6 +8,7 @@ import { useColorScheme } from 'nativewind';
 import { Colors } from '@/constants/theme';
 import { useSettingsStore } from '@/stores/settings-store';
 import { cn } from '@/lib/utils';
+import { parseLocaleNumber } from '@/lib/format';
 
 type PlateUnit = 'lbs' | 'kg';
 
@@ -125,7 +126,7 @@ export default function PlateCalculator() {
   const [targetWeight, setTargetWeight] = useState('');
 
   const results = useMemo(() => {
-    const w = parseFloat(targetWeight);
+    const w = parseLocaleNumber(targetWeight) ?? NaN;
     if (isNaN(w) || w <= 0) return null;
 
     // Convert input to both units

@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { useHistoryStore } from '@/stores/history-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { isHealthKitAvailable } from '@/lib/healthkit';
+import { parseLocaleNumber } from '@/lib/format';
 
 type Sex = 'male' | 'female';
 type ActivitySource = 'app_history' | 'manual' | 'apple_health';
@@ -132,8 +133,8 @@ export default function CalorieCalculator() {
 
   const handleCalculate = () => {
     const a = parseInt(age, 10);
-    const w = parseFloat(weight);
-    const h = parseFloat(height);
+    const w = parseLocaleNumber(weight) ?? NaN;
+    const h = parseLocaleNumber(height) ?? NaN;
     if (isNaN(a) || isNaN(w) || isNaN(h)) return;
 
     const bmr = calculateBMR(sex, w, h, a);
