@@ -1,5 +1,6 @@
 "use node";
 
+import { createHmac } from "node:crypto";
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 
@@ -47,6 +48,20 @@ function unsubscribeUrl(userId: string, token: string): string {
     process.env.CONVEX_SITE_URL?.replace(/\/$/, "") ?? "https://fitbull.app";
   const params = new URLSearchParams({ user: userId, token });
   return `${base}/webhooks/email/unsubscribe?${params.toString()}`;
+}
+
+/**
+ * HMAC-SHA256(userId) keyed on UNSUBSCRIBE_TOKEN_SECRET, hex-encoded.
+ * Returns null when the secret is unset — callers must skip the send and
+ * log loudly (an unsigned unsubscribe link is worse than a delayed email).
+ *
+ * V8-runtime twin: `unsubscribeTokenV8` in convex/http.ts. The two
+ * implementations MUST produce identical output; change them in lockstep.
+ */
+function unsubscribeTokenNode(userId: string): string | null {
+  const secret = process.env.UNSUBSCRIBE_TOKEN_SECRET;
+  if (!secret) return null;
+  return createHmac("sha256", secret).update(userId).digest("hex");
 }
 
 function trialReminderTemplate(args: {
@@ -103,13 +118,19 @@ export const sendTrialReminder48h = internalAction({
     userId: v.id("users"),
     email: v.string(),
     trialExpiresAt: v.string(),
-    unsubscribeToken: v.string(),
     storefrontCountry: v.optional(v.string()),
   },
   handler: async (_ctx, args) => {
+    const token = unsubscribeTokenNode(args.userId);
+    if (!token) {
+      console.error(
+        "[Email] UNSUBSCRIBE_TOKEN_SECRET not set — skipping send",
+      );
+      return;
+    }
     const { html, text } = trialReminderTemplate({
       trialExpiresAt: args.trialExpiresAt,
-      unsubscribe: unsubscribeUrl(args.userId, args.unsubscribeToken),
+      unsubscribe: unsubscribeUrl(args.userId, token),
     });
     // storefrontCountry is the V1.1 localisation hook — English V1.
     void args.storefrontCountry;
@@ -128,11 +149,17 @@ export const sendDcsa6Month = internalAction({
   args: {
     userId: v.id("users"),
     email: v.string(),
-    unsubscribeToken: v.string(),
   },
   handler: async (_ctx, args) => {
+    const token = unsubscribeTokenNode(args.userId);
+    if (!token) {
+      console.error(
+        "[Email] UNSUBSCRIBE_TOKEN_SECRET not set — skipping send",
+      );
+      return;
+    }
     const { html, text } = dcsa6MonthTemplate({
-      unsubscribe: unsubscribeUrl(args.userId, args.unsubscribeToken),
+      unsubscribe: unsubscribeUrl(args.userId, token),
     });
     await sendViaResend({
       from: FROM_ADDRESS,

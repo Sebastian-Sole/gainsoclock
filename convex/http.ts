@@ -27,6 +27,27 @@ function timingSafeEqualString(a: string, b: string): boolean {
   return mismatch === 0;
 }
 
+/** HMAC-SHA256(userId) hex — V8-runtime twin of email.ts's node helper
+ *  (`unsubscribeTokenNode`). The two implementations MUST produce identical
+ *  output; change them in lockstep. */
+async function unsubscribeTokenV8(
+  userId: string,
+  secret: string,
+): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(userId));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 function extractBearer(header: string | null): string | null {
   if (!header) return null;
   if (header.startsWith("Bearer ")) return header.slice("Bearer ".length);
@@ -118,13 +139,24 @@ http.route({
     if (!userId || !token) {
       return new Response("Bad Request", { status: 400 });
     }
-    try {
-      await ctx.runMutation(internal.subscriptionCrons.markEmailOptOut, {
-        userId,
-        token,
-      });
-    } catch (error) {
-      console.error("[Email] unsubscribe failed:", error);
+    const secret = process.env.UNSUBSCRIBE_TOKEN_SECRET;
+    if (!secret) {
+      // Fail closed: with no secret we cannot verify the HMAC, so no opt-out
+      // happens. Return the generic 200 — validity must not leak.
+      console.error(
+        "[Email] UNSUBSCRIBE_TOKEN_SECRET not set — cannot verify unsubscribe token",
+      );
+    } else {
+      try {
+        const expected = await unsubscribeTokenV8(userId, secret);
+        if (timingSafeEqualString(expected, token)) {
+          await ctx.runMutation(internal.subscriptionCrons.markEmailOptOut, {
+            userId,
+          });
+        }
+      } catch (error) {
+        console.error("[Email] unsubscribe failed:", error);
+      }
     }
     return new Response(
       "You have been unsubscribed from Fitbull legal/billing reminder emails.",
