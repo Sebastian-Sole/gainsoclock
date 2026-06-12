@@ -44,7 +44,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useHealthImport } from "@/hooks/use-health-import";
 import { useHealthKit } from "@/hooks/use-healthkit";
-import { usePurchases } from "@/hooks/use-purchases";
+import { logOutPurchases, usePurchases } from "@/hooks/use-purchases";
 import { requestHealthImportPermissions } from "@/lib/healthkit";
 import { NumericInput } from "@/components/shared/numeric-input";
 import { REST_TIME_PRESETS } from "@/lib/constants";
@@ -107,17 +107,7 @@ export default function SettingsScreen() {
           void cancelAllNotifications().catch((err: unknown) =>
             console.warn("[Notifications] cancelAllNotifications failed:", err)
           );
-          if (Platform.OS !== "web") {
-            try {
-              // eslint-disable-next-line @typescript-eslint/no-require-imports
-              const Purchases = require("react-native-purchases").default;
-              Purchases?.logOut?.().catch((err: unknown) =>
-                console.warn("[Purchases] logOut failed:", err)
-              );
-            } catch {
-              // RevenueCat not available
-            }
-          }
+          void logOutPurchases();
           void signOut();
         },
       },

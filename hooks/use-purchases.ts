@@ -48,6 +48,19 @@ try {
   console.warn("[Purchases] react-native-purchases-ui not available:", e);
 }
 
+/**
+ * Log the RevenueCat SDK out of the current app user. Safe to call on web
+ * (no-op) and when the native module is unavailable. Never throws.
+ */
+export async function logOutPurchases(): Promise<void> {
+  if (Platform.OS === "web" || !Purchases?.logOut) return;
+  try {
+    await Purchases.logOut();
+  } catch (err) {
+    console.warn("[Purchases] logOut failed:", err);
+  }
+}
+
 export type CustomerCenterResult =
   | "opened"
   | "fallback_url"
