@@ -17,6 +17,7 @@ import {
   query,
 } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
+import { toKg } from "./fitnessMetrics";
 import { OPENAI_CHAT_MODEL } from "./openaiConfig";
 import {
   weeklyReviewRecommendationValidator,
@@ -71,7 +72,6 @@ const MAX_PRIOR_LOGS = 60;
 const MAX_HISTORY_SCAN_PER_EXERCISE = 40;
 const MAX_PRIOR_SESSIONS_PER_EXERCISE = 8;
 const MAX_HIGHLIGHT_EXERCISES = 15;
-const LBS_TO_KG = 0.45359237;
 const REGENERATE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 // ── Small helpers ──────────────────────────────────────────────
@@ -108,8 +108,7 @@ async function buildWeekStats(
     .query("userSettings")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .unique();
-  const toKg = (weight: number): number =>
-    settings?.weightUnit === "lbs" ? weight * LBS_TO_KG : weight;
+  const weightUnit = settings?.weightUnit ?? "kg";
 
   // 1. Workouts in [weekStart, weekStart+7d). `completedAt` is full ISO,
   // so lexicographic bounds against "YYYY-MM-DD" give the half-open week.
@@ -152,7 +151,7 @@ async function buildWeekStats(
         if (!s.completed) continue;
         totalSets++;
         if (s.reps !== undefined && s.weight !== undefined) {
-          const weightKg = toKg(s.weight);
+          const weightKg = toKg(s.weight, weightUnit);
           totalVolumeKg += s.reps * weightKg;
           const best = weekBestByExercise.get(le.exerciseClientId);
           if (
@@ -225,7 +224,7 @@ async function buildWeekStats(
       for (const s of sets) {
         if (!s.completed || s.weight === undefined || s.reps === undefined)
           continue;
-        const weightKg = toKg(s.weight);
+        const weightKg = toKg(s.weight, weightUnit);
         if (sessionBest === undefined || weightKg > sessionBest) {
           sessionBest = weightKg;
         }

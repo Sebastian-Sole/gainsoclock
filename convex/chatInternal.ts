@@ -1,5 +1,6 @@
 import { internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { computeUtcDayStreak } from "./fitnessMetrics";
 
 /**
  * Gathers all user context needed to build the AI system prompt.
@@ -106,17 +107,7 @@ export const getUserContext = internalQuery({
     const logDates = new Set(
       allLogs.map((l) => l.completedAt.split("T")[0])
     );
-    let streak = 0;
-    const checkDate = new Date(now);
-    while (true) {
-      const dateStr = checkDate.toISOString().split("T")[0];
-      if (logDates.has(dateStr)) {
-        streak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      } else {
-        break;
-      }
-    }
+    const streak = computeUtcDayStreak(logDates, now);
 
     // 6. Exercise performance history (per-exercise recent sets)
     // Batch-fetch ALL workoutLogExercises and workoutSets for this user (avoids N+1)

@@ -12,6 +12,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalQuery } from "./_generated/server";
 import { hasHealthPersonalizationConsent } from "./healthData";
+import { computeUtcDayStreak } from "./fitnessMetrics";
 import { OPENAI_CHAT_MODEL } from "./openaiConfig";
 
 // Bounds for PR detection (same approach as convex/weeklyReview.ts:
@@ -203,24 +204,13 @@ export const getFeedbackContext = internalQuery({
       exercises.push({ name, topSetLabel, isPr });
     }
 
-    // Current streak (consecutive days with a workout, ending today) —
-    // same algorithm as convex/chatInternal.ts.
+    // Current streak (consecutive days with a workout, ending today).
     const allLogs = await ctx.db
       .query("workoutLogs")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
     const logDates = new Set(allLogs.map((l) => l.completedAt.split("T")[0]));
-    let streak = 0;
-    const checkDate = new Date();
-    while (true) {
-      const dateStr = checkDate.toISOString().split("T")[0];
-      if (logDates.has(dateStr)) {
-        streak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      } else {
-        break;
-      }
-    }
+    const streak = computeUtcDayStreak(logDates);
 
     // Last 7 days of health metrics (newest first via the date index).
     // Only included in the AI prompt when the user has granted
