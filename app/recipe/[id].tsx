@@ -182,7 +182,7 @@ export default function RecipeDetailScreen() {
             className="mb-4 flex-row items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 py-3"
           >
             {generating ? (
-              <ActivityIndicator size="small" color="hsl(var(--primary))" />
+              <ActivityIndicator size="small" />
             ) : (
               <>
                 <Icon as={Sparkles} size={18} className="text-primary" />
