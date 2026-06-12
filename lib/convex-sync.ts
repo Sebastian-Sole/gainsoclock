@@ -1,5 +1,9 @@
 import type { ConvexReactClient } from "convex/react";
-import { getFunctionName } from "convex/server";
+import {
+  getFunctionName,
+  type FunctionReference,
+  type FunctionArgs,
+} from "convex/server";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "@/convex/_generated/api";
 import { useNetworkStore } from "@/stores/network-store";
@@ -188,8 +192,10 @@ export async function clearDeadLetters(): Promise<void> {
  * Convex buffers mutations over its WebSocket and never rejects — so the
  * .catch() path would never fire when offline.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function syncToConvex(mutation: any, args: any) {
+export function syncToConvex<M extends FunctionReference<"mutation">>(
+  mutation: M,
+  args: FunctionArgs<M>,
+): void {
   const path = getMutationPath(mutation);
   const { isConnected, isInternetReachable } = useNetworkStore.getState();
   const isOffline = isConnected === false || isInternetReachable === false;
