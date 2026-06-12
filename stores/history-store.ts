@@ -46,6 +46,9 @@ interface HistoryState {
   loadedRange: { from: string; to: string };
   /** The oldest `from` for which the server has actually returned data. */
   fetchedRangeFrom: string;
+  /** True once the one-shot full hydration (listFull seed) has run. */
+  fullHydrationDone: boolean;
+  markFullHydrationDone: () => void;
 
   addLog: (log: WorkoutLog) => void;
   updateLog: (id: string, updates: Partial<Omit<WorkoutLog, 'id'>>) => void;
@@ -94,6 +97,7 @@ export const useHistoryStore = create<HistoryState>()(
       logs: [],
       loadedRange: getDefaultRange(),
       fetchedRangeFrom: getDefaultRange().from,
+      fullHydrationDone: false,
 
       extendRange: (viewingMonth: Date) => {
         const needed = startOfMonth(subMonths(viewingMonth, 4)).toISOString();
@@ -105,6 +109,10 @@ export const useHistoryStore = create<HistoryState>()(
 
       markRangeFetched: () => {
         set({ fetchedRangeFrom: get().loadedRange.from });
+      },
+
+      markFullHydrationDone: () => {
+        set({ fullHydrationDone: true });
       },
 
       addLog: (log) => {
