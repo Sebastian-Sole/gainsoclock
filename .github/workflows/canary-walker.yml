@@ -39,7 +39,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Flow-id drift tripwire (fails in seconds, before the 40-min build)
+        run: node scripts/check-maestro-ids.mjs
+
       - name: Install Maestro
+        # Pin the CLI: the previous unpinned `latest` curl was a reproducibility
+        # hole. Bump deliberately (see https://github.com/mobile-dev-inc/maestro/releases).
+        env:
+          MAESTRO_VERSION: "2.6.1"
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
@@ -54,18 +61,25 @@ jobs:
           xcrun simctl boot "iPhone 15" || true
           xcrun simctl list devices booted
 
-      - name: Build dev client (simulator)
+      - name: Generate native iOS project
         run: pnpm exec expo prebuild --platform ios --clean
         env:
           EXPO_NO_TELEMETRY: "1"
 
+      - name: Build dev client for simulator
+        # Compiles the .app the install step expects. derivedDataPath is
+        # `ios/build`, so the product lands at
+        # ios/build/Build/Products/Debug-iphonesimulator/Fitbull.app — the exact
+        # path the next step installs. Scheme/workspace verified from the
+        # committed ios/ project (scheme: Fitbull, workspace: Fitbull.xcworkspace).
+        run: |
+          xcodebuild -workspace ios/Fitbull.xcworkspace -scheme Fitbull \
+            -configuration Debug -sdk iphonesimulator \
+            -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
+
       - name: Install dev client on simulator
         run: |
-          # Assumes EAS simulator build is cached as an artifact; otherwise
-          # this step should be replaced with `eas build --local --profile
-          # development-simulator` in a separate job.
-          xcrun simctl install booted "ios/build/Build/Products/Debug-iphonesimulator/Fitbull.app" || \
-            (echo "::warning::dev client build missing; canary cannot run" && exit 1)
+          xcrun simctl install booted "ios/build/Build/Products/Debug-iphonesimulator/Fitbull.app"
 
       - name: Run canary Maestro flow
         id: maestro
@@ -73,7 +87,7 @@ jobs:
           maestro test \
             -e EMAIL="$CANARY_EMAIL" \
             -e PASSWORD="$CANARY_PASSWORD" \
-            .maestro/onboarding/99-canary.yaml
+            .maestro/99-canary.yaml
 
       - name: Assert PostHog event chain (24h window, ±10% tolerance)
         if: always()
@@ -91,11 +105,11 @@ jobs:
               `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               "",
               "Possible causes:",
-              "- Onboarding UI change broke a Maestro selector",
-              "- PostHog event pipeline drift (`intake_started → consent_granted → plan_visible → trial_started`)",
-              "- Latency outside 24h tolerance band",
+              "- Onboarding UI change broke a Maestro selector (run `node scripts/check-maestro-ids.mjs` locally)",
+              "- PostHog event pipeline drift (`intake_started → onboarding_setup_continue`)",
+              "- Build/install failure (xcodebuild scheme or derivedDataPath drift)",
               "",
-              "Triage per plan-10 §Canary Walker CI."
+              "Triage per plan-024 §Canary Walker CI."
             ].join("\n");
             await github.rest.issues.create({
               owner: context.repo.owner,

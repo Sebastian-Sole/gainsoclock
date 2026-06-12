@@ -1,6 +1,16 @@
 #!/usr/bin/env node
 // Canary Walker: asserts the expected event chain appeared for the canary
-// user in the last 24h (Offline-Sync #8 / Theme K). Exits non-zero on divergence.
+// user in the last 24h. Exits non-zero on divergence.
+//
+// The chain brackets the onboarding walk with the two events the SHIPPED app
+// actually emits deterministically (verified against lib/analytics.ts):
+//   intake_started          — fired on the sign-up screen (app opened / signup)
+//   onboarding_setup_continue — fired on the final onboarding step (completed)
+//
+// The previous list (consent_granted / plan_visible / trial_started) referenced
+// events from the deleted intake flow; consent_granted no longer fires, and
+// plan_visible / trial_started only fire on plan-generation / a real RC trial
+// purchase — neither happens on the soft-paywall canary walk. See plan-024.
 //
 // Env:
 //   POSTHOG_API_KEY       — personal or project API key with read scope
@@ -18,7 +28,7 @@ if (!key || !projectId || !distinctId) {
   process.exit(2);
 }
 
-const expected = ["intake_started", "consent_granted", "plan_visible", "trial_started"];
+const expected = ["intake_started", "onboarding_setup_continue"];
 const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
 async function hql(query) {
