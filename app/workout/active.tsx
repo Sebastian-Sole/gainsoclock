@@ -161,8 +161,13 @@ export default function ActiveWorkoutScreen() {
   const handleUpdateSet = useCallback((exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => {
     updateSet(exerciseId, setId, updates);
 
-    // Show "Apply to all below" when editing a set that has sets after it
-    const exercise = activeWorkout?.exercises.find((e) => e.id === exerciseId);
+    // Show "Apply to all below" when editing a set that has sets after it.
+    // Read post-update store state instead of closing over `activeWorkout`:
+    // `updateSet` is synchronous and never changes set order/count, so the
+    // prompt logic is behavior-identical while keeping this callback stable
+    // (so memoized rows don't re-render on every keystroke).
+    const current = useWorkoutStore.getState().activeWorkout;
+    const exercise = current?.exercises.find((e) => e.id === exerciseId);
     if (!exercise) return;
     const setIndex = exercise.sets.findIndex((s) => s.id === setId);
     if (setIndex === -1 || setIndex >= exercise.sets.length - 1) return; // no sets below
@@ -174,7 +179,7 @@ export default function ActiveWorkoutScreen() {
     } else if ('distance' in updates && updates.distance !== undefined) {
       setApplyAllPrompt({ exerciseId, setIndex, field: 'distance', value: updates.distance, label: `${updates.distance} ${distanceUnit}` });
     }
-  }, [updateSet, activeWorkout, weightUnit, distanceUnit]);
+  }, [updateSet, weightUnit, distanceUnit]);
 
   const handleRemoveSet = useCallback((exerciseId: string, setId: string) => {
     removeSet(exerciseId, setId);
