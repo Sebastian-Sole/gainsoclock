@@ -3,6 +3,7 @@ import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import * as Notifications from "expo-notifications";
 import { Alert, Linking } from "react-native";
+import { format } from "date-fns";
 
 // Fixed identifiers for managing notification lifecycle
 export const IDENTIFIERS = {
@@ -178,6 +179,33 @@ export async function scheduleDailyWorkoutReminder(
   // Cancel existing reminder before rescheduling
   await cancelDailyWorkoutReminder();
 
+  // If a workout was already logged today and today's reminder hasn't fired
+  // yet, skip today: schedule a one-shot for tomorrow instead of the DAILY
+  // trigger. The next app launch (or settings change) re-arms DAILY.
+  const { lastWorkoutLoggedDate } = useSettingsStore.getState();
+  const now = new Date();
+  const todayStr = format(now, "yyyy-MM-dd");
+  const reminderToday = new Date(now);
+  reminderToday.setHours(hour, minute, 0, 0);
+  if (lastWorkoutLoggedDate === todayStr && now < reminderToday) {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(hour, minute, 0, 0);
+    await Notifications.scheduleNotificationAsync({
+      identifier: IDENTIFIERS.DAILY_REMINDER,
+      content: {
+        title: "Don't forget your workout!",
+        body: "You haven't logged a workout today. Let's go!",
+        sound: "default",
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: Math.max(1, Math.floor((tomorrow.getTime() - now.getTime()) / 1000)),
+      },
+    });
+    return;
+  }
+
   await Notifications.scheduleNotificationAsync({
     identifier: IDENTIFIERS.DAILY_REMINDER,
     content: {
@@ -200,42 +228,27 @@ export async function cancelDailyWorkoutReminder(): Promise<void> {
 }
 
 /**
- * Cancel the daily reminder for the rest of today and reschedule it starting tomorrow.
- * This prevents a "you haven't worked out" reminder on days the user already worked out.
+ * Record that a workout was logged today and re-arm the daily reminder with
+ * suppression awareness. Records the date even when reminders are disabled —
+ * the user may enable them later the same day.
+ *
+ * Delegates all scheduling to scheduleDailyWorkoutReminder, which:
+ * - skips today and schedules a one-shot for tomorrow if a workout was logged
+ *   today and the reminder hasn't fired yet, or
+ * - falls through to the DAILY trigger otherwise.
+ *
+ * Accepted limitation: if the user never relaunches the app after the one-shot
+ * fires, the DAILY trigger will not be restored until the next launch. iOS
+ * offers no "daily starting two days from now" trigger without double-firing.
  */
 export async function rescheduleReminderAfterWorkout(): Promise<void> {
   const { notificationsReminderEnabled, notificationsReminderTime } =
     useSettingsStore.getState();
+  useSettingsStore.getState().setLastWorkoutLoggedDate(format(new Date(), "yyyy-MM-dd"));
   if (!notificationsReminderEnabled) return;
-
   const [hour, minute] = notificationsReminderTime.split(":").map(Number);
   if (!Number.isFinite(hour) || !Number.isFinite(minute)) return;
-
-  await cancelDailyWorkoutReminder();
-
-  // Schedule a one-shot for tomorrow's reminder time, then restore the daily trigger
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(hour, minute, 0, 0);
-  const secondsUntilTomorrow = Math.max(
-    1,
-    Math.floor((tomorrow.getTime() - now.getTime()) / 1000),
-  );
-
-  // One-shot timer that fires tomorrow at the configured time
-  await Notifications.scheduleNotificationAsync({
-    identifier: IDENTIFIERS.DAILY_REMINDER,
-    content: {
-      title: "Don't forget your workout!",
-      body: "You haven't logged a workout today. Let's go!",
-      sound: "default",
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: secondsUntilTomorrow,
-    },
-  });
+  await scheduleDailyWorkoutReminder(hour, minute);
 }
 
 // --- Morning Plan Notification (Type 4) ---
