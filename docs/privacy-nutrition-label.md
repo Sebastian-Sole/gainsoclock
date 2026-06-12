@@ -32,12 +32,20 @@ ad networks.
 - **Data types:**
   - Health & Fitness (body stats: age, weight, height, body fat %)
   - Fitness (workout logs, sets, reps, RPE, heart rate if provided)
+  - Health & Fitness — imported via the opt-in "Import workouts & health
+    data" toggle (Settings → Apple Health): workouts from other
+    apps/devices, sleep duration, resting heart rate, HRV, step count,
+    active energy. Stored in `externalWorkouts` / `healthDailyMetrics`
+    (EU Convex).
 - **Legal basis:** Art. 9 GDPR (explicit consent) for body stats and health
-  data; Art. 6 GDPR for workout logs.
+  data; Art. 6 GDPR for workout logs. Imported health metrics enter
+  AI-coach prompts only under the `health_data_personalization` consent
+  (enforced in `convex/healthData.ts`).
 - **Collection point:**
   - `app/onboarding/healthkit-prefill.tsx` (HealthKit read)
   - `app/onboarding/manual-stats.tsx` (manual entry)
   - `convex/onboardingInternal.ts` → intake persistence
+  - `hooks/use-health-import.ts` → `convex/healthData.ts` (import sync)
 - **Retention:** account lifetime; deleted synchronously on account
   deletion (5.1.1(v) path).
 
@@ -56,12 +64,20 @@ ad networks.
 - **Purpose:** App Functionality.
 - **Data types:**
   - Other User Content — chat messages with AI coach, aha intake answers,
-    workout notes, saved recipes.
+    workout notes, saved recipes, logged meals (incl. AI-estimated macros).
+  - Photos — meal photos taken for AI-assisted logging. **Transient:**
+    uploaded to Convex storage, sent to OpenAI (sub-processor) for the
+    macro estimate only, and deleted when the meal is logged or the flow
+    is canceled (`convex/nutritionVision.ts` → `discardMealPhoto`). Not
+    retained, not used for training, not shared further. Declare under
+    "Photos or Videos" → App Functionality in ASC.
 - **Collection point:**
-  - `convex/chatActions.ts` (coach chat)
+  - `convex/chatActions.ts` (coach chat, incl. log_meal tool)
   - `convex/onboardingInternal.ts` (intake)
   - `convex/workoutLogs.ts` (workouts)
-- **Retention:** account lifetime; deleted on account deletion.
+  - `convex/nutritionVision.ts` / `convex/mealLogs.ts` (meal logging)
+- **Retention:** account lifetime; deleted on account deletion. Meal
+  photos: transient (above).
 
 ### Contact Info
 

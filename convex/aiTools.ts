@@ -351,6 +351,14 @@ interface IngredientPayload {
   macros?: MacrosPayload;
 }
 
+interface LogMealPayload {
+  title: string;
+  date?: string;
+  macros: MacrosPayload;
+  portionDescription?: string;
+  notes?: string;
+}
+
 interface CreateRecipePayload {
   title: string;
   description?: string;
@@ -361,6 +369,35 @@ interface CreateRecipePayload {
   servings?: number;
   macros?: MacrosPayload;
   tags?: string[];
+}
+
+/** Validate the log_meal payload. */
+function validateLogMealPayload(data: Record<string, unknown>): LogMealPayload {
+  assertString(data.title, "title");
+
+  assertOptionalString(data.date, "date");
+  if (
+    typeof data.date === "string" &&
+    !/^\d{4}-\d{2}-\d{2}$/.test(data.date)
+  ) {
+    throw new Error('Invalid payload: "date" must be formatted YYYY-MM-DD.');
+  }
+
+  const macros = validateMacros(data.macros, "macros");
+  if (!macros) {
+    throw new Error('Invalid payload: "macros" is required.');
+  }
+
+  assertOptionalString(data.portionDescription, "portionDescription");
+  assertOptionalString(data.notes, "notes");
+
+  return {
+    title: data.title as string,
+    date: data.date as string | undefined,
+    macros,
+    portionDescription: data.portionDescription as string | undefined,
+    notes: data.notes as string | undefined,
+  };
 }
 
 // --- End validation helpers ---
@@ -701,6 +738,26 @@ export const executeApproval = mutation({
         sourceConversationClientId: args.conversationClientId,
         saved: true,
         createdAt: now,
+      });
+    } else if (args.type === "log_meal") {
+      // Validate
+      const meal = validateLogMealPayload(data);
+
+      // The schema has no dedicated portionDescription column; fold the
+      // portion assumption into notes so it stays visible on the log entry.
+      const noteParts = [meal.portionDescription, meal.notes].filter(
+        (s): s is string => typeof s === "string" && s.length > 0
+      );
+
+      await ctx.db.insert("mealLogs", {
+        userId,
+        clientId: generateId(),
+        date: meal.date ?? now.split("T")[0],
+        title: meal.title,
+        portionMultiplier: 1,
+        macros: meal.macros,
+        notes: noteParts.length > 0 ? noteParts.join(" — ") : undefined,
+        loggedAt: now,
       });
     }
   },

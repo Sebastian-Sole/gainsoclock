@@ -1,11 +1,20 @@
 // Scope set locked per app.json NSHealthShareUsageDescription /
 // NSHealthUpdateUsageDescription. Changing this requires a legal + copy update
-// (HealthKit-Privacy CR4). Reads: BodyMass, Height, BodyFatPercentage. Writes:
-// ActiveEnergyBurned, WorkoutType. Never add age, sex, sleep, heart-rate,
-// cycle, labs, or workout-history reads here without a matching plist update.
+// (HealthKit-Privacy CR4). Reads: BodyMass, Height, BodyFatPercentage, plus —
+// added for the health-data-mesh feature — Workouts, SleepAnalysis,
+// RestingHeartRate, HeartRateVariabilitySDNN, StepCount, ActiveEnergyBurned.
+// The NSHealthShareUsageDescription in app.json was updated in the same change
+// to honestly describe these reads; HealthKit-Privacy CR4 applies, so route
+// any further scope change (and this one, before release) through legal/copy
+// review. Writes: ActiveEnergyBurned, WorkoutType. Never add age, sex, cycle,
+// or labs reads here without a matching plist + review update.
 import { Platform } from 'react-native';
 import { useSettingsStore } from '@/stores/settings-store';
 import type { WorkoutLog } from '@/lib/types';
+import type {
+  QuantityTypeIdentifier,
+  QueryStatisticsResponse,
+} from '@kingstinct/react-native-healthkit';
 
 type HealthKitModule = typeof import('@kingstinct/react-native-healthkit');
 
@@ -21,10 +30,31 @@ export type LatestHealthStats = {
   bodyFatPercent: number | null;
 };
 
-export const HEALTHKIT_READ_SCOPES = [
+// Baseline reads: requested at onboarding and by the main "Sync with Apple
+// Health" toggle. The onboarding primer copy (app/onboarding/healthkit.tsx)
+// describes exactly these — body stats prefill. 5.1.1(iv): the permission
+// sheet shown during onboarding must never list scopes the primer doesn't
+// explain, so import scopes are requested separately (below), only from the
+// "Import workouts & health data" toggle whose copy describes them.
+export const HEALTHKIT_BASELINE_READ_SCOPES = [
   'HKQuantityTypeIdentifierBodyMass',
   'HKQuantityTypeIdentifierHeight',
   'HKQuantityTypeIdentifierBodyFatPercentage',
+] as const;
+
+// Health-data-mesh read scopes (see scope-lock comment at the top).
+export const HEALTHKIT_IMPORT_READ_SCOPES = [
+  'HKWorkoutTypeIdentifier',
+  'HKCategoryTypeIdentifierSleepAnalysis',
+  'HKQuantityTypeIdentifierRestingHeartRate',
+  'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
+  'HKQuantityTypeIdentifierStepCount',
+  'HKQuantityTypeIdentifierActiveEnergyBurned',
+] as const;
+
+export const HEALTHKIT_READ_SCOPES = [
+  ...HEALTHKIT_BASELINE_READ_SCOPES,
+  ...HEALTHKIT_IMPORT_READ_SCOPES,
 ] as const;
 
 export const HEALTHKIT_WRITE_SCOPES = [
@@ -66,12 +96,33 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
 
   try {
     await hk.requestAuthorization({
-      toRead: HEALTHKIT_READ_SCOPES,
+      toRead: HEALTHKIT_BASELINE_READ_SCOPES,
       toShare: HEALTHKIT_WRITE_SCOPES,
     });
     return true;
   } catch (error) {
     console.warn('[HealthKit] Authorization failed:', error);
+    return false;
+  }
+}
+
+// Incremental authorization for the import feature only. HealthKit allows
+// requesting additional scopes after the initial grant; the sheet lists just
+// the new types. Called from the "Import workouts & health data" toggle.
+export async function requestHealthImportPermissions(): Promise<boolean> {
+  if (!isHealthKitAvailable()) return false;
+
+  const hk = await getHealthKit();
+  if (!hk) return false;
+
+  try {
+    await hk.requestAuthorization({
+      toRead: HEALTHKIT_IMPORT_READ_SCOPES,
+      toShare: [],
+    });
+    return true;
+  } catch (error) {
+    console.warn('[HealthKit] Import authorization failed:', error);
     return false;
   }
 }
@@ -108,7 +159,7 @@ export async function getAuthorizationStatus(): Promise<AuthorizationStatusStrin
 }
 
 async function readLatestQuantity(
-  identifier: (typeof HEALTHKIT_READ_SCOPES)[number],
+  identifier: QuantityTypeIdentifier,
   unit: string
 ): Promise<number | null> {
   if (!isHealthKitAvailable()) return null;
@@ -222,6 +273,333 @@ export async function getLatestBodyWeight(): Promise<{
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// Health-data-mesh read pipeline (external workouts + daily metrics)
+// ---------------------------------------------------------------------------
+
+/** A workout recorded by another app/device, shaped for
+ * `api.healthData.upsertExternalWorkouts`. */
+export type ExternalWorkoutSample = {
+  healthKitUuid: string;
+  activityType: string;
+  sourceName: string;
+  sourceBundleId?: string;
+  startedAt: number;
+  endedAt: number;
+  durationSeconds: number;
+  activeEnergyKcal?: number;
+  distanceMeters?: number;
+  avgHeartRateBpm?: number;
+};
+
+/** Per-local-calendar-day health metrics, shaped for
+ * `api.healthData.upsertDailyMetrics`. `date` is a local `YYYY-MM-DD` key. */
+export type DailyHealthMetrics = {
+  date: string;
+  asleepSeconds?: number;
+  restingHeartRateBpm?: number;
+  hrvMs?: number;
+  steps?: number;
+  bodyMassKg?: number;
+  activeEnergyKcal?: number;
+};
+
+const OWN_BUNDLE_ID_PREFIX = 'com.soleinnovations.fitbull';
+
+// Workout distance lives under a per-activity quantity type; probe the common
+// ones. Order matters — most workouts with distance are runs/walks or rides.
+const DISTANCE_TYPE_IDENTIFIERS: readonly QuantityTypeIdentifier[] = [
+  'HKQuantityTypeIdentifierDistanceWalkingRunning',
+  'HKQuantityTypeIdentifierDistanceCycling',
+  'HKQuantityTypeIdentifierDistanceSwimming',
+  'HKQuantityTypeIdentifierDistanceWheelchair',
+  'HKQuantityTypeIdentifierDistanceDownhillSnowSports',
+];
+
+function localDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function startOfLocalDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/**
+ * Query workouts recorded by other apps/devices in [from, to].
+ * Excludes Fitbull-authored samples (our bundle id, or samples we stamped
+ * with `HKExternalUUID` at write time in `saveWorkoutToHealthKit`).
+ */
+export async function queryExternalWorkouts(
+  from: Date,
+  to: Date
+): Promise<ExternalWorkoutSample[]> {
+  if (!isHealthKitAvailable() || !isEnabled()) return [];
+  const hk = await getHealthKit();
+  if (!hk) return [];
+
+  let workouts;
+  try {
+    workouts = await hk.queryWorkoutSamples({
+      filter: { date: { startDate: from, endDate: to } },
+      limit: -1,
+      ascending: true,
+    });
+  } catch (error) {
+    console.warn('[HealthKit] queryWorkoutSamples failed:', error);
+    return [];
+  }
+
+  const results: ExternalWorkoutSample[] = [];
+  for (const workout of workouts) {
+    try {
+      let sourceName = 'Apple Health';
+      let sourceBundleId: string | undefined;
+      const source = workout.sourceRevision?.source;
+      if (source?.name) sourceName = source.name;
+      if (source?.bundleIdentifier) sourceBundleId = source.bundleIdentifier;
+
+      // Drop self-authored samples: written by this app, or stamped with our
+      // HKExternalUUID metadata at write time.
+      if (sourceBundleId?.startsWith(OWN_BUNDLE_ID_PREFIX)) continue;
+      if (workout.metadataExternalUUID) continue;
+      const externalUuid = workout.metadata?.['HKExternalUUID'];
+      if (typeof externalUuid === 'string' && externalUuid.length > 0) continue;
+
+      const startedAt = new Date(workout.startDate).getTime();
+      const endedAt = new Date(workout.endDate).getTime();
+      if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt)) continue;
+
+      const durationSeconds =
+        workout.duration?.unit === 's' &&
+        typeof workout.duration.quantity === 'number'
+          ? Math.round(workout.duration.quantity)
+          : Math.max(0, Math.round((endedAt - startedAt) / 1000));
+
+      // Normalize the numeric activity-type enum to its readable name.
+      const activityName: string | undefined =
+        hk.WorkoutActivityType[workout.workoutActivityType];
+      const activityType =
+        typeof activityName === 'string' && activityName.length > 0
+          ? activityName
+          : 'other';
+
+      // Per-workout statistics. getAllStatistics tells us which quantity
+      // types exist so we only issue unit-overridden lookups for those.
+      const allStats = await workout
+        .getAllStatistics()
+        .catch((): Record<string, QueryStatisticsResponse> | undefined => undefined);
+      const hasStat = (id: QuantityTypeIdentifier) =>
+        allStats == null || id in allStats;
+
+      let activeEnergyKcal: number | undefined;
+      if (hasStat('HKQuantityTypeIdentifierActiveEnergyBurned')) {
+        const stat = await workout
+          .getStatistic('HKQuantityTypeIdentifierActiveEnergyBurned', 'kcal')
+          .catch(() => undefined);
+        const kcal = stat?.sumQuantity?.quantity;
+        if (typeof kcal === 'number' && kcal > 0) {
+          activeEnergyKcal = Math.round(kcal);
+        }
+      }
+
+      let avgHeartRateBpm: number | undefined;
+      if (hasStat('HKQuantityTypeIdentifierHeartRate')) {
+        const stat = await workout
+          .getStatistic('HKQuantityTypeIdentifierHeartRate', 'count/min')
+          .catch(() => undefined);
+        const bpm = stat?.averageQuantity?.quantity;
+        if (typeof bpm === 'number' && bpm > 0) {
+          avgHeartRateBpm = Math.round(bpm);
+        }
+      }
+
+      let distanceMeters: number | undefined;
+      for (const id of DISTANCE_TYPE_IDENTIFIERS) {
+        if (!hasStat(id)) continue;
+        const stat = await workout.getStatistic(id, 'm').catch(() => undefined);
+        const meters = stat?.sumQuantity?.quantity;
+        if (typeof meters === 'number' && meters > 0) {
+          distanceMeters = Math.round(meters);
+          break;
+        }
+      }
+
+      results.push({
+        healthKitUuid: workout.uuid,
+        activityType,
+        sourceName,
+        sourceBundleId,
+        startedAt,
+        endedAt,
+        durationSeconds,
+        activeEnergyKcal,
+        distanceMeters,
+        avgHeartRateBpm,
+      });
+    } catch (error) {
+      console.warn('[HealthKit] Failed to map workout sample:', error);
+    }
+  }
+
+  return results;
+}
+
+type DailyQuantityField = Exclude<keyof DailyHealthMetrics, 'date' | 'asleepSeconds'>;
+
+const DAILY_QUANTITY_METRICS: readonly {
+  field: DailyQuantityField;
+  identifier: QuantityTypeIdentifier;
+  statistic: 'cumulativeSum' | 'mostRecent';
+  unit: string;
+  round: boolean;
+}[] = [
+  {
+    field: 'restingHeartRateBpm',
+    identifier: 'HKQuantityTypeIdentifierRestingHeartRate',
+    statistic: 'mostRecent',
+    unit: 'count/min',
+    round: true,
+  },
+  {
+    field: 'hrvMs',
+    identifier: 'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
+    statistic: 'mostRecent',
+    unit: 'ms',
+    round: false,
+  },
+  {
+    field: 'steps',
+    identifier: 'HKQuantityTypeIdentifierStepCount',
+    statistic: 'cumulativeSum',
+    unit: 'count',
+    round: true,
+  },
+  {
+    field: 'bodyMassKg',
+    identifier: 'HKQuantityTypeIdentifierBodyMass',
+    statistic: 'mostRecent',
+    unit: 'kg',
+    round: false,
+  },
+  {
+    field: 'activeEnergyKcal',
+    identifier: 'HKQuantityTypeIdentifierActiveEnergyBurned',
+    statistic: 'cumulativeSum',
+    unit: 'kcal',
+    round: true,
+  },
+];
+
+/**
+ * Aggregate health metrics per local calendar day in [from, to]. Each metric
+ * is collected defensively: a failing metric logs a warning and yields
+ * `undefined` for that field; this function never throws.
+ */
+export async function queryDailyMetrics(
+  from: Date,
+  to: Date
+): Promise<DailyHealthMetrics[]> {
+  if (!isHealthKitAvailable() || !isEnabled()) return [];
+  const hk = await getHealthKit();
+  if (!hk) return [];
+
+  const byDate = new Map<string, DailyHealthMetrics>();
+  const ensure = (dateKey: string): DailyHealthMetrics => {
+    const existing = byDate.get(dateKey);
+    if (existing) return existing;
+    const created: DailyHealthMetrics = { date: dateKey };
+    byDate.set(dateKey, created);
+    return created;
+  };
+
+  // Quantity metrics via day-bucketed statistics-collection queries, anchored
+  // to local midnight so buckets align with local calendar days.
+  for (const metric of DAILY_QUANTITY_METRICS) {
+    try {
+      const responses = await hk.queryStatisticsCollectionForQuantity(
+        metric.identifier,
+        [metric.statistic],
+        startOfLocalDay(from),
+        { day: 1 },
+        {
+          filter: { date: { startDate: from, endDate: to } },
+          unit: metric.unit,
+        }
+      );
+      for (const response of responses) {
+        const quantity =
+          metric.statistic === 'cumulativeSum'
+            ? response.sumQuantity
+            : response.mostRecentQuantity;
+        const value = quantity?.quantity;
+        if (!response.startDate || typeof value !== 'number') continue;
+        ensure(localDateKey(new Date(response.startDate)))[metric.field] =
+          metric.round ? Math.round(value) : value;
+      }
+    } catch (error) {
+      console.warn(`[HealthKit] daily metric ${metric.field} failed:`, error);
+    }
+  }
+
+  // Sleep: sum the "asleep" category states (not inBed/awake), splitting each
+  // sample's duration across the local calendar days it overlaps.
+  try {
+    const samples = await hk.queryCategorySamples(
+      'HKCategoryTypeIdentifierSleepAnalysis',
+      {
+        filter: { date: { startDate: from, endDate: to } },
+        limit: -1,
+        ascending: true,
+      }
+    );
+    const asleepValues = new Set<number>([
+      hk.CategoryValueSleepAnalysis.asleepUnspecified,
+      hk.CategoryValueSleepAnalysis.asleepCore,
+      hk.CategoryValueSleepAnalysis.asleepDeep,
+      hk.CategoryValueSleepAnalysis.asleepREM,
+    ]);
+    const sleepSecondsByDay = new Map<string, number>();
+    for (const sample of samples) {
+      if (typeof sample.value !== 'number' || !asleepValues.has(sample.value)) {
+        continue;
+      }
+      const start = new Date(sample.startDate).getTime();
+      const end = new Date(sample.endDate).getTime();
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+        continue;
+      }
+      let cursor = startOfLocalDay(new Date(start));
+      while (cursor.getTime() < end) {
+        const nextDay = new Date(
+          cursor.getFullYear(),
+          cursor.getMonth(),
+          cursor.getDate() + 1
+        );
+        const overlapMs =
+          Math.min(end, nextDay.getTime()) - Math.max(start, cursor.getTime());
+        if (overlapMs > 0) {
+          const key = localDateKey(cursor);
+          sleepSecondsByDay.set(
+            key,
+            (sleepSecondsByDay.get(key) ?? 0) + overlapMs / 1000
+          );
+        }
+        cursor = nextDay;
+      }
+    }
+    for (const [key, seconds] of sleepSecondsByDay) {
+      ensure(key).asleepSeconds = Math.round(seconds);
+    }
+  } catch (error) {
+    console.warn('[HealthKit] daily metric asleepSeconds failed:', error);
+  }
+
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
 
 // Plan-08 / HealthKit-Privacy C4 — account deletion cleanup. Removes every
 // sample Fitbull has written (workouts + active energy) via the

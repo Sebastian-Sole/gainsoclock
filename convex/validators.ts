@@ -137,7 +137,8 @@ export const approvalTypeValidator = v.union(
   v.literal("create_template"),
   v.literal("create_plan"),
   v.literal("update_plan"),
-  v.literal("create_recipe")
+  v.literal("create_recipe"),
+  v.literal("log_meal")
 );
 
 export const approvalStatusValidator = v.union(
@@ -240,6 +241,31 @@ export const biologicalSexValidator = v.union(
   v.literal("male"),
   v.literal("female")
 );
+
+// Weekly review validators (proactive AI coach)
+export const weeklyReviewRecommendationKindValidator = v.union(
+  v.literal("deload"),
+  v.literal("swap"),
+  v.literal("volume"),
+  v.literal("rest"),
+  v.literal("keep_going")
+);
+
+export const weeklyReviewRecommendationValidator = v.object({
+  kind: weeklyReviewRecommendationKindValidator,
+  text: v.string(),
+});
+
+export const weeklyReviewStatsValidator = v.object({
+  workoutCount: v.number(),
+  totalVolumeKg: v.number(),
+  totalSets: v.number(),
+  prCount: v.number(),
+  planAdherencePct: v.optional(v.number()),
+  externalWorkoutCount: v.number(),
+  avgSleepHours: v.optional(v.number()),
+  avgRestingHr: v.optional(v.number()),
+});
 
 // Compile-time coverage for Convex. `lib/subscription-constants.ts` remains
 // the single source of truth for the literal entitlement string.

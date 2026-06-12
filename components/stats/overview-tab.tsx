@@ -5,6 +5,7 @@ import { TotalsSection } from './totals-section';
 import { YearlyOverviewSection } from './yearly-overview-section';
 import { StreaksSection } from './streaks-section';
 import { AveragesSection } from './averages-section';
+import { WeeklyReviewEntryCard } from '@/components/review/weekly-review-entry-card';
 import type { AllStats } from '@/lib/stats';
 import type { WeightUnit, DistanceUnit } from '@/stores/settings-store';
 
@@ -17,6 +18,7 @@ interface OverviewTabProps {
 export function OverviewTab({ stats, weightUnit, distanceUnit }: OverviewTabProps) {
   return (
     <View className="gap-6">
+      <WeeklyReviewEntryCard />
       <TotalsSection
         totals={stats.totals}
         weightUnit={weightUnit}

@@ -335,6 +335,48 @@ const TOOLS: ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "log_meal",
+      description:
+        "Log a meal the user already ate, with AI-estimated macros. Use when the user describes food they consumed (e.g. 'I had a chicken burrito and a coke'). Returns the meal for user approval before saving to their nutrition log.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description:
+              "Short meal name, e.g. 'Chicken burrito + Coke'",
+          },
+          date: {
+            type: "string",
+            description:
+              "ISO date (YYYY-MM-DD) the meal was eaten. Omit for today.",
+          },
+          macros: {
+            type: "object",
+            description:
+              "Estimated totals for the whole described meal (calories in kcal, protein/carbs/fat in grams)",
+            properties: {
+              calories: { type: "number" },
+              protein: { type: "number" },
+              carbs: { type: "number" },
+              fat: { type: "number" },
+            },
+            required: ["calories", "protein", "carbs", "fat"],
+          },
+          portionDescription: {
+            type: "string",
+            description:
+              "The portion assumption behind the estimate, e.g. 'large burrito (~350g) + 330ml regular coke'",
+          },
+          notes: { type: "string" },
+        },
+        required: ["title", "macros"],
+      },
+    },
+  },
 ];
 
 // ── System Prompt Builder ──────────────────────────────────────
@@ -391,7 +433,92 @@ interface UserContext {
   } | null;
 }
 
-function buildSystemPrompt(context: UserContext): string {
+interface HealthContext {
+  dailyMetrics: {
+    date: string;
+    asleepSeconds?: number;
+    restingHeartRateBpm?: number;
+    hrvMs?: number;
+    steps?: number;
+    bodyMassKg?: number;
+    activeEnergyKcal?: number;
+  }[];
+  externalWorkoutCount7d: number;
+  activityTypes7d: string[];
+  lastExternalWorkout: {
+    activityType: string;
+    sourceName: string;
+    startedAt: number;
+  } | null;
+}
+
+/**
+ * Builds the "Recent health & recovery" prompt section from Apple Health
+ * data. Returns "" when no data exists so the section is omitted entirely
+ * (the model must never see fabricated recovery data). `health` is null
+ * when the user has not granted health_data_personalization — the section
+ * is omitted the same way.
+ */
+function buildHealthSection(health: HealthContext | null): string {
+  if (!health) return "";
+  const lines: string[] = [];
+
+  // dailyMetrics is ordered date desc, so find() returns the latest value.
+  const sleepValues = health.dailyMetrics
+    .map((d) => d.asleepSeconds)
+    .filter((s): s is number => s !== undefined);
+  if (sleepValues.length > 0) {
+    const avgHours =
+      sleepValues.reduce((a, b) => a + b, 0) / sleepValues.length / 3600;
+    lines.push(
+      `- Average sleep (last 7 days): ${avgHours.toFixed(1)}h/night (${sleepValues.length} night${sleepValues.length === 1 ? "" : "s"} tracked)`
+    );
+  }
+
+  const latestRhr = health.dailyMetrics.find(
+    (d) => d.restingHeartRateBpm !== undefined
+  )?.restingHeartRateBpm;
+  if (latestRhr !== undefined) {
+    lines.push(`- Latest resting heart rate: ${Math.round(latestRhr)} bpm`);
+  }
+
+  const hrvValues = health.dailyMetrics
+    .map((d) => d.hrvMs)
+    .filter((h): h is number => h !== undefined);
+  const latestHrv = hrvValues[0];
+  if (latestHrv !== undefined && hrvValues.length > 0) {
+    const avgHrv = hrvValues.reduce((a, b) => a + b, 0) / hrvValues.length;
+    const trend =
+      latestHrv > avgHrv * 1.05
+        ? "above"
+        : latestHrv < avgHrv * 0.95
+          ? "below"
+          : "near";
+    lines.push(
+      `- HRV: latest ${Math.round(latestHrv)}ms — ${trend} 7-day average (${Math.round(avgHrv)}ms)`
+    );
+  }
+
+  if (health.externalWorkoutCount7d > 0) {
+    lines.push(
+      `- External workouts this week: ${health.externalWorkoutCount7d} (${health.activityTypes7d.join(", ")})`
+    );
+    if (health.lastExternalWorkout) {
+      const w = health.lastExternalWorkout;
+      const date = new Date(w.startedAt).toISOString().split("T")[0];
+      lines.push(`- Most recent: ${w.activityType} via ${w.sourceName} on ${date}`);
+    }
+  }
+
+  if (lines.length === 0) return "";
+
+  return `\n## Recent Health & Recovery (from Apple Health)\n${lines.join("\n")}\n`;
+}
+
+function buildSystemPrompt(
+  context: UserContext,
+  health: HealthContext | null
+): string {
   const exerciseList =
     context.exercises.length > 0
       ? context.exercises.map((e) => `- ${e.name} (${e.type})`).join("\n")
@@ -488,7 +615,7 @@ ${exerciseHistorySection}
 - Total workouts: ${context.stats.totalWorkouts}
 - Workouts per week (30-day avg): ${context.stats.workoutsPerWeek}
 - Current streak: ${context.stats.currentStreak} days
-
+${buildHealthSection(health)}
 ## Active Plan
 ${planSection}
 
@@ -498,6 +625,8 @@ ${planSection}
   * COMPLEX requests (e.g., "create a 12-week training program", "design a meal plan for cutting", "build a PPL split for my goals") — These require personalization. Ask 2-3 targeted clarifying questions BEFORE generating anything. Ask about relevant factors like: experience level, available equipment, training frequency, specific goals, injury history, time constraints, or dietary restrictions. It is far better to ask a few questions and create something perfect than to guess and produce something generic.
   * When in doubt, lean toward just answering. Only ask questions when the request genuinely benefits from personalization AND the answer would meaningfully change based on the user's response. You can always infer reasonable defaults from the user's exercise history and stats above.
 - When creating templates, plans, or recipes, ALWAYS use the tool functions. Do NOT just describe them in text.
+- When the user describes food they ALREADY ATE ("I had...", "I ate...", "just finished a..."), use the log_meal tool — not suggest_recipe. suggest_recipe is only for proposing meals the user might cook/eat in the future.
+- For log_meal: estimate macros conservatively from typical portion sizes and state your portion assumption in portionDescription. Make exactly ONE log_meal call per distinct meal (combine items eaten together, e.g. a burrito and a coke at lunch, into one call; separate meals like "breakfast and lunch" get one call each). Only ask about portion size when it genuinely changes the estimate AND the description is truly ambiguous — otherwise assume a standard portion and log it.
 - IMPORTANT: Before calling any tool function, you MUST first write a brief explanation in your text response. Explain what you're creating and why — e.g. the reasoning behind exercise selection, set/rep schemes, plan structure, or recipe choices. This gives the user context before they see the approval card. Keep it concise (2-4 sentences).
 - When creating templates, ALWAYS include suggestedReps and suggestedWeight (or suggestedTime/suggestedDistance for time/distance exercises) for each exercise. Base these on the user's exercise performance history above. If no history exists for an exercise, use sensible defaults for the exercise type and apparent experience level.
 - When creating a workout plan, use create_workout_plan and include ALL necessary templates in the templates array.
@@ -553,6 +682,12 @@ export const sendMessage = action({
       userId,
     });
 
+    // 2b. Gather recent health & recovery context (Apple Health imports)
+    const healthContext = await ctx.runQuery(
+      internal.healthData.getHealthContextForUser,
+      { userId },
+    );
+
     // 3. Load conversation history
     const history = await ctx.runQuery(internal.chat.getHistory, {
       userId,
@@ -561,7 +696,7 @@ export const sendMessage = action({
 
     // 4. Build messages array for OpenAI
     const messages: ChatCompletionMessageParam[] = [
-      { role: "system", content: buildSystemPrompt(context) },
+      { role: "system", content: buildSystemPrompt(context, healthContext) },
       ...history
         .filter((m) => m.role !== "system")
         .map((m) => ({
@@ -660,6 +795,7 @@ export const sendMessage = action({
           if (name === "create_workout_template") return "create_template";
           if (name === "create_workout_plan") return "create_plan";
           if (name === "update_workout_plan") return "update_plan";
+          if (name === "log_meal") return "log_meal";
           return "create_recipe";
         }
 

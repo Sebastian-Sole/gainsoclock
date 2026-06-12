@@ -11,6 +11,8 @@ import { Text } from '@/components/ui/text';
 import { X } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
+import { recomputeProteinNudge } from '@/lib/notifications';
+import { getTodayProteinConsumed } from '@/stores/meal-log-store';
 import { useNutritionGoalsStore } from '@/stores/nutrition-goals-store';
 import { lightHaptic } from '@/lib/haptics';
 
@@ -47,6 +49,8 @@ export function EditGoalsModal({ visible, onClose }: EditGoalsModalProps) {
       carbs: parseInt(carbs, 10) || 0,
       fat: parseInt(fat, 10) || 0,
     });
+    // Goal changed — refresh the evening protein nudge with the new target.
+    void recomputeProteinNudge(getTodayProteinConsumed());
     lightHaptic();
     onClose();
   };

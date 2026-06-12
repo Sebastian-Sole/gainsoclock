@@ -43,23 +43,44 @@ third party?"
 
 **Response:**
 
-> HealthKit is read-only, iOS-only, and opt-in. The primer is
-> `app/onboarding/healthkit.tsx`; the system permission sheet appears only
-> after the user taps "Connect". If they dismiss, we route to manual entry
-> (`app/onboarding/manual-stats.tsx`) — no body stat is required for the
-> app to be usable (see 4.2 below).
+> HealthKit is iOS-only and opt-in, with two separately-authorized tiers:
 >
-> Usage descriptions in `app.json`:
+> 1. **Baseline (onboarding)** — read-only body stats (weight, height,
+>    body-fat %) to prefill onboarding, plus write access for completed
+>    workouts / active energy so they count toward Fitness rings. The
+>    primer is `app/onboarding/healthkit.tsx`; per 5.1.1(iv) (resolved in
+>    submission 44d05ba8) it has a single Continue CTA that requests
+>    access and always advances regardless of the user's choice. No body
+>    stat is required for the app to be usable (see 4.2 below).
+> 2. **Import (Settings → Apple Health → "Import workouts & health
+>    data")** — incremental, read-only authorization for workouts from
+>    other apps/devices, sleep, resting heart rate, HRV, steps, and
+>    active energy. Requested only when the user enables this toggle,
+>    whose visible copy describes exactly these types
+>    (`lib/healthkit.ts` → `HEALTHKIT_IMPORT_READ_SCOPES`). The
+>    onboarding permission sheet never lists these scopes.
 >
-> - `NSHealthShareUsageDescription` — read-only: age, weight, height, body
->   fat percentage. Used to prefill onboarding so the user doesn't retype
->   data they already have.
-> - `NSHealthUpdateUsageDescription` — not requested in V1.0.
+> Usage descriptions in `app.json` match the tiers above
+> (`NSHealthShareUsageDescription`, `NSHealthUpdateUsageDescription`).
+>
+> Health data and AI: imported health metrics are included in AI-coach
+> context **only** when the user's `health_data_personalization` consent
+> (collected at onboarding, revocable in Settings → Privacy & Consent) is
+> granted — enforced server-side in `convex/healthData.ts`
+> (`hasHealthPersonalizationConsent`); the gate covers chat context,
+> weekly review generation, and post-workout feedback. Displaying the
+> user's own imported data back to them (History timeline, weekly review
+> stats) is core functionality of the import toggle.
 >
 > Data residency: all Convex functions run in the EU region. User rows
-> containing body stats are stored in EU Convex. We do NOT forward body
-> stats to PostHog (they are on the replay denylist: `S5`, `S5a`, `S5b`,
-> `S7`, `S8`). Sub-processors are enumerated on the methodology page
+> containing body stats and imported health metrics are stored in EU
+> Convex. We do NOT forward body stats or health metrics to PostHog (replay
+> denylist: `S5`, `S5a`, `S5b`, `S7`, `S8`). Meal photos taken for
+> AI-assisted logging are stored transiently in Convex storage and deleted
+> after the meal is logged or the flow is canceled
+> (`convex/nutritionVision.ts` → `discardMealPhoto`); the image is sent to
+> OpenAI (existing AI sub-processor) solely to produce the macro estimate.
+> Sub-processors are enumerated on the methodology page
 > (`app/methodology.tsx` → "Sub-processors" section).
 
 ---

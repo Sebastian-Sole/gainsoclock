@@ -1,4 +1,5 @@
 import { formatDuration } from "@/lib/format";
+import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import * as Notifications from "expo-notifications";
 import { Alert, Linking } from "react-native";
@@ -9,6 +10,8 @@ export const IDENTIFIERS = {
   POST_WORKOUT: "post-workout",
   DAILY_REMINDER: "daily-reminder",
   MORNING_PLAN: "morning-plan",
+  WEEKLY_REVIEW: "weekly-review",
+  PROTEIN_NUDGE: "protein-nudge",
 } as const;
 
 // --- Permissions ---
@@ -127,6 +130,8 @@ interface PostWorkoutParams {
   completedSets: number;
   durationSeconds: number;
   delayMinutes: number;
+  /** Optional AI coach feedback appended after the stats line */
+  feedback?: string;
 }
 
 export async function schedulePostWorkoutNotification(
@@ -143,12 +148,13 @@ export async function schedulePostWorkoutNotification(
   ).catch(() => {});
 
   const duration = formatDuration(params.durationSeconds);
+  const statsLine = `${params.templateName}: ${params.completedSets} sets across ${params.exerciseCount} exercises in ${duration}`;
 
   return Notifications.scheduleNotificationAsync({
     identifier: IDENTIFIERS.POST_WORKOUT,
     content: {
       title: "Great workout! 💪",
-      body: `${params.templateName}: ${params.completedSets} sets across ${params.exerciseCount} exercises in ${duration}`,
+      body: params.feedback ? `${statsLine}\n${params.feedback}` : statsLine,
       sound: "default",
     },
     trigger: {
@@ -282,6 +288,132 @@ export async function scheduleMorningPlanNotification(
 export async function cancelMorningPlanNotification(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(
     IDENTIFIERS.MORNING_PLAN,
+  ).catch(() => {});
+}
+
+// --- Weekly Review (Type 5) ---
+
+interface WeeklyReviewParams {
+  /** 0-6, 0 = Sunday (matches settings store) */
+  day: number;
+  hour: number;
+  minute: number;
+}
+
+export async function scheduleWeeklyReviewNotification(
+  params: WeeklyReviewParams,
+): Promise<void> {
+  // Cancel before any early return so the scheduled state always reflects
+  // current settings — a previously scheduled notification must not survive
+  // the setting being turned off or permission being revoked.
+  await cancelWeeklyReviewNotification();
+
+  const { notificationsWeeklyReviewEnabled } = useSettingsStore.getState();
+  if (!notificationsWeeklyReviewEnabled) return;
+
+  // Guard persisted state drift: expo-notifications requires weekday 1-7.
+  const day = Number.isInteger(params.day)
+    ? Math.min(6, Math.max(0, params.day))
+    : 0;
+
+  if (!(await ensureGranted())) return;
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: IDENTIFIERS.WEEKLY_REVIEW,
+    content: {
+      title: "Your weekly training review is ready 📊",
+      body: "See how your week stacked up and what to focus on next.",
+      sound: "default",
+      // Tapping routes to the review screen — handled by the notification
+      // response listener in hooks/use-notification-setup.ts.
+      data: { url: "/review" },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+      // expo-notifications weekday is 1-7 with 1 = Sunday; settings use 0-6.
+      weekday: day + 1,
+      hour: params.hour,
+      minute: params.minute,
+    },
+  });
+}
+
+export async function cancelWeeklyReviewNotification(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(
+    IDENTIFIERS.WEEKLY_REVIEW,
+  ).catch(() => {});
+}
+
+// --- Evening Protein Nudge (Type 7) ---
+
+/**
+ * Schedule (or cancel) the one-shot evening protein nudge for TODAY based on
+ * the user's remaining protein. Callers pass the protein consumed so far today
+ * (summed from the meal-log store) — this module deliberately does not import
+ * the meal-log store to avoid a circular dependency (the store calls this
+ * function after every meal-log change).
+ *
+ * Cancels and skips scheduling when any of these hold:
+ * - the nudge is disabled (opt-in setting, default off)
+ * - no protein goal is set (goal <= 0)
+ * - the goal is already met
+ * - the configured time has already passed today
+ */
+export async function recomputeProteinNudge(
+  proteinConsumedToday: number,
+): Promise<void> {
+  const { notificationsProteinNudgeEnabled, notificationsProteinNudgeTime } =
+    useSettingsStore.getState();
+  const proteinGoal = useNutritionGoalsStore.getState().goals.protein;
+
+  const [hour, minute] = notificationsProteinNudgeTime.split(":").map(Number);
+  const now = new Date();
+  const target = new Date(now);
+  if (Number.isFinite(hour) && Number.isFinite(minute)) {
+    target.setHours(hour, minute, 0, 0);
+  }
+
+  const remaining = Math.round(proteinGoal - proteinConsumedToday);
+
+  const shouldSkip =
+    !notificationsProteinNudgeEnabled ||
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute) ||
+    proteinGoal <= 0 ||
+    remaining <= 0 ||
+    target.getTime() <= now.getTime();
+
+  // Cancel first, before the skip/permission checks, so a previously
+  // scheduled nudge never outlives the conditions that scheduled it
+  // (stale copy/time after permission revocation or setting changes).
+  await cancelProteinNudgeNotification();
+
+  if (shouldSkip) return;
+
+  if (!(await ensureGranted())) return;
+
+  const secondsUntil = Math.max(
+    1,
+    Math.floor((target.getTime() - now.getTime()) / 1000),
+  );
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: IDENTIFIERS.PROTEIN_NUDGE,
+    content: {
+      title: "Protein check-in 🥛",
+      body: `You're ${remaining}g short of your protein goal — a shake or Greek yogurt closes the gap.`,
+      sound: "default",
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: secondsUntil,
+    },
+  });
+}
+
+export async function cancelProteinNudgeNotification(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(
+    IDENTIFIERS.PROTEIN_NUDGE,
   ).catch(() => {});
 }
 

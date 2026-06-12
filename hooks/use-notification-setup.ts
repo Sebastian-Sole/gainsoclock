@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
+import { router, type Href } from 'expo-router';
 import { useSettingsStore } from '@/stores/settings-store';
 import { usePlanStore } from '@/stores/plan-store';
 import {
@@ -8,6 +9,8 @@ import {
   cancelDailyWorkoutReminder,
   scheduleMorningPlanNotification,
   cancelMorningPlanNotification,
+  scheduleWeeklyReviewNotification,
+  cancelWeeklyReviewNotification,
   isActiveWorkoutVisible,
 } from '@/lib/notifications';
 import { getPlanDayDate, isToday, isTomorrow } from '@/lib/plan-dates';
@@ -59,6 +62,61 @@ export function useNotificationSetup() {
       }
     });
     return unsub;
+  }, []);
+
+  // Subscribe to settings changes for weekly review notification
+  useEffect(() => {
+    let prevEnabled = useSettingsStore.getState().notificationsWeeklyReviewEnabled;
+    let prevDay = useSettingsStore.getState().notificationsWeeklyReviewDay;
+    let prevTime = useSettingsStore.getState().notificationsWeeklyReviewTime;
+
+    const unsub = useSettingsStore.subscribe((state) => {
+      const {
+        notificationsWeeklyReviewEnabled: enabled,
+        notificationsWeeklyReviewDay: day,
+        notificationsWeeklyReviewTime: time,
+      } = state;
+      if (enabled === prevEnabled && day === prevDay && time === prevTime) return;
+      prevEnabled = enabled;
+      prevDay = day;
+      prevTime = time;
+
+      if (!enabled) {
+        cancelWeeklyReviewNotification();
+        return;
+      }
+
+      const [hour, minute] = time.split(':').map(Number);
+      if (Number.isFinite(hour) && Number.isFinite(minute)) {
+        scheduleWeeklyReviewNotification({ day, hour, minute });
+      }
+    });
+    return unsub;
+  }, []);
+
+  // Route notification taps that carry a deep link (e.g. weekly review →
+  // /review). Handles both warm taps and the cold-start notification.
+  useEffect(() => {
+    const handleResponse = (response: Notifications.NotificationResponse) => {
+      const url = response.notification.request.content.data?.url;
+      if (typeof url === 'string' && url.startsWith('/')) {
+        // Notification payloads are dynamic strings; Expo Router validates
+        // the route at runtime (unknown paths fall through to not-found).
+        router.push(url as Href);
+      }
+    };
+
+    // Cold start: the tap that launched the app is delivered here, not to
+    // the listener. Clear it afterwards so it isn't replayed.
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        handleResponse(response);
+        Notifications.clearLastNotificationResponseAsync().catch(() => {});
+      }
+    });
+
+    const sub = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    return () => sub.remove();
   }, []);
 
   // Subscribe to settings + plan store changes for morning plan notification
@@ -126,13 +184,29 @@ export function useNotificationSetup() {
     if (didMount.current) return;
     didMount.current = true;
 
-    const { notificationsReminderEnabled, notificationsReminderTime } =
-      useSettingsStore.getState();
+    const {
+      notificationsReminderEnabled,
+      notificationsReminderTime,
+      notificationsWeeklyReviewEnabled,
+      notificationsWeeklyReviewDay,
+      notificationsWeeklyReviewTime,
+    } = useSettingsStore.getState();
 
     if (notificationsReminderEnabled) {
       const [hour, minute] = notificationsReminderTime.split(':').map(Number);
       if (Number.isFinite(hour) && Number.isFinite(minute)) {
         scheduleDailyWorkoutReminder(hour, minute);
+      }
+    }
+
+    if (notificationsWeeklyReviewEnabled) {
+      const [hour, minute] = notificationsWeeklyReviewTime.split(':').map(Number);
+      if (Number.isFinite(hour) && Number.isFinite(minute)) {
+        scheduleWeeklyReviewNotification({
+          day: notificationsWeeklyReviewDay,
+          hour,
+          minute,
+        });
       }
     }
   }, []);

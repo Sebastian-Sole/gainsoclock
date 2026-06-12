@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
 import { generateId } from '@/lib/id';
 import { syncToConvex } from '@/lib/convex-sync';
+import { recomputeProteinNudge } from '@/lib/notifications';
 import { api } from '@/convex/_generated/api';
 import { format } from 'date-fns';
 import type { MealLog, Macros } from '@/lib/types';
@@ -37,6 +38,26 @@ function todayLocal() {
   return format(new Date(), 'yyyy-MM-dd');
 }
 
+/**
+ * Protein consumed today, summed from the store. Returns 0 when the cached
+ * meals belong to a previous day (stale cache cleared lazily on rehydrate).
+ */
+export function getTodayProteinConsumed(): number {
+  const { todayMeals, mealsDate } = useMealLogStore.getState();
+  if (mealsDate !== null && mealsDate !== todayLocal()) return 0;
+  return todayMeals.reduce((sum, m) => sum + m.macros.protein, 0);
+}
+
+/**
+ * The protein-nudge recompute seam: every code path that changes today's meal
+ * logs flows through this store (manual log, photo log, barcode log, delete,
+ * server hydration), so the store actions call this after each change.
+ * Foreground/app-resume recompute lives in the today-tab AppState effect.
+ */
+function recomputeProteinNudgeFromStore(): void {
+  void recomputeProteinNudge(getTodayProteinConsumed());
+}
+
 export const useMealLogStore = create<MealLogState>()(
   persist(
     (set, get) => ({
@@ -65,6 +86,8 @@ export const useMealLogStore = create<MealLogState>()(
           loggedAt: meal.loggedAt,
         });
 
+        recomputeProteinNudgeFromStore();
+
         return meal;
       },
 
@@ -73,6 +96,7 @@ export const useMealLogStore = create<MealLogState>()(
           todayMeals: state.todayMeals.filter((m) => m.id !== id),
         }));
         syncToConvex(api.mealLogs.deleteMealLog, { clientId: id });
+        recomputeProteinNudgeFromStore();
       },
 
       hydrateFromServer: (meals) => {
@@ -111,6 +135,7 @@ export const useMealLogStore = create<MealLogState>()(
         }
 
         set({ todayMeals: merged, mealsDate: todayLocal() });
+        recomputeProteinNudgeFromStore();
       },
     }),
     {

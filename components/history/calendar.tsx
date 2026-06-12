@@ -27,6 +27,9 @@ interface CalendarProps {
   currentMonth: Date;
   selectedDate: Date;
   workoutDates: Set<string>;
+  /** Dates ("yyyy-MM-dd") with imported (Apple Health) workouts. Days that
+   * also appear in `workoutDates` keep the Fitbull marker. */
+  externalWorkoutDates?: Set<string>;
   isLoading?: boolean;
   onSelectDate: (date: Date) => void;
   onPrevMonth: () => void;
@@ -80,6 +83,7 @@ export function Calendar({
   currentMonth,
   selectedDate,
   workoutDates,
+  externalWorkoutDates,
   isLoading,
   onSelectDate,
   onPrevMonth,
@@ -137,6 +141,9 @@ export function Calendar({
                 isToday={isToday(day)}
                 isSelected={isSameDay(day, selectedDate)}
                 hasWorkout={workoutDates.has(dateStr)}
+                hasExternalWorkoutOnly={
+                  externalWorkoutDates?.has(dateStr) === true && !workoutDates.has(dateStr)
+                }
                 isCurrentMonth={true}
                 onPress={() => onSelectDate(day)}
               />

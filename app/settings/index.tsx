@@ -14,8 +14,10 @@ import {
   Download,
   Gauge,
   Heart,
+  HeartPulse,
   History,
   LogOut,
+  RefreshCw,
   RotateCcw,
   Ruler,
   ShieldCheck,
@@ -40,8 +42,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useHealthImport } from "@/hooks/use-health-import";
 import { useHealthKit } from "@/hooks/use-healthkit";
 import { usePurchases } from "@/hooks/use-purchases";
+import { requestHealthImportPermissions } from "@/lib/healthkit";
 import { NumericInput } from "@/components/shared/numeric-input";
 import { REST_TIME_PRESETS } from "@/lib/constants";
 import { formatTime } from "@/lib/format";
@@ -56,6 +60,16 @@ import { useTemplateStore } from "@/stores/template-store";
 import { useMealLogStore } from "@/stores/meal-log-store";
 import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useAuthCacheStore } from "@/stores/auth-cache-store";
+
+function formatRelativeTime(timestamp: number): string {
+  const minutes = Math.floor((Date.now() - timestamp) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours === 1 ? "1 hour ago" : `${hours} hours ago`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? "1 day ago" : `${days} days ago`;
+}
 
 export default function SettingsScreen() {
   const { colorScheme } = useColorScheme();
@@ -211,6 +225,35 @@ export default function SettingsScreen() {
     enable: enableHealthKit,
     disable: disableHealthKit,
   } = useHealthKit();
+  const healthImportEnabled = useSettingsStore((s) => s.healthImportEnabled);
+  const setHealthImportEnabled = useSettingsStore(
+    (s) => s.setHealthImportEnabled,
+  );
+  const {
+    isSyncing: isHealthSyncing,
+    lastSyncAt: healthLastSyncAt,
+    syncNow: syncHealthNow,
+  } = useHealthImport();
+  const [healthImportRequesting, setHealthImportRequesting] = useState(false);
+
+  const handleHealthImportToggle = async (checked: boolean) => {
+    if (!checked) {
+      setHealthImportEnabled(false);
+      return;
+    }
+    // Request the import-only scopes (incremental authorization) so the
+    // expanded read prompt appears here — where the toggle copy explains it —
+    // and never during onboarding (5.1.1(iv)).
+    setHealthImportRequesting(true);
+    try {
+      const granted = await requestHealthImportPermissions();
+      if (granted) {
+        setHealthImportEnabled(true);
+      }
+    } finally {
+      setHealthImportRequesting(false);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -485,6 +528,73 @@ export default function SettingsScreen() {
                   disabled={healthKitRequesting}
                 />
               </View>
+
+              {healthKitEnabled && (
+                <>
+                  <Separator />
+
+                  <View className="flex-row items-center gap-3 px-4 py-4">
+                    <Icon as={HeartPulse} size={20} className="text-primary" />
+                    <View className="flex-1">
+                      <Text className="font-medium">
+                        Import workouts & health data
+                      </Text>
+                      <Text className="text-sm text-muted-foreground">
+                        Bring in workouts from other apps, plus sleep, heart
+                        rate, steps & weight
+                      </Text>
+                    </View>
+                    <Switch
+                      checked={healthImportEnabled}
+                      onCheckedChange={(checked) => {
+                        void handleHealthImportToggle(checked);
+                      }}
+                      disabled={healthImportRequesting}
+                      accessibilityLabel="Import workouts and health data"
+                      accessibilityRole="switch"
+                      testID="settings-health-import-toggle"
+                    />
+                  </View>
+                </>
+              )}
+
+              {healthKitEnabled && healthImportEnabled && (
+                <>
+                  <Separator />
+                  <Pressable
+                    onPress={() => {
+                      void syncHealthNow();
+                    }}
+                    disabled={isHealthSyncing}
+                    className="flex-row items-center gap-3 px-4 py-4"
+                    accessibilityLabel="Sync Apple Health data now"
+                    accessibilityRole="button"
+                    accessibilityState={{
+                      disabled: isHealthSyncing,
+                      busy: isHealthSyncing,
+                    }}
+                    testID="settings-health-sync-now"
+                  >
+                    <Icon as={RefreshCw} size={20} className="text-primary" />
+                    <View className="flex-1">
+                      <Text className="font-medium">Sync now</Text>
+                      <Text className="text-sm text-muted-foreground">
+                        {isHealthSyncing
+                          ? "Syncing…"
+                          : healthLastSyncAt != null
+                            ? `Last synced ${formatRelativeTime(healthLastSyncAt)}`
+                            : "Never synced"}
+                      </Text>
+                    </View>
+                    {isHealthSyncing && (
+                      <ActivityIndicator
+                        size="small"
+                        color={isDark ? "#fff" : "#000"}
+                      />
+                    )}
+                  </Pressable>
+                </>
+              )}
             </View>
           </>
         )}

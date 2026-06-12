@@ -12,6 +12,7 @@ import type * as aiTools from "../aiTools.js";
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
 import type * as authInternal from "../authInternal.js";
+import type * as barcode from "../barcode.js";
 import type * as chat from "../chat.js";
 import type * as chatActions from "../chatActions.js";
 import type * as chatInternal from "../chatInternal.js";
@@ -19,10 +20,12 @@ import type * as crons from "../crons.js";
 import type * as email from "../email.js";
 import type * as exerciseLibrary from "../exerciseLibrary.js";
 import type * as exercises from "../exercises.js";
+import type * as healthData from "../healthData.js";
 import type * as http from "../http.js";
 import type * as mealLogs from "../mealLogs.js";
 import type * as migrations from "../migrations.js";
 import type * as nutritionGoals from "../nutritionGoals.js";
+import type * as nutritionVision from "../nutritionVision.js";
 import type * as onboarding from "../onboarding.js";
 import type * as onboardingActions from "../onboardingActions.js";
 import type * as onboardingInternal from "../onboardingInternal.js";
@@ -37,6 +40,8 @@ import type * as subscriptions from "../subscriptions.js";
 import type * as templates from "../templates.js";
 import type * as user from "../user.js";
 import type * as validators from "../validators.js";
+import type * as weeklyReview from "../weeklyReview.js";
+import type * as workoutFeedback from "../workoutFeedback.js";
 import type * as workoutLogs from "../workoutLogs.js";
 
 import type {
@@ -50,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   analytics: typeof analytics;
   auth: typeof auth;
   authInternal: typeof authInternal;
+  barcode: typeof barcode;
   chat: typeof chat;
   chatActions: typeof chatActions;
   chatInternal: typeof chatInternal;
@@ -57,10 +63,12 @@ declare const fullApi: ApiFromModules<{
   email: typeof email;
   exerciseLibrary: typeof exerciseLibrary;
   exercises: typeof exercises;
+  healthData: typeof healthData;
   http: typeof http;
   mealLogs: typeof mealLogs;
   migrations: typeof migrations;
   nutritionGoals: typeof nutritionGoals;
+  nutritionVision: typeof nutritionVision;
   onboarding: typeof onboarding;
   onboardingActions: typeof onboardingActions;
   onboardingInternal: typeof onboardingInternal;
@@ -75,6 +83,8 @@ declare const fullApi: ApiFromModules<{
   templates: typeof templates;
   user: typeof user;
   validators: typeof validators;
+  weeklyReview: typeof weeklyReview;
+  workoutFeedback: typeof workoutFeedback;
   workoutLogs: typeof workoutLogs;
 }>;
 

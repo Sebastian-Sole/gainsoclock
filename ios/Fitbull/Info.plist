@@ -55,10 +55,14 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
+    <key>NSCameraUsageDescription</key>
+    <string>Fitbull uses the camera to photograph meals and scan food barcodes for logging.</string>
     <key>NSHealthShareUsageDescription</key>
-    <string>Fitbull reads your weight, height, and body-fat percentage from Apple Health so you don't have to re-enter them. We never read sleep, heart rate, cycle, or workout data.</string>
+    <string>Fitbull reads your workouts from other apps and devices, plus your sleep, heart rate, heart-rate variability, steps, weight, height, and body-fat percentage from Apple Health to show a unified training timeline and personalize your coaching. We never read cycle-tracking or clinical data.</string>
     <key>NSHealthUpdateUsageDescription</key>
     <string>Fitbull writes your completed strength workouts and estimated active energy to Apple Health so they count toward your Fitness rings.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Fitbull uses your photo library so you can log meals from photos of your food.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

@@ -13,6 +13,7 @@ import { Alert, FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PlansList } from '@/components/chat/plans-list';
+import { MissedDayBanner } from '@/components/plan/missed-day-banner';
 import { HealthKitReaskCard } from '@/components/home/healthkit-reask-card';
 import { TrialConfirmationBanner } from '@/components/home/trial-confirmation-banner';
 import { Fab } from '@/components/shared/fab';
@@ -273,6 +274,7 @@ export default function WorkoutsScreen() {
         </TabsContent>
 
         <TabsContent value="plans" className="flex-1">
+          <MissedDayBanner />
           <PlansList />
         </TabsContent>
       </Tabs>
