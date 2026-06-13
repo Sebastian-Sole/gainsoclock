@@ -41,6 +41,11 @@ interface SettingsState {
   // Exercise tracking
   rpeEnabled: boolean;
 
+  // Local-only: tracks the date (YYYY-MM-DD, local time) of the most recent
+  // workout log. Used by scheduleDailyWorkoutReminder to suppress the daily
+  // nag on days the user has already worked out. Not synced to Convex.
+  lastWorkoutLoggedDate: string | null;
+
   setWeightUnit: (unit: WeightUnit) => void;
   setDistanceUnit: (unit: DistanceUnit) => void;
   setDefaultRestTime: (seconds: number) => void;
@@ -66,6 +71,7 @@ interface SettingsState {
   setNotificationsProteinNudgeEnabled: (enabled: boolean) => void;
   setNotificationsProteinNudgeTime: (time: string) => void;
   setRpeEnabled: (enabled: boolean) => void;
+  setLastWorkoutLoggedDate: (date: string) => void;
   hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string; prefillFromLastWorkout?: boolean; defaultSetsCount?: number; defaultRepsCount?: number; notificationsRestTimerEnabled?: boolean; notificationsPostWorkoutEnabled?: boolean; notificationsPostWorkoutDelay?: number; notificationsReminderEnabled?: boolean; notificationsReminderTime?: string; notificationsMorningPlanEnabled?: boolean; notificationsMorningPlanTime?: string; rpeEnabled?: boolean }) => void;
 }
 
@@ -119,6 +125,7 @@ export const useSettingsStore = create<SettingsState>()(
       notificationsProteinNudgeEnabled: false,
       notificationsProteinNudgeTime: '19:30',
       rpeEnabled: false,
+      lastWorkoutLoggedDate: null,
 
       setWeightUnit: (unit) => {
         set({ weightUnit: unit });
@@ -243,6 +250,11 @@ export const useSettingsStore = create<SettingsState>()(
       setRpeEnabled: (enabled) => {
         set({ rpeEnabled: enabled });
         syncSettings(get());
+      },
+
+      setLastWorkoutLoggedDate: (date) => {
+        set({ lastWorkoutLoggedDate: date });
+        // Not synced to Convex — per-device, local-clock concept
       },
 
       setCustomRange: (from, to) => {
