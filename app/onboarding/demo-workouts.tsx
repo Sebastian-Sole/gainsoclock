@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
 import { Check, Dumbbell, TrendingUp } from 'lucide-react-native';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, {
     Easing,
     cancelAnimation,
+    makeMutable,
     useAnimatedStyle,
     useSharedValue,
     withSpring,
@@ -189,12 +190,12 @@ export default function DemoWorkoutsScreen() {
   const exerciseY = useSharedValue(20);
   const exerciseScale = useSharedValue(0.94);
 
-  const setVis = SETS.map(() => useSharedValue(0));
-  const setComplete = SETS.map(() => useSharedValue(0));
+  const [setVis] = useState(() => SETS.map(() => makeMutable(0)));
+  const [setComplete] = useState(() => SETS.map(() => makeMutable(0)));
 
   const progressOpacity = useSharedValue(0);
   const progressY = useSharedValue(20);
-  const barFractions = PROGRESS_BARS.map(() => useSharedValue(0));
+  const [barFractions] = useState(() => PROGRESS_BARS.map(() => makeMutable(0)));
 
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const setTimer = (fn: () => void, ms: number) => {
