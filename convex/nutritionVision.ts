@@ -244,6 +244,85 @@ export const sweepOrphanPhotos = internalMutation({
         // Already gone (e.g. discarded after the row was orphaned) — fine.
       }
       await ctx.db.delete(row._id);
+// ── Recipe macro prompt ────────────────────────────────────────
+
+const RECIPE_MACROS_SYSTEM_PROMPT = `You are a nutrition assistant estimating macros for a user's recipe from its ingredient list.
+
+Respond with JSON only:
+{
+  "title": "the recipe title, echoed",
+  "portionDescription": "what the estimate covers, e.g. 'whole recipe, 4 servings'",
+  "macros": {"calories": number, "protein": number, "carbs": number, "fat": number},
+  "confidence": "low" | "medium" | "high",
+  "assumptions": ["key assumption 1", ...]
+}
+
+Rules:
+- Estimate TOTAL macros for the WHOLE recipe (all servings combined); calories in kcal, protein/carbs/fat in grams.
+- Quantities are freeform text ("2 cups", "200", "a pinch") — interpret conservatively from typical amounts; do not inflate.
+- List the key assumptions (e.g. "assumed 240g per cup of rice, uncooked").`;
+
+// ── Action: generate macros from recipe ingredients ────────────
+
+/**
+ * Estimate total macros for a recipe from its ingredient list.
+ * Pro-gated; returns the same AnalyzeResult union as analyzeMealPhoto.
+ */
+export const generateRecipeMacros = action({
+  args: {
+    title: v.string(),
+    servings: v.optional(v.number()),
+    ingredients: v.array(
+      v.object({ name: v.string(), amount: v.string(), unit: v.optional(v.string()) }),
+    ),
+  },
+  handler: async (ctx, args): Promise<AnalyzeResult> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    // Recipe macro estimation is a Pro feature.
+    const isPro: boolean = await ctx.runQuery(
+      internal.subscriptions.checkSubscription,
+      { userId }
+    );
+    if (!isPro) {
+      return { status: "error", code: "pro_required" };
+    }
+
+    // Guard: no ingredients → friendly failure, no OpenAI charge.
+    if (args.ingredients.length === 0) {
+      return { status: "error", code: "failed" };
+    }
+
+    const ingredientLines = args.ingredients
+      .map((i) => `- ${i.amount}${i.unit ? ` ${i.unit}` : ""} ${i.name}`)
+      .join("\n");
+    const servingsNote = args.servings ? ` (${args.servings} servings)` : "";
+    const userMessage = `Recipe: ${args.title}${servingsNote}\n\nIngredients:\n${ingredientLines}`;
+
+    try {
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const response = await openai.chat.completions.create({
+        model: OPENAI_VISION_MODEL,
+        messages: [
+          { role: "system", content: RECIPE_MACROS_SYSTEM_PROMPT },
+          { role: "user", content: userMessage },
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 600,
+      });
+
+      const raw = response.choices[0]?.message?.content;
+      const parsed = raw ? parseEstimateJson(raw) : null;
+
+      if (parsed === null) return { status: "error", code: "failed" };
+      // "not_food" is structurally impossible for a text ingredient list,
+      // but the parser may still return it — treat as a generic failure.
+      if (parsed === "not_food") return { status: "error", code: "failed" };
+
+      return { status: "ok", estimate: parsed };
+    } catch {
+      return { status: "error", code: "failed" };
     }
   },
 });
