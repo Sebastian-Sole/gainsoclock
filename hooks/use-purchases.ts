@@ -234,6 +234,17 @@ export function usePurchases() {
         return isActive;
       }
 
+      // Snapshot the fields the optimistic update is about to overwrite so we
+      // can restore them verbatim if the server sync fails (e.g. offline). The
+      // previous behavior hardcoded `free` here, which downgraded a confirmed
+      // Pro/trial user locally until the next successful round-trip.
+      const prevState = useSubscriptionStore.getState();
+      const prevSnapshot = {
+        status: prevState.status,
+        productId: prevState.productId,
+        expiresAt: prevState.expiresAt,
+      };
+
       // Optimistic local update — the server state machine is still the
       // truth, but the client store needs to reflect intent immediately so
       // the UI doesn't flicker.
@@ -251,13 +262,10 @@ export function usePurchases() {
           expiresAt: activeEntitlement?.expirationDate ?? undefined,
         });
       } catch (error) {
-        // Revert optimistic local state so the UI doesn't show Pro access
-        // that the server can't confirm.
-        useSubscriptionStore.getState().setSubscription({
-          status: "free",
-          productId: null,
-          expiresAt: null,
-        });
+        // Restore the pre-optimistic state so a failed sync doesn't leave the
+        // persisted store reporting Pro access the server can't confirm — and,
+        // crucially, doesn't clobber an already-entitled user with `free`.
+        useSubscriptionStore.getState().setSubscription(prevSnapshot);
         console.warn(
           "[Purchases] Failed to sync subscription to server:",
           error,
