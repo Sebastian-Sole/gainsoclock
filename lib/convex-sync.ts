@@ -1,5 +1,9 @@
 import type { ConvexReactClient } from "convex/react";
-import { getFunctionName } from "convex/server";
+import {
+  getFunctionName,
+  type FunctionReference,
+  type FunctionArgs,
+} from "convex/server";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "@/convex/_generated/api";
 import { useNetworkStore } from "@/stores/network-store";
@@ -111,6 +115,72 @@ async function enqueue(path: string, args: unknown): Promise<void> {
   });
 }
 
+// ── Dead-letter store (writes we could never deliver) ────────────────
+// A persisted record of mutations that were removed from the live queue
+// because they can never succeed (unknown path / permanent validation
+// error) or exhausted their retries. Nothing is silently dropped: every
+// removal lands here so the divergence is recoverable and observable.
+
+const DEAD_LETTER_KEY = "convex-sync-dead-letter";
+
+interface DeadLetterEntry {
+  /** Function path, e.g. "workoutLogs:create" */
+  path: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  args: any;
+  queuedAt: number;
+  failedAt: number;
+  /** Why the mutation was dead-lettered (truncated error / sentinel). */
+  reason: string;
+}
+
+async function readDeadLetters(): Promise<DeadLetterEntry[]> {
+  try {
+    const raw = await AsyncStorage.getItem(DEAD_LETTER_KEY);
+    if (raw) {
+      return JSON.parse(raw) as DeadLetterEntry[];
+    }
+  } catch {
+    // If AsyncStorage read fails, treat as empty.
+  }
+  return [];
+}
+
+async function deadLetter(item: QueuedMutation, reason: string): Promise<void> {
+  // Always warn — even in production — because a dead-letter is a write
+  // that diverged from the server and needs operator visibility.
+  console.warn(`[ConvexSync] Dead-lettering ${item.path}: ${reason}`);
+  try {
+    const entries = await readDeadLetters();
+    entries.push({
+      path: item.path,
+      args: item.args,
+      queuedAt: item.queuedAt,
+      failedAt: Date.now(),
+      reason,
+    });
+    await AsyncStorage.setItem(DEAD_LETTER_KEY, JSON.stringify(entries));
+  } catch (err) {
+    console.warn("[ConvexSync] Failed to persist dead-letter:", err);
+  }
+}
+
+export async function getDeadLetterCount(): Promise<number> {
+  return (await readDeadLetters()).length;
+}
+
+export async function getDeadLetters(): Promise<DeadLetterEntry[]> {
+  return readDeadLetters();
+}
+
+export async function clearDeadLetters(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(DEAD_LETTER_KEY);
+  } catch (err) {
+    console.warn("[ConvexSync] Failed to clear dead-letters:", err);
+  }
+}
+
 // ── Public API ───────────────────────────────────────────────────────
 
 /**
@@ -122,29 +192,80 @@ async function enqueue(path: string, args: unknown): Promise<void> {
  * Convex buffers mutations over its WebSocket and never rejects — so the
  * .catch() path would never fire when offline.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function syncToConvex(mutation: any, args: any) {
+export function syncToConvex<M extends FunctionReference<"mutation">>(
+  mutation: M,
+  args: FunctionArgs<M>,
+): void {
   const path = getMutationPath(mutation);
   const { isConnected, isInternetReachable } = useNetworkStore.getState();
   const isOffline = isConnected === false || isInternetReachable === false;
 
   if (!convexClient || isOffline) {
     if (path) {
-      console.log(`[ConvexSync] Offline — queueing ${path}`);
+      if (__DEV__) console.log(`[ConvexSync] Offline — queueing ${path}`);
       void enqueue(path, args);
     }
     return;
   }
 
-  convexClient.mutation(mutation, args).catch((err: unknown) => {
-    console.warn("[ConvexSync] Mutation failed, queueing for retry:", err);
-    if (path) void enqueue(path, args);
-  });
+  // We're online, but older mutations may still be queued from an offline
+  // period. Sending this one live would let it overtake its prerequisites
+  // (causal reordering → silent server-side data loss). So fence the live
+  // send behind the pending queue: if anything is queued, append this
+  // mutation and flush the whole queue in order instead.
+  void (async () => {
+    const client = convexClient;
+    if (!client) {
+      if (path) void enqueue(path, args);
+      return;
+    }
+
+    const queueNonEmpty = await withLock(async () => {
+      await ensureLoaded();
+      if (memoryQueue.length > 0) {
+        // Append inside the same lock so this mutation is ordered after the
+        // already-queued ones. (path is null only for unresolvable refs,
+        // which we can't queue meaningfully — fall through to a live send.)
+        if (path) {
+          memoryQueue.push({ path, args, queuedAt: Date.now(), retryCount: 0 });
+          await persistQueue();
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (queueNonEmpty) {
+      // Flush AFTER releasing the lock — flushSyncQueue takes the lock
+      // itself, so flushing inside withLock would deadlock.
+      void flushSyncQueue();
+      return;
+    }
+
+    // Queue empty: safe to send live. On error, queue for retry (unchanged).
+    client.mutation(mutation, args).catch((err: unknown) => {
+      console.warn("[ConvexSync] Mutation failed, queueing for retry:", err);
+      if (path) void enqueue(path, args);
+    });
+  })();
+}
+
+/**
+ * Classify a send failure. Permanent failures (server-side validation
+ * errors) can never succeed on retry, so they are dead-lettered rather than
+ * blocking the queue. Everything else is treated as transient.
+ */
+function isPermanentFailure(err: unknown): boolean {
+  return String(err).includes("ArgumentValidationError");
 }
 
 /**
  * Replay all queued mutations in order.  Should be called when the device
  * comes back online.
+ *
+ * Ordering guarantee: the loop stops on the first *transient* failure and
+ * re-prepends the unprocessed items (preserving their relative order), so a
+ * later mutation can never overtake an earlier one that is still failing.
  */
 export async function flushSyncQueue(): Promise<void> {
   if (!convexClient || isFlushing) return;
@@ -164,45 +285,51 @@ export async function flushSyncQueue(): Promise<void> {
 
     if (snapshot.length === 0) return;
 
-    console.log(`[ConvexSync] Flushing ${snapshot.length} queued mutation(s)…`);
+    if (__DEV__)
+      console.log(`[ConvexSync] Flushing ${snapshot.length} queued mutation(s)…`);
 
-    const failed: QueuedMutation[] = [];
-
-    for (const item of snapshot) {
+    for (let i = 0; i < snapshot.length; i++) {
+      const item = snapshot[i];
       const mutationRef = resolveMutation(item.path);
       if (!mutationRef) {
-        console.warn(`[ConvexSync] Unknown mutation path: ${item.path}, dropping`);
+        // Unresolvable path — can never be delivered. Record, don't drop.
+        await deadLetter(item, "unknown-path");
         continue;
       }
       try {
         await convexClient.mutation(mutationRef, item.args);
       } catch (err) {
+        if (isPermanentFailure(err)) {
+          // Will never succeed; dead-letter and keep draining the rest.
+          await deadLetter(item, String(err).slice(0, 300));
+          continue;
+        }
+
         const nextRetry = (item.retryCount ?? 0) + 1;
         if (nextRetry >= MAX_RETRIES) {
-          console.warn(
-            `[ConvexSync] Dropping ${item.path} after ${MAX_RETRIES} failed retries:`,
-            err,
-          );
-        } else {
-          console.warn(
-            `[ConvexSync] Retry ${nextRetry}/${MAX_RETRIES} failed for ${item.path}:`,
-            err,
-          );
-          failed.push({ ...item, retryCount: nextRetry });
+          // Exhausted retries — record instead of silently discarding.
+          await deadLetter(item, "max-retries");
+          continue;
         }
+
+        // Transient failure: STOP the loop to preserve causal order.
+        // Re-prepend the bumped head plus the rest of the snapshot (and any
+        // mutations enqueued while we were flushing) under the lock.
+        console.warn(
+          `[ConvexSync] Retry ${nextRetry}/${MAX_RETRIES} failed for ${item.path}, pausing flush:`,
+          err,
+        );
+        const remainingSnapshot = snapshot.slice(i + 1);
+        const bumpedHead: QueuedMutation = { ...item, retryCount: nextRetry };
+        await withLock(async () => {
+          memoryQueue = [bumpedHead, ...remainingSnapshot, ...memoryQueue];
+          await persistQueue();
+        });
+        return;
       }
     }
 
-    // Re-enqueue failed items under the lock (prepend so they retry first).
-    if (failed.length > 0) {
-      await withLock(async () => {
-        memoryQueue = [...failed, ...memoryQueue];
-        await persistQueue();
-      });
-      console.warn(`[ConvexSync] ${failed.length} mutation(s) still pending`);
-    } else {
-      console.log("[ConvexSync] Queue flushed successfully");
-    }
+    if (__DEV__) console.log("[ConvexSync] Queue flushed successfully");
   } finally {
     isFlushing = false;
   }

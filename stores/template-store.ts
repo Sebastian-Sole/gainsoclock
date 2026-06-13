@@ -90,7 +90,10 @@ export const useTemplateStore = create<TemplateState>()(
           ),
         }));
 
-        const syncArgs: Record<string, unknown> = { clientId: id, updatedAt: now };
+        const syncArgs: Record<string, unknown> & { clientId: string; updatedAt: string } = {
+          clientId: id,
+          updatedAt: now,
+        };
         if (updates.name !== undefined) syncArgs.name = updates.name;
         if (updates.notes !== undefined) syncArgs.notes = updates.notes;
         if (updates.exercises !== undefined) {

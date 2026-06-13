@@ -92,7 +92,10 @@ export const useRecipeStore = create<RecipeState>()(
           ),
         }));
 
-        const syncArgs: Record<string, unknown> = { clientId: id, updatedAt: now };
+        const syncArgs: Record<string, unknown> & { clientId: string; updatedAt: string } = {
+          clientId: id,
+          updatedAt: now,
+        };
         for (const [key, val] of Object.entries(updates)) {
           if (val !== undefined) {
             syncArgs[key] = val;
