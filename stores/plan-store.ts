@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
+import { getPendingClientIds, isQueueLoaded } from '@/lib/convex-sync';
 import type { WorkoutPlan, PlanDay, PlanStatus } from '@/lib/types';
 
 interface PlanWithDays extends WorkoutPlan {
@@ -76,13 +77,19 @@ export const usePlanStore = create<PlanState>()(
         const localPlans = get().plans;
         const localById = new Map(localPlans.map((p) => [p.id, p]));
 
+        const pending = getPendingClientIds();
+        const queueKnown = isQueueLoaded();
+
         const merged: WorkoutPlan[] = [];
         const seenIds = new Set<string>();
 
+        // Queue-aware server-wins: the store has no local edit actions, so a
+        // local copy can only legitimately differ while it has a write in
+        // flight (or the queue isn't loaded). Otherwise the server copy wins.
         for (const sp of serverPlans) {
           seenIds.add(sp.clientId);
           const local = localById.get(sp.clientId);
-          if (local) {
+          if (local && (pending.has(local.id) || !queueKnown)) {
             merged.push(local);
           } else {
             merged.push({
@@ -100,9 +107,11 @@ export const usePlanStore = create<PlanState>()(
           }
         }
 
-        // Preserve local-only plans (not yet on server)
+        // Local-only plans: keep an unsynced create, otherwise drop it (server
+        // absence within an unscoped query IS deletion).
         for (const p of localPlans) {
-          if (!seenIds.has(p.id)) {
+          if (seenIds.has(p.id)) continue;
+          if (pending.has(p.id) || !queueKnown) {
             merged.push(p);
           }
         }
