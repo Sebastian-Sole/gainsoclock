@@ -611,6 +611,9 @@ export default function SettingsScreen() {
           ) : (
             <Pressable
               onPress={handleUpgradeToPro}
+              accessibilityRole="button"
+              accessibilityLabel="Upgrade to Pro"
+              testID="settings-upgrade"
               className="flex-row items-center gap-3 px-4 py-4"
             >
               <Icon as={Crown} size={20} className="text-primary" />
@@ -627,6 +630,10 @@ export default function SettingsScreen() {
           <Pressable
             onPress={handleRestore}
             disabled={isRestoring}
+            accessibilityRole="button"
+            accessibilityLabel="Restore purchases"
+            accessibilityState={{ disabled: isRestoring }}
+            testID="settings-restore-purchases"
             className="flex-row items-center gap-3 px-4 py-4"
           >
             <Icon as={RotateCcw} size={20} className="text-primary" />

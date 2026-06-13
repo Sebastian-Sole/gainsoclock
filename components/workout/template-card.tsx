@@ -14,14 +14,16 @@ interface TemplateCardProps {
   onPress: () => void;
   onStart: () => void;
   onLongPress: () => void;
+  testID?: string;
 }
 
-export function TemplateCard({ template, index, onPress, onStart, onLongPress }: TemplateCardProps) {
+export function TemplateCard({ template, index, onPress, onStart, onLongPress, testID }: TemplateCardProps) {
   return (
     <Animated.View entering={FadeInDown.delay(index * 50).springify()}>
       <Pressable
         onPress={onPress}
         onLongPress={onLongPress}
+        testID={testID}
         className="mb-3 rounded-xl border border-border bg-card p-4"
       >
         <View className="flex-row items-start justify-between">

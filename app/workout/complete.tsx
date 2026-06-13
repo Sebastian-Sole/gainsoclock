@@ -45,7 +45,7 @@ export default function WorkoutCompleteScreen() {
   }, 0);
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-background" testID="workout-complete-screen">
       <ScrollView className="flex-1" contentContainerClassName="px-6 pb-8">
         {/* Success header */}
         <Animated.View entering={FadeInDown.delay(100)} className="mt-8 items-center">

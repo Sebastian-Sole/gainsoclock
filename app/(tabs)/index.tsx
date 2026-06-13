@@ -240,6 +240,9 @@ export default function WorkoutsScreen() {
           {/* Start Empty Workout */}
           <Pressable
             onPress={handleStartEmpty}
+            accessibilityRole="button"
+            accessibilityLabel="Start empty workout"
+            testID="start-empty-workout"
             className="mx-4 mb-4 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
           >
             <Icon as={Play} size={18} className="text-primary-foreground fill-primary-foreground" />

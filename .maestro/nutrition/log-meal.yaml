@@ -1,0 +1,39 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - nutrition
+---
+# Log a meal end-to-end via the Quick Add path.
+#
+# A fresh install has no recipes, so "From Recipe" mode is empty; the
+# deterministic route is the Quick Add tab. The log-meal modal got testIDs in
+# this plan: log-meal-quick-tab / log-meal-quick-title / log-meal-quick-submit.
+#
+# Prereq: reach /(tabs) by completing onboarding.
+
+- runFlow: ../onboarding/01-happy-path.yaml
+
+# Nutrition tab.
+- tapOn:
+    id: "tab-nutrition"
+- assertVisible:
+    id: "nutrition-log-meal"
+    timeout: 10000
+
+# Open the log-meal modal and switch to Quick Add.
+- tapOn:
+    id: "nutrition-log-meal"
+- tapOn:
+    id: "log-meal-quick-tab"
+
+# Name the meal and log it.
+- tapOn:
+    id: "log-meal-quick-title"
+- inputText: "Maestro Test Meal"
+- hideKeyboard
+- tapOn:
+    id: "log-meal-quick-submit"
+
+# The modal closes and the meal renders in today's list.
+- assertVisible:
+    text: "Maestro Test Meal"
+    timeout: 10000
