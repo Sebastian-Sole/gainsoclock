@@ -244,6 +244,10 @@ export const sweepOrphanPhotos = internalMutation({
         // Already gone (e.g. discarded after the row was orphaned) — fine.
       }
       await ctx.db.delete(row._id);
+    }
+  },
+});
+
 // ── Recipe macro prompt ────────────────────────────────────────
 
 const RECIPE_MACROS_SYSTEM_PROMPT = `You are a nutrition assistant estimating macros for a user's recipe from its ingredient list.

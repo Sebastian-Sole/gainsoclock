@@ -143,19 +143,18 @@ describe("computeAllStats — per-type accumulation", () => {
     expect(s.maxReps?.value).toBe(20);
   });
 
-  it("ODDITY intervals: counts as a set but contributes NO totals", () => {
-    // TODO(plan-011): lib/stats.ts has no `intervals` branch in
-    // computeExerciseStats/computeTotals (grep -c "intervals" lib/stats.ts == 0).
-    // Interval sets bump totalSets and CAN set maxTime/maxDistance PBs (because
-    // `'time' in set` / `'distance' in set` fire), but add nothing to
-    // totalReps/totalWeight/totalDistance/totalTime totals. Pin this until
-    // plan 011 lands the work-variant-only interval accounting.
+  it("intervals: work-variant time/distance counted in totals (plan 011)", () => {
+    // Plan 011 added the `intervals` branch to computeExerciseStats/computeTotals:
+    // work-variant interval sets contribute their `time` to totalTime, and their
+    // `distance` to totalDistance when `metric === 'distance'`. Rest-variant
+    // intervals contribute nothing. The set still bumps totalSets and feeds
+    // maxTime/maxDistance PBs as before.
     const s = statsFor("Interval Run");
     expect(s.totalSets).toBe(1); // completed set still counts
     expect(s.totalReps).toBe(0);
     expect(s.totalWeight).toBe(0);
-    expect(s.totalTime).toBe(0); // NOT counted toward time
-    expect(s.totalDistance).toBe(0); // NOT counted toward distance
+    expect(s.totalTime).toBe(120); // work-variant time counted (plan 011)
+    expect(s.totalDistance).toBe(0.4); // metric==='distance' work set counted (plan 011)
     expect(s.maxTime?.value).toBe(120); // PB tracking still fires
     expect(s.maxDistance?.value).toBe(0.4);
   });
@@ -174,8 +173,8 @@ describe("computeAllStats — totals", () => {
     expect(t.totalReps).toBe(33);
     // totalWeightLifted: only reps_weight -> 1100
     expect(t.totalWeightLifted).toBe(1100);
-    // totalDistance: only time_distance -> 5 (intervals NOT counted; see oddity)
-    expect(t.totalDistance).toBe(5);
+    // totalDistance: time_distance (5) + work-variant interval, metric distance (0.4) = 5.4 (plan 011)
+    expect(t.totalDistance).toBe(5.4);
   });
 
   it("incomplete sets are excluded from totals", () => {
