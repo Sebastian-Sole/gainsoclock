@@ -6,6 +6,7 @@ import { ArrowDown } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
 import { Icon } from '@/components/ui/icon';
+import { parseLocaleNumber } from '@/lib/format';
 
 const LBS_PER_KG = 2.20462;
 
@@ -18,7 +19,7 @@ export default function UnitConverter() {
 
   const handleLbsChange = (value: string) => {
     setLbs(value);
-    const num = parseFloat(value);
+    const num = parseLocaleNumber(value) ?? NaN;
     if (!isNaN(num)) {
       setKg((num / LBS_PER_KG).toFixed(2));
     } else {
@@ -28,7 +29,7 @@ export default function UnitConverter() {
 
   const handleKgChange = (value: string) => {
     setKg(value);
-    const num = parseFloat(value);
+    const num = parseLocaleNumber(value) ?? NaN;
     if (!isNaN(num)) {
       setLbs((num * LBS_PER_KG).toFixed(2));
     } else {

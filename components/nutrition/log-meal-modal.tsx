@@ -18,6 +18,7 @@ import { RecipeFilterModal, DEFAULT_FILTERS, hasActiveFilters } from './recipe-f
 import { applyRecipeFilters } from '@/lib/recipe-filters';
 import type { RecipeFilters } from './recipe-filter-modal';
 import type { Recipe, Macros } from '@/lib/types';
+import { parseLocaleNumber } from '@/lib/format';
 
 interface LogMealModalProps {
   visible: boolean;
@@ -76,7 +77,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
 
   const handleLogFromRecipe = () => {
     if (!selectedRecipe) return;
-    const mult = parseFloat(portion) || 1;
+    const mult = parseLocaleNumber(portion) || 1;
     const recipeMacros = selectedRecipe.macros ?? { calories: 0, protein: 0, carbs: 0, fat: 0 };
     const servings = selectedRecipe.servings || 1;
 
@@ -214,7 +215,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
                     {(['calories', 'protein', 'carbs', 'fat'] as const).map((key) => {
                       const base = selectedRecipe.macros![key];
                       const servings = selectedRecipe.servings || 1;
-                      const mult = parseFloat(portion) || 1;
+                      const mult = parseLocaleNumber(portion) || 1;
                       const val = Math.round((base / servings) * mult);
                       return (
                         <View key={key} className="items-center">

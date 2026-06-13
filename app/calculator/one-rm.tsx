@@ -7,6 +7,7 @@ import { useColorScheme } from 'nativewind';
 
 import { useSettingsStore } from '@/stores/settings-store';
 import { Colors } from '@/constants/theme';
+import { parseLocaleNumber } from '@/lib/format';
 
 function calculate1RM(weight: number, reps: number): { epley: number; brzycki: number; lombardi: number } {
   if (reps <= 0 || weight <= 0) return { epley: 0, brzycki: 0, lombardi: 0 };
@@ -38,7 +39,7 @@ export default function OneRMCalculator() {
 
   const handleCalculate = () => {
     Keyboard.dismiss();
-    const w = parseFloat(weight);
+    const w = parseLocaleNumber(weight) ?? NaN;
     const r = parseInt(reps, 10);
     if (!isNaN(w) && !isNaN(r) && w > 0 && r > 0) {
       setResult(calculate1RM(w, r));
