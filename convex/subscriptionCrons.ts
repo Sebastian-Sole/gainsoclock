@@ -14,21 +14,6 @@ function isoNow(): string {
   return new Date().toISOString();
 }
 
-function unsubscribeToken(userId: string): string {
-  // Lightweight HMAC stand-in: deterministic per-user token derived from a
-  // server secret, so the unsubscribe link can verify the user did not
-  // forge it from another user's id. Convex V8 runtime exposes Web Crypto;
-  // for the cron path we just hash userId+secret in a sync-safe way.
-  // The real HMAC pass happens in `markEmailOptOut`.
-  const secret = process.env.UNSUBSCRIBE_TOKEN_SECRET ?? "fitbull-dev";
-  let h = 0;
-  const input = `${userId}::${secret}`;
-  for (let i = 0; i < input.length; i++) {
-    h = (Math.imul(31, h) + input.charCodeAt(i)) | 0;
-  }
-  return (h >>> 0).toString(36);
-}
-
 /**
  * Daily cron handler — scan trials ending in the next ~48h and dispatch
  * a reminder email. Idempotent via `reminder48hSentAt`.
@@ -75,7 +60,6 @@ export const sendTrialReminders = internalMutation({
           userId: row.userId,
           email,
           trialExpiresAt: row.trialExpiresAt,
-          unsubscribeToken: unsubscribeToken(row.userId),
           storefrontCountry: row.storefrontCountry,
         },
       );
@@ -129,7 +113,6 @@ export const sendDcsa6Month = internalMutation({
       await ctx.scheduler.runAfter(0, internal.email.sendDcsa6Month, {
         userId: row.userId,
         email,
-        unsubscribeToken: unsubscribeToken(row.userId),
       });
       await ctx.db.patch(row._id, { dcsaNotifiedAt: isoNow() });
       sent++;
@@ -190,19 +173,12 @@ export const demoteExpiredTempGrants = internalMutation({
 
 /**
  * Internal mutation backing the email unsubscribe link in convex/http.ts.
- * Verifies the token matches the deterministic hash for the user, then
- * flips `emailOptOut`. Idempotent.
+ * Token verification happens in convex/http.ts (HMAC, constant-time) before
+ * this mutation is invoked. Flips `emailOptOut`. Idempotent.
  */
 export const markEmailOptOut = internalMutation({
-  args: { userId: v.string(), token: v.string() },
+  args: { userId: v.string() },
   handler: async (ctx, args) => {
-    const expected = unsubscribeToken(args.userId);
-    if (expected !== args.token) {
-      console.warn(
-        `[Email] unsubscribe token mismatch for user=${args.userId}`,
-      );
-      return;
-    }
     const normalized = ctx.db.normalizeId("users", args.userId);
     if (!normalized) return;
     const rows = await ctx.db
