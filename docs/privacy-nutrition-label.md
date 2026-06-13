@@ -42,12 +42,16 @@ ad networks.
   AI-coach prompts only under the `health_data_personalization` consent
   (enforced in `convex/healthData.ts`).
 - **Collection point:**
-  - `app/onboarding/healthkit-prefill.tsx` (HealthKit read)
-  - `app/onboarding/manual-stats.tsx` (manual entry)
+  - `app/onboarding/healthkit.tsx` (HealthKit read / stats step)
+  - `components/home/healthkit-reask-card.tsx` (day-3 re-ask)
+  - `convex/onboarding.ts` → `updateHealthStats` (body-stats persistence)
   - `convex/onboardingInternal.ts` → intake persistence
   - `hooks/use-health-import.ts` → `convex/healthData.ts` (import sync)
-- **Retention:** account lifetime; deleted synchronously on account
-  deletion (5.1.1(v) path).
+- **Retention:** account lifetime; intended to be deleted on account
+  deletion (5.1.1(v) path). NOTE: as of `4500535` the deletion cascade does
+  not yet cover the imported-health tables (`externalWorkouts`,
+  `healthDailyMetrics`) — verification in progress, see
+  `docs/compliance/age-gate-status.md` matrix.
 
 ### Identifiers
 
@@ -56,7 +60,7 @@ ad networks.
   - User ID (Convex `userId`)
   - Device ID: **none** — we explicitly do NOT read IDFV/IDFA.
   - PostHog `distinct_id` (generated per install, not tied to device)
-- **Collection point:** `lib/analytics.ts` / `providers/analytics-provider.tsx`
+- **Collection point:** `lib/analytics.ts` / `providers/posthog-provider.tsx`
 - **Retention:** 180 days for PostHog events; purged on account delete.
 
 ### User Content
