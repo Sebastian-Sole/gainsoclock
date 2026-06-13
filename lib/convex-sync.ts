@@ -181,6 +181,26 @@ export async function clearDeadLetters(): Promise<void> {
   }
 }
 
+/**
+ * Client ids referenced by queued (unflushed) mutations. Hydration merges
+ * keep a local copy only when it still has writes in flight. Synchronous
+ * snapshot of the in-memory queue.
+ */
+export function getPendingClientIds(): Set<string> {
+  const ids = new Set<string>();
+  for (const item of memoryQueue) {
+    const cid = (item.args as { clientId?: unknown })?.clientId;
+    if (typeof cid === "string") ids.add(cid);
+  }
+  return ids;
+}
+
+/** Whether the persisted queue has been loaded into memory yet. Merges treat
+ *  "not loaded" as "keep local" (conservative until the queue is known). */
+export function isQueueLoaded(): boolean {
+  return memoryQueueLoaded;
+}
+
 // ── Public API ───────────────────────────────────────────────────────
 
 /**
