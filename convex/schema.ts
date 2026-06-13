@@ -405,4 +405,14 @@ export default defineSchema({
     carbs: v.number(),
     fat: v.number(),
   }).index("by_user", ["userId"]),
+
+  // Transient ownership record for meal-photo uploads. Rows are deleted on
+  // discard; the daily sweep removes orphans (crashed clients).
+  mealPhotos: defineTable({
+    userId: v.id("users"),
+    storageId: v.id("_storage"),
+    createdAt: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_storage", ["storageId"]),
 });

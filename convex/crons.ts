@@ -21,4 +21,10 @@ crons.interval(
   internal.subscriptionCrons.demoteExpiredTempGrants,
 );
 
+crons.daily(
+  "sweep-orphan-meal-photos",
+  { hourUTC: 4, minuteUTC: 0 },
+  internal.nutritionVision.sweepOrphanPhotos,
+);
+
 export default crons;
