@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "convex:dev": "convex dev",
-    "clean:build": "npx expo prebuild --clean --platform ios"
+    "clean:build": "npx expo prebuild --clean --platform ios",
+    "test": "vitest run"
   },
   "dependencies": {
     "@auth/core": "^0.37.4",
@@ -96,7 +97,8 @@
     "prettier-plugin-tailwindcss": "^0.7.2",
     "tailwindcss": "^3.4.19",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^4.1.8"
   },
   "pnpm": {
     "overrides": {
