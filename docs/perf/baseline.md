@@ -29,10 +29,21 @@ Measured via `npx expo export --platform ios`; gzip the `.hbc` output:
 | When | Commit | Total (KB gz) | Delta (KB gz) |
 |---|---|---|---|
 | Current baseline (2026-06-13) | `4500535` | 4,042 | — (baseline row) |
+| develop integration | `8bafff4` | 4,047 | +5 vs baseline |
+| plan-027 Phase 1 (drop lucide catalogue import) | `8bafff4` | 4,045 | −2 vs develop |
+| plan-027 Phase 2 (per-icon babel transform) | `8bafff4` | 4,046 | −1 vs develop |
 
 **Acceptance (go-forward delta):** ≤ 350 KB gzipped vs. the most recent row (Performance #3).
-Note: the raw `.hbc` is 10,960 KB (11.2 MB); gzipped 4,042 KB. If this number is
-startling, plan-027 addresses the likely lucide barrel-import cause.
+
+**plan-027 finding (2026-06-14): the lucide barrel is NOT a bundle cost.** The
+audit hypothesized (MED confidence) that the ~1,600-icon CJS barrel ships whole.
+Measured: removing the catalogue import (Phase 1) and rewriting all icon imports
+to per-icon deep paths via `babel-plugin-transform-imports` (Phase 2) each moved
+the bundle by ≤ 2 KB gz — i.e. Metro already excludes unused icons. Both phases
+were reverted (Phase 1 also adds a maintenance coupling: the static icon map
+must track `lib/achievements.ts` SPECS). Plan 027 is closed as investigated; no
+code change. The raw `.hbc` is ~11 MB; if bundle size ever needs attention, the
+session-replay module (below) is the heavier lever, not icons.
 
 If over budget, dynamic-import the session-replay module from the provider
 (it's the heaviest part of `posthog-react-native`) and accept that replay
