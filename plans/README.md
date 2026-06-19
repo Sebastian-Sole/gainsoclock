@@ -74,7 +74,7 @@ parallel (see Dependency notes for the exceptions).
 | 025 | Test-runner decision + characterization baseline (gated) | P3 | M | — | DONE — [PR #65](https://github.com/Sebastian-Sole/gainsoclock/pull/65) |
 | 027 | Lucide barrel bundle cost (investigated) | P3 | S-M | 022 (soft) | REJECTED (no code) — [PR #77](https://github.com/Sebastian-Sole/gainsoclock/pull/77): rewritten to unblock the old catalogue-import blocker, then **measured** baseline/Phase-1/Phase-2 all within 2 KB gz → Metro already excludes unused icons; the barrel is not a bundle cost. Both phases reverted; finding recorded in docs/perf/baseline.md. |
 | 028 | Data-export design spike (GDPR portability) | P3 | S-M | — | DONE — [PR #67](https://github.com/Sebastian-Sole/gainsoclock/pull/67) |
-| 033 | Apple ↔ password account linking (resolve siwa_email_collision) | P1 | M | — | IN PROGRESS — branch `feat/siwa-account-linking` (off develop); user-reported SIWA collision on a 2nd device. Needs Convex deploy + on-device verify (operator). |
+| 033 | Apple ↔ password account linking (resolve siwa_email_collision) | P1 | M | — | DONE — [PR #78](https://github.com/Sebastian-Sole/gainsoclock/pull/78) (→ develop). tsc+lint clean, security-reviewed. Needs Convex deploy + on-device SIWA verify (operator). |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
