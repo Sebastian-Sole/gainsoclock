@@ -2,6 +2,32 @@ import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 
 /**
+ * Resolve the user a given Apple `sub` is already linked to, if any.
+ *
+ * Used by the `apple-native` sign-in provider to decide whether a SIWA
+ * sign-in is a *returning* user (sub already attached to a user — skip the
+ * collision check, let `createAccount` resolve them) versus a brand-new Apple
+ * identity (run the collision guard). Also the anti-hijack lookup behind
+ * `convex/accountLinking.ts`'s `attachAppleAccount`.
+ *
+ * Returns the `users` id, or `null` when no apple-native account exists for
+ * this `sub`.
+ */
+export const findAppleAccountUserId = internalQuery({
+  args: { sub: v.string() },
+  returns: v.union(v.null(), v.id("users")),
+  handler: async (ctx, { sub }) => {
+    const account = await ctx.db
+      .query("authAccounts")
+      .withIndex("providerAndAccountId", (q) =>
+        q.eq("provider", "apple-native").eq("providerAccountId", sub)
+      )
+      .unique();
+    return account ? account.userId : null;
+  },
+});
+
+/**
  * SIWA collision check (Security CR5).
  *
  * Called from the `apple-native` ConvexCredentials provider in `auth.ts`

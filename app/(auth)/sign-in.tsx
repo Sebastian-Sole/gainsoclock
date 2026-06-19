@@ -5,6 +5,7 @@ import {
   findNodeHandle,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -19,6 +20,7 @@ import * as WebBrowser from "expo-web-browser";
 
 import { Text } from "@/components/ui/text";
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
+import { LinkAppleSheet } from "@/components/auth/link-apple-sheet";
 import { capture } from "@/lib/analytics";
 import { SIWA_COLLISION_COPY } from "@/lib/privacy-notice";
 import { useOnboardingStatus } from "@/hooks/use-onboarding-status";
@@ -56,6 +58,12 @@ export default function SignInScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  // Set when a SIWA attempt collides with an existing password account; drives
+  // the password→link sheet. Holds the verified Apple token + colliding email.
+  const [linkPrompt, setLinkPrompt] = useState<{
+    email: string;
+    identityToken: string;
+  } | null>(null);
 
   const headingRef = useRef<View | null>(null);
 
@@ -154,7 +162,16 @@ export default function SignInScreen() {
       const message =
         err instanceof Error ? err.message : String(err ?? "");
       if (message.includes("siwa_email_collision")) {
-        setError(SIWA_COLLISION_COPY);
+        // A collision only fires when the Apple token carried a verified
+        // email, so `credential.email` is populated; fall back to the typed
+        // field, and to the dead-end copy only if neither is available.
+        const token = credential.identityToken;
+        const collisionEmail = (credential.email ?? email.trim()).toLowerCase();
+        if (token && collisionEmail) {
+          setLinkPrompt({ email: collisionEmail, identityToken: token });
+        } else {
+          setError(SIWA_COLLISION_COPY);
+        }
       } else {
         setError(
           err instanceof Error
@@ -346,6 +363,36 @@ export default function SignInScreen() {
             </Text>
           </Pressable>
         </ScrollView>
+
+        <Modal
+          visible={linkPrompt !== null}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setLinkPrompt(null)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            className="flex-1 justify-end bg-black/40"
+          >
+            {linkPrompt && (
+              <View className="px-4 pb-8">
+                <LinkAppleSheet
+                  email={linkPrompt.email}
+                  identityToken={linkPrompt.identityToken}
+                  onLinked={() => {
+                    setLinkPrompt(null);
+                    capture({
+                      name: "auth_succeeded",
+                      props: { method: "apple" },
+                    });
+                    focusHeading();
+                  }}
+                  onCancel={() => setLinkPrompt(null)}
+                />
+              </View>
+            )}
+          </KeyboardAvoidingView>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

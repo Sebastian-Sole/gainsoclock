@@ -1,4 +1,4 @@
-# Sign-in-with-Apple ↔ Email-password Collision Handling (V1)
+# Sign-in-with-Apple ↔ Email-password Collision Handling (V1.1)
 
 ## Background
 
@@ -8,50 +8,98 @@ same email address. Without intervention, `@convex-dev/auth` would happily
 create a second `authAccounts` row tied to the same email but a fresh `users`
 row, splitting the user's data across two identities.
 
-## V1 behaviour
+## Collision guard (the safety net)
 
-`convex/auth.ts` installs a `callbacks.createOrUpdateUser` override that, on
-every OAuth sign-in via the Apple provider with no linked user yet:
+The native `apple-native` `ConvexCredentials` provider in `convex/auth.ts`
+(`authorize`) does, after verifying the Apple identity token:
 
-1. Looks up `users` by the email returned from Apple.
-2. If a matching user exists, collects their `authAccounts` and checks
-   whether any of them belong to a provider other than `"apple"`.
-3. If the email is NOT an Apple-relay address
-   (`@privaterelay.appleid.com`) **and** the existing user has a non-Apple
-   account, it throws a typed error with message `siwa_email_collision`.
+1. Looks up an existing `apple-native` account for the token's `sub` via
+   `internal.authInternal.findAppleAccountUserId`. If the `sub` is already
+   linked to a user (a returning sign-in, OR an account linked through the
+   flow below), it is a normal sign-in — the collision check is **skipped**
+   and `createAccount` resolves to that user.
+2. Otherwise, if the token carries a verified, non-relay email, it calls
+   `internal.authInternal.checkSiwaEmailCollision`. If that email belongs to a
+   user with at least one **non-apple-native** account (email+password or
+   Google), it throws `siwa_email_collision`.
 
-Relay addresses are authoritative identities for their Apple users, so the
-collision check skips them on purpose — Apple deliberately routes those to
-Hide-My-Email relays and the underlying email never collides with a
-password account.
+Relay addresses (`@privaterelay.appleid.com`) are authoritative identities for
+their Apple users, so the collision check skips them on purpose.
 
-The client (`components/auth/apple-sign-in-button.tsx` +
-`app/(auth)/sign-up.tsx` / `sign-in.tsx`) catches the error, maps it to
-`SIWA_COLLISION_COPY` (see `lib/privacy-notice.ts`), and surfaces the
-message: *"This email is already used for sign-in with a password. Please
-sign in with email first, or contact support@fitbull.app to link Apple."*
+No silent double-account is ever created.
 
-No silent double-account is created.
+## V1.1: account linking (the recourse)
 
-## Account linking in later versions
+The collision is no longer a dead-end. The client turns `siwa_email_collision`
+into a **password → link** flow that attaches the Apple identity to the
+existing account.
 
-`@convex-dev/auth@0.0.90` does not expose a first-class "link this Apple
-account to an existing user" primitive via the public SDK. V1 documents the
-collision behaviour; V1.1+ may add an explicit linking flow (e.g. from
-Settings) once the SDK surfaces a primitive.
+### Security model (non-negotiable)
+
+Linking attaches an `apple-native` identity to an existing user. It is only
+safe with proof of **both**:
+
+1. **The existing account** — proven by signing in to it (password re-auth at
+   the collision, or being already authenticated in Settings). **Not** by an
+   email match: emails are unverified in this app (the `Password` provider is
+   configured bare), so an email match proves nothing.
+2. **The Apple identity** — proven by a verified Apple identity token (the
+   existing jose JWKS verification, shared via `verifyAppleIdentityToken`).
+
+Plus an **anti-hijack** rule: `attachAppleAccount` refuses to attach an Apple
+`sub` already linked to a *different* user.
+
+We deliberately do **not** auto-link on verified-email match — that would be
+insecure here. If email verification is added later, auto-link on a verified
+email becomes a safe additional path.
+
+### Flows
+
+- **At the collision** (`app/(auth)/sign-in.tsx`, `sign-up.tsx`): the verified
+  identity token + colliding email are captured and `LinkAppleSheet`
+  (`components/auth/link-apple-sheet.tsx`) opens. The user enters their
+  password → `signIn("password", …)` proves ownership → `linkApple({ idToken })`
+  attaches Apple → the session is signed in.
+- **From Settings** (`app/settings/index.tsx`, iOS-only "Connect Apple" row):
+  the user is already authenticated, runs SIWA, and `linkApple({ idToken })`
+  attaches the Apple identity to the current account.
+
+### Server pieces
+
+- `convex/auth.ts` — `verifyAppleIdentityToken` (shared token verify) and the
+  `authorize` reorder (skip collision when `sub` already linked).
+- `convex/authInternal.ts` — `findAppleAccountUserId({ sub })`.
+- `convex/accountLinking.ts` — `linkApple` action (`getAuthUserId` →
+  verify token → mutation) + `attachAppleAccount` internal mutation (inserts
+  the `authAccounts` row; enforces anti-hijack). Stays in the default Convex
+  runtime, **not** `"use node"` — `jose` runs there, and a node module cannot
+  also export the mutation.
+
+The manual `authAccounts` insert bypasses `@convex-dev/auth`'s account helpers
+because 0.0.90 has no public link primitive — re-check on any auth-package
+upgrade (see `docs/auth-upgrade.md`, plan 020).
 
 ## Where the knobs live
 
-- Server check: `convex/auth.ts` (`APPLE_RELAY_DOMAIN` + `createOrUpdateUser`
-  override)
-- Client copy: `lib/privacy-notice.ts` (`SIWA_COLLISION_COPY`)
-- Client mapping: `app/(auth)/sign-up.tsx`, `app/(auth)/sign-in.tsx`, and
-  `components/auth/apple-sign-in-button.tsx`
+- Server: `convex/auth.ts` (`APPLE_RELAY_DOMAIN`, `APPLE_AUDIENCE`,
+  `verifyAppleIdentityToken`, the `authorize` reorder), `convex/authInternal.ts`
+  (`checkSiwaEmailCollision`, `findAppleAccountUserId`),
+  `convex/accountLinking.ts` (`linkApple`, `attachAppleAccount`).
+- Client copy: `lib/privacy-notice.ts` (`SIWA_COLLISION_COPY` — now only the
+  fallback when no email is available to pre-fill the sheet).
+- Client UI: `components/auth/link-apple-sheet.tsx`, `app/(auth)/sign-up.tsx`,
+  `app/(auth)/sign-in.tsx`, `app/settings/index.tsx`, and
+  `components/auth/apple-sign-in-button.tsx`.
 
 ## Operational notes
 
-- If Apple changes the relay TLD (e.g. adds a new domain beyond
-  `@privaterelay.appleid.com`), update the suffix list in `convex/auth.ts`.
+- Convex changes only take effect once deployed (`pnpm convex:dev` for dev, or
+  `npx convex deploy`). Full SIWA e2e needs a real Apple ID, so verifying the
+  link round-trip on device is an operator step.
+- If Apple changes the relay TLD (beyond `@privaterelay.appleid.com`), update
+  the suffix check in `convex/auth.ts`.
 - If inbound support mail reports "I can't sign in with Apple anymore," the
-  first candidate is a legitimate collision — ask the user to sign in with
-  their original email + password and contact support to link Apple.
+  first candidate is a legitimate collision — the user should sign in with
+  their original email + password (or use the link sheet) to connect Apple. A
+  report of "Apple ID already linked to a different account" is the anti-hijack
+  rule firing.
