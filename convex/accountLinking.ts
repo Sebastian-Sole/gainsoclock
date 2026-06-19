@@ -64,6 +64,13 @@ export const attachAppleAccount = internalMutation({
   args: { userId: v.id("users"), sub: v.string() },
   returns: v.union(v.literal("linked"), v.literal("already_linked")),
   handler: async (ctx, { userId, sub }) => {
+    // This read-then-insert is safe under concurrency. Convex mutations are
+    // serializable and a query's read set records the *index range* scanned,
+    // not just the rows that existed — so a concurrent transaction inserting an
+    // apple-native row for the same `sub` writes into this scanned range, the
+    // second commit conflicts, and Convex retries it. On retry it observes the
+    // now-existing row and takes the already_linked / anti-hijack branch below.
+    // No duplicate row and no cross-linked `sub` can result.
     const existing = await ctx.db
       .query("authAccounts")
       .withIndex("providerAndAccountId", (q) =>

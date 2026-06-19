@@ -50,6 +50,16 @@ export async function verifyAppleIdentityToken(idToken: string): Promise<{
     const result = await jwtVerify(idToken, APPLE_JWKS, {
       issuer: "https://appleid.apple.com",
       audience: APPLE_AUDIENCE,
+      // Defense-in-depth against token replay: reject a token whose `iat` is
+      // older than this even if Apple's `exp` is still in the future.
+      // Legitimate tokens are minted seconds before use (sign-in, or the
+      // password→link sheet where the user types a password right after).
+      // This BOUNDS the replay window but does not eliminate it — full
+      // elimination needs a server-issued nonce bound into the request (a
+      // challenge round-trip; future hardening). The `attachAppleAccount`
+      // anti-hijack rule already stops a replayed token from re-pointing a
+      // `sub` at a different user.
+      maxTokenAge: "10m",
     });
     payload = result.payload as Record<string, unknown>;
   } catch (err) {
