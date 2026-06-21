@@ -1,15 +1,15 @@
 import { useQuery } from 'convex/react';
 import { format, subDays } from 'date-fns';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { api } from '@/convex/_generated/api';
 import {
-  ACHIEVEMENTS,
-  ACHIEVEMENT_TARGETS,
+  buildAchievementGroups,
   countWeightPrs,
   evaluateAchievements,
   type AchievementDef,
   type AchievementFacts,
+  type AchievementGroup,
 } from '@/lib/achievements';
 import type { DateRangeFilter } from '@/lib/stats';
 import type { PlanDay } from '@/lib/types';
@@ -63,14 +63,12 @@ function computeWeeksFullPlanAdherence(
 }
 
 export interface UseAchievementsResult {
-  /** Every achievement definition, in display order. */
-  all: AchievementDef[];
-  /** Achievement key → unlock timestamp (ISO 8601). */
+  /** One entry per leveled family + one-off, with current level & progress. */
+  groups: AchievementGroup[];
+  /** Achievement (flat) key → unlock timestamp (ISO 8601). */
   unlocked: Map<string, string>;
-  /** Achievements unlocked during this app session (for toasts/celebrations). */
+  /** Flat per-level defs unlocked during this session (for toasts/celebrations). */
   newlyUnlocked: AchievementDef[];
-  /** Progress toward a countable achievement, or null when not trackable. */
-  progress: (def: AchievementDef) => { current: number; target: number } | null;
 }
 
 /**
@@ -164,14 +162,10 @@ export function useAchievements(): UseAchievementsResult {
 
   const unlockedMap = useMemo(() => new Map(Object.entries(unlocked)), [unlocked]);
 
-  const progress = useCallback(
-    (def: AchievementDef): { current: number; target: number } | null => {
-      const entry = ACHIEVEMENT_TARGETS[def.key];
-      if (!entry) return null;
-      return { current: facts[entry.metric], target: entry.target };
-    },
-    [facts]
+  const groups = useMemo(
+    () => buildAchievementGroups(facts, unlockedMap),
+    [facts, unlockedMap]
   );
 
-  return { all: ACHIEVEMENTS, unlocked: unlockedMap, newlyUnlocked, progress };
+  return { groups, unlocked: unlockedMap, newlyUnlocked };
 }

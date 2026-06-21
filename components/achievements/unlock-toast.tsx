@@ -1,6 +1,7 @@
+import { useRouter } from 'expo-router';
 import { CircleAlert, Trophy } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, View } from 'react-native';
+import { AccessibilityInfo, Pressable, View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -52,6 +53,7 @@ export function showToast(message: string) {
  */
 export function UnlockToastHost() {
   const { newlyUnlocked } = useAchievements();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
   const [queue, setQueue] = useState<ToastItem[]>([]);
@@ -98,9 +100,19 @@ export function UnlockToastHost() {
 
   if (!current) return null;
 
+  const isUnlock = current.kind === 'unlock';
+  const dismiss = () => setQueue((q) => q.slice(1));
+  const handlePress = () => {
+    dismiss();
+    // Unlock toasts deep-link into the trophy room; error toasts just dismiss.
+    if (isUnlock) router.push('/achievements');
+  };
+
   return (
+    // box-none: empty area around the toast stays tap-through; the toast itself
+    // receives touches.
     <View
-      pointerEvents="none"
+      pointerEvents="box-none"
       style={{ position: 'absolute', left: 0, right: 0, top: insets.top + 8 }}
       className="items-center px-4"
     >
@@ -108,19 +120,26 @@ export function UnlockToastHost() {
         key={current.id}
         entering={reduceMotion ? undefined : FadeInUp.duration(250)}
         exiting={reduceMotion ? undefined : FadeOutUp.duration(200)}
-        accessibilityRole="alert"
-        accessibilityLiveRegion="polite"
-        testID="achievement-unlock-toast"
-        className="w-full max-w-md flex-row items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-lg shadow-black/20"
+        className="w-full max-w-md"
       >
-        <Icon
-          as={current.kind === 'unlock' ? Trophy : CircleAlert}
-          size={18}
-          className={current.kind === 'unlock' ? 'text-primary' : 'text-destructive'}
-        />
-        <Text className="flex-1 text-sm font-medium" numberOfLines={2}>
-          {current.message}
-        </Text>
+        <Pressable
+          onPress={handlePress}
+          accessibilityRole="button"
+          accessibilityLabel={current.announcement}
+          accessibilityHint={isUnlock ? 'Opens your achievements' : 'Dismiss'}
+          accessibilityLiveRegion="polite"
+          testID="achievement-unlock-toast"
+          className="flex-row items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-lg shadow-black/20 active:opacity-80"
+        >
+          <Icon
+            as={isUnlock ? Trophy : CircleAlert}
+            size={18}
+            className={isUnlock ? 'text-primary' : 'text-destructive'}
+          />
+          <Text className="flex-1 text-sm font-medium" numberOfLines={2}>
+            {current.message}
+          </Text>
+        </Pressable>
       </Animated.View>
     </View>
   );
