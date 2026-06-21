@@ -2,7 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action, internalMutation } from "./_generated/server";
-import { verifyAppleIdentityToken } from "./auth";
+import { APPLE_RELAY_DOMAIN, verifyAppleIdentityToken } from "./auth";
 
 // Account linking for native Sign in with Apple.
 //
@@ -21,6 +21,57 @@ import { verifyAppleIdentityToken } from "./auth";
 // This file stays in the default Convex runtime (NOT "use node"): `jose`'s
 // JWKS verification runs there, and a "use node" module cannot also export the
 // `attachAppleAccount` mutation below.
+
+/**
+ * Pre-flight check the client runs BEFORE `signIn("apple-native")`, so a
+ * collision is handled as normal control flow instead of a thrown error.
+ *
+ * Why this exists: the Convex client unconditionally `console.error`s every
+ * server-function error (`request_manager` logs it regardless of whether the
+ * promise is caught), which surfaces as a red dev LogBox. And plain `Error`
+ * messages are scrubbed to "Server Error" in production, which would break the
+ * client's collision detection in a release build. Returning a status here
+ * avoids both: no throw on the collision path.
+ *
+ * Returns:
+ *   - `"sign_in"`   — safe to proceed with `signIn("apple-native")` (returning
+ *                     linked user, brand-new Apple user, or a relay email).
+ *   - `"needs_link"`— the Apple email collides with an existing password/Google
+ *                     account; show the password→link sheet instead.
+ *
+ * The `authorize` collision check stays as a server-side safety net for clients
+ * that skip this pre-flight.
+ */
+export const checkAppleSignIn = action({
+  args: { idToken: v.string() },
+  returns: v.union(v.literal("sign_in"), v.literal("needs_link")),
+  handler: async (ctx, { idToken }): Promise<"sign_in" | "needs_link"> => {
+    const { sub, email, emailVerified } = await verifyAppleIdentityToken(
+      idToken
+    );
+
+    // Already-linked sub (a returning user, or one linked via the flow) → just
+    // sign in; never a collision.
+    const linkedUserId = await ctx.runQuery(
+      internal.authInternal.findAppleAccountUserId,
+      { sub }
+    );
+    if (linkedUserId) return "sign_in";
+
+    // Unlinked sub with a verified, non-relay email that already belongs to a
+    // non-apple-native account → the explicit link flow is required.
+    if (email && emailVerified && !email.endsWith(APPLE_RELAY_DOMAIN)) {
+      const collision = await ctx.runQuery(
+        internal.authInternal.checkSiwaEmailCollision,
+        { email }
+      );
+      if (collision === "collision") return "needs_link";
+    }
+
+    // New pure-Apple user (or a relay email) → safe to create on sign in.
+    return "sign_in";
+  },
+});
 
 /**
  * Link the calling (already-authenticated) user to an Apple identity.

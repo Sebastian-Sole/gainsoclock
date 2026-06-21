@@ -6,7 +6,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 
-const APPLE_RELAY_DOMAIN = "@privaterelay.appleid.com";
+export const APPLE_RELAY_DOMAIN = "@privaterelay.appleid.com";
 
 // Native iOS SIWA puts the iOS bundle identifier in the JWT's `aud` claim —
 // NOT a Service ID. Service IDs (e.g. `com.foo.bar.auth`) are only used for the

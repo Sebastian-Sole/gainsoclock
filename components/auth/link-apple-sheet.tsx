@@ -19,8 +19,15 @@ import { api } from "@/convex/_generated/api";
 // linking requires proof of BOTH the existing account (this password re-auth)
 // AND the Apple identity (the verified token captured at the collision).
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 type Props = {
-  /** The colliding account's email (pre-filled, read-only). */
+  /**
+   * Best-effort pre-fill for the existing account's email. Often empty: Apple
+   * only returns the email on the very first authorization, so on a returning
+   * collision `credential.email` is null. The field is therefore editable and
+   * the user can type the email of the account they're linking to.
+   */
   email: string;
   /** The verified Apple identity token captured when the collision threw. */
   identityToken: string;
@@ -45,7 +52,7 @@ function getLinkErrorMessage(error: unknown): string {
 }
 
 export function LinkAppleSheet({
-  email,
+  email: initialEmail,
   identityToken,
   onLinked,
   onCancel,
@@ -53,6 +60,7 @@ export function LinkAppleSheet({
   const { signIn } = useAuthActions();
   const linkApple = useAction(api.accountLinking.linkApple);
 
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -61,6 +69,11 @@ export function LinkAppleSheet({
 
   const handleLink = async () => {
     Keyboard.dismiss();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !EMAIL_REGEX.test(trimmedEmail)) {
+      setError("Enter the email of your existing account");
+      return;
+    }
     if (!password) {
       setError("Password is required");
       return;
@@ -69,7 +82,11 @@ export function LinkAppleSheet({
     setIsLoading(true);
     try {
       // 1. Prove ownership of the existing account.
-      await signIn("password", { email, password, flow: "signIn" });
+      await signIn("password", {
+        email: trimmedEmail,
+        password,
+        flow: "signIn",
+      });
       // 2. Attach the verified Apple identity to it (server re-verifies the
       //    token and enforces the anti-hijack rule).
       await linkApple({ idToken: identityToken });
@@ -87,8 +104,8 @@ export function LinkAppleSheet({
         <Text className="mb-2 text-xl font-bold">Link Apple to your account</Text>
       </View>
       <Text className="mb-4 text-sm text-muted-foreground">
-        {email} already has a password. Enter it to connect Sign in with Apple
-        to this account.
+        Sign in to the account you want to connect Apple to. Enter its email and
+        password — this links Sign in with Apple to that account.
       </Text>
 
       {error !== "" && (
@@ -96,6 +113,32 @@ export function LinkAppleSheet({
           <Text className="text-sm text-destructive">{error}</Text>
         </View>
       )}
+
+      <Text
+        nativeID="link-apple-email-label"
+        className="mb-2 text-sm font-medium text-muted-foreground"
+      >
+        EMAIL
+      </Text>
+      <TextInput
+        value={email}
+        onChangeText={(t) => {
+          setEmail(t);
+          if (error) setError("");
+        }}
+        placeholder="you@example.com"
+        placeholderTextColor="#9ca3af"
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        textContentType="emailAddress"
+        returnKeyType="next"
+        onSubmitEditing={() => passwordRef.current?.focus()}
+        accessibilityLabel="Email of your existing account"
+        accessibilityLabelledBy="link-apple-email-label"
+        testID="link-apple-email"
+        className="mb-4 min-h-[44px] rounded-xl border border-input bg-background px-4 py-4 text-[16px] text-foreground"
+      />
 
       <Text
         nativeID="link-apple-password-label"
@@ -114,7 +157,8 @@ export function LinkAppleSheet({
         placeholderTextColor="#9ca3af"
         secureTextEntry
         textContentType="password"
-        autoFocus
+        autoFocus={initialEmail !== ""}
+        returnKeyType="go"
         onSubmitEditing={handleLink}
         accessibilityLabel="Password for your existing account"
         accessibilityLabelledBy="link-apple-password-label"

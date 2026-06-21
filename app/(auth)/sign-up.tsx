@@ -15,8 +15,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useAction } from "convex/react";
 import * as WebBrowser from "expo-web-browser";
 
+import { api } from "@/convex/_generated/api";
 import { Text } from "@/components/ui/text";
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
 import { LinkAppleSheet } from "@/components/auth/link-apple-sheet";
@@ -42,6 +44,7 @@ function getSignUpErrorMessage(error: unknown): string {
 export default function SignUpScreen() {
   const router = useRouter();
   const { signIn } = useAuthActions();
+  const checkAppleSignIn = useAction(api.accountLinking.checkAppleSignIn);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -132,6 +135,18 @@ export default function SignUpScreen() {
       if (!identityToken) {
         throw new Error("Apple sign-in did not return an identity token");
       }
+      // Pre-flight: decide collision-vs-sign-in WITHOUT throwing, so a
+      // collision is normal control flow (no red dev error box, works in prod).
+      const status = await checkAppleSignIn({ idToken: identityToken });
+      if (status === "needs_link") {
+        // Apple omits the email on a returning authorization, so the prefill is
+        // best-effort — the link sheet collects the email itself.
+        setLinkPrompt({
+          email: _credential.email ?? email.trim(),
+          identityToken,
+        });
+        return;
+      }
       // Apple only sends `fullName` on the FIRST sign-in for a given
       // (Apple ID, app) pair; on subsequent attempts these fields are null.
       // The server-side `apple-native` provider persists the name on the
@@ -154,16 +169,15 @@ export default function SignUpScreen() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : String(err ?? "");
+      // Fallback for the rare race where a collision appears between the
+      // pre-flight check and signIn (authorize's safety net throws).
       if (message.includes("siwa_email_collision")) {
-        // A collision only fires when the Apple token carried a verified
-        // email, so `_credential.email` is populated; fall back to the typed
-        // field, and to the dead-end copy only if neither is available.
         const token = _credential.identityToken;
-        const collisionEmail = (
-          _credential.email ?? email.trim()
-        ).toLowerCase();
-        if (token && collisionEmail) {
-          setLinkPrompt({ email: collisionEmail, identityToken: token });
+        if (token) {
+          setLinkPrompt({
+            email: _credential.email ?? email.trim(),
+            identityToken: token,
+          });
         } else {
           setError(SIWA_COLLISION_COPY);
         }
