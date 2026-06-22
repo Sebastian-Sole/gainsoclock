@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/convex/_generated/api';
 import {
   buildAchievementGroups,
+  computeMealDaySignals,
+  computeWorkoutSignals,
   countWeightPrs,
   evaluateAchievements,
   type AchievementDef,
@@ -14,9 +16,13 @@ import {
 import type { DateRangeFilter } from '@/lib/stats';
 import type { PlanDay } from '@/lib/types';
 import { useStats } from '@/hooks/use-stats';
+import { useAchievementEventsStore } from '@/stores/achievement-events-store';
 import { useAchievementsStore } from '@/stores/achievements-store';
+import { useGroceryStore } from '@/stores/grocery-store';
 import { useHistoryStore } from '@/stores/history-store';
+import { useNutritionGoalsStore } from '@/stores/nutrition-goals-store';
 import { usePlanStore } from '@/stores/plan-store';
+import { useRecipeStore } from '@/stores/recipe-store';
 import { useSettingsStore } from '@/stores/settings-store';
 
 const ALL_TIME: DateRangeFilter = { preset: 'all', from: null, to: null };
@@ -100,7 +106,14 @@ export function useAchievements(): UseAchievementsResult {
   const logs = useHistoryStore((s) => s.logs);
   const loadedRange = useHistoryStore((s) => s.loadedRange);
   const activePlan = usePlanStore((s) => s.activePlanWithDays);
+  const allPlans = usePlanStore((s) => s.plans);
+  const recipes = useRecipeStore((s) => s.recipes);
+  const groceryItems = useGroceryStore((s) => s.items);
+  const nutritionGoals = useNutritionGoalsStore((s) => s.goals);
   const weightUnit = useSettingsStore((s) => s.weightUnit);
+  const chatMessageSent = useAchievementEventsStore((s) => s.chatMessageSent);
+  const chatMealLogged = useAchievementEventsStore((s) => s.chatMealLogged);
+  const aiMacrosGenerated = useAchievementEventsStore((s) => s.aiMacrosGenerated);
   const unlocked = useAchievementsStore((s) => s.unlocked);
   const markUnlocked = useAchievementsStore((s) => s.markUnlocked);
 
@@ -124,8 +137,16 @@ export function useAchievements(): UseAchievementsResult {
   });
   const meals = useQuery(api.mealLogs.listDateRange, mealRange);
 
-  const facts: AchievementFacts = useMemo(
-    () => ({
+  // Last-7-days health summary (sleep / steps / bodyweight presence). The
+  // window is narrow, but unlocks persist once earned, so an active syncer
+  // trips these on any session with recent data.
+  const healthSummary = useQuery(api.healthData.getHealthSummary, {});
+
+  const facts: AchievementFacts = useMemo(() => {
+    const workout = computeWorkoutSignals(logs, weightUnit === 'lbs');
+    const mealDays = computeMealDaySignals(meals ?? [], nutritionGoals);
+    const dailyMetrics = healthSummary?.dailyMetrics ?? [];
+    return {
       totalWorkouts: stats.totals.totalWorkouts,
       totalVolumeKg:
         weightUnit === 'lbs'
@@ -139,9 +160,47 @@ export function useAchievements(): UseAchievementsResult {
       weeksFullPlanAdherence: computeWeeksFullPlanAdherence(
         activePlan && activePlan.status === 'active' ? activePlan : null
       ),
-    }),
-    [stats, logs, weightUnit, externalWorkouts, meals, activePlan]
-  );
+
+      // Plans
+      plansCreated: allPlans.length,
+      plansCompleted: allPlans.filter((p) => p.status === 'completed').length,
+      plansFromChat: allPlans.filter((p) => p.sourceConversationClientId).length,
+
+      // Nutrition
+      recipesCreated: recipes.length,
+      maxMealsInDay: mealDays.maxMealsInDay,
+      macroGoalDays: mealDays.macroGoalDays,
+      groceryItems: groceryItems.length,
+
+      // AI coach / engagement
+      chatMessages: chatMessageSent ? 1 : 0,
+      chatMealsLogged: chatMealLogged ? 1 : 0,
+      aiMacrosGenerated: aiMacrosGenerated ? 1 : 0,
+
+      // Health import presence
+      sleepImported: dailyMetrics.some((d) => d.asleepSeconds !== undefined) ? 1 : 0,
+      stepsImported: dailyMetrics.some((d) => d.steps !== undefined) ? 1 : 0,
+      bodyweightLogged: dailyMetrics.some((d) => d.bodyMassKg !== undefined) ? 1 : 0,
+
+      // Quirky / single-session (from workout logs)
+      ...workout,
+    };
+  }, [
+    stats,
+    logs,
+    weightUnit,
+    externalWorkouts,
+    meals,
+    activePlan,
+    allPlans,
+    recipes,
+    groceryItems,
+    nutritionGoals,
+    chatMessageSent,
+    chatMealLogged,
+    aiMacrosGenerated,
+    healthSummary,
+  ]);
 
   const [newlyUnlocked, setNewlyUnlocked] = useState<AchievementDef[]>([]);
 

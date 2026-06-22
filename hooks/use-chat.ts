@@ -3,6 +3,7 @@ import { Alert } from "react-native";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { generateId } from "@/lib/id";
+import { useAchievementEventsStore } from "@/stores/achievement-events-store";
 
 export function useChatConversations() {
   return useQuery(api.chat.listConversations) ?? [];
@@ -28,6 +29,8 @@ export function useChat(conversationClientId: string) {
           conversationClientId,
           content: content.trim(),
         });
+        // Achievement: First Words (messaged the AI coach).
+        useAchievementEventsStore.getState().mark("chatMessageSent");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (message.includes("Subscription required")) {

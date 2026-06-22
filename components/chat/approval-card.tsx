@@ -13,6 +13,7 @@ import { PlanPreview } from './plan-preview';
 import { UpdatePlanPreview } from './update-plan-preview';
 import { RecipePreview } from './recipe-preview';
 import { MealLogPreview } from './meal-log-preview';
+import { useAchievementEventsStore } from '@/stores/achievement-events-store';
 import type { Id } from '@/convex/_generated/dataModel';
 
 interface ApprovalCardProps {
@@ -48,6 +49,10 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
         conversationClientId,
       });
       await approveAction({ messageId: messageId as Id<"chatMessages"> });
+      // Achievement: Let AI Cook (logged a meal via the coach).
+      if (approval.type === 'log_meal') {
+        useAchievementEventsStore.getState().mark('chatMealLogged');
+      }
     } catch (error) {
       console.error('Approval failed:', error);
       Alert.alert(

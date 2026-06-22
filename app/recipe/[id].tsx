@@ -8,6 +8,7 @@ import { useAction } from 'convex/react';
 
 import { Icon } from '@/components/ui/icon';
 import { api } from '@/convex/_generated/api';
+import { useAchievementEventsStore } from '@/stores/achievement-events-store';
 import { useRecipeStore } from '@/stores/recipe-store';
 import { lightHaptic } from '@/lib/haptics';
 
@@ -170,6 +171,8 @@ export default function RecipeDetailScreen() {
                   useRecipeStore.getState().updateRecipe(recipe.id, {
                     macros: result.estimate.macros,
                   });
+                  // Achievement: Sous Chef (estimated macros with AI).
+                  useAchievementEventsStore.getState().mark('aiMacrosGenerated');
                 } else if (result.code === 'pro_required') {
                   Alert.alert('Pro Required', 'AI macro estimation is a Pro feature. Upgrade from Settings to continue.');
                 } else {

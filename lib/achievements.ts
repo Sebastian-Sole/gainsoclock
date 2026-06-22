@@ -1,4 +1,9 @@
+import { addDays, getDay, startOfDay } from 'date-fns';
+
 import type { WorkoutLog } from './types';
+
+/** 1 lb in kg — weights are logged in the user's current unit. */
+const KG_PER_LB = 0.45359237;
 
 /**
  * Achievements engine — pure definitions and evaluation.
@@ -26,6 +31,45 @@ export interface AchievementFacts {
   externalWorkoutCount: number;
   mealsLoggedCount: number;
   weeksFullPlanAdherence: number;
+
+  // Plans
+  plansCreated: number;
+  plansCompleted: number;
+  plansFromChat: number;
+
+  // Nutrition
+  recipesCreated: number;
+  maxMealsInDay: number;
+  macroGoalDays: number;
+  groceryItems: number;
+
+  // AI coach / engagement (0/1 flags from the events store)
+  chatMessages: number;
+  chatMealsLogged: number;
+  aiMacrosGenerated: number;
+
+  // Health import presence (0/1)
+  sleepImported: number;
+  stepsImported: number;
+  bodyweightLogged: number;
+
+  // Quirky / time-of-day (0/1 flags derived from workout logs)
+  workoutBefore7am: number;
+  workoutAfter9pm: number;
+  workoutMidnightTo4am: number;
+  workoutLunch: number;
+  weekendWarrior: number;
+  doubleDay: number;
+  comebackAfterGap: number;
+  newYearWorkout: number;
+  marathonSession: number;
+  quickSession: number;
+
+  // Single-session bests
+  maxSessionVolumeKg: number;
+  maxSessionReps: number;
+  maxSessionExercises: number;
+  maxSingleSetKg: number;
 }
 
 export interface AchievementDef {
@@ -141,6 +185,46 @@ const ONE_OFFS: OneOffSpec[] = [
     metric: 'externalWorkoutCount',
     target: 1,
   },
+
+  // Plans
+  { key: 'plan-architect', title: 'Architect', description: 'Create your first workout plan', icon: 'ClipboardList', metric: 'plansCreated', target: 1 },
+  { key: 'perfect-week', title: 'Perfect Week', description: 'Complete every workout in a plan week', icon: 'CalendarCheck', metric: 'weeksFullPlanAdherence', target: 1 },
+  { key: 'plan-finisher', title: 'Finisher', description: 'Complete an entire workout plan', icon: 'Flag', metric: 'plansCompleted', target: 1 },
+  { key: 'coached-up', title: 'Coached Up', description: 'Create a workout plan with the AI coach', icon: 'Bot', metric: 'plansFromChat', target: 1 },
+
+  // AI coach / chat
+  { key: 'first-words', title: 'First Words', description: 'Send your first message to the AI coach', icon: 'MessageCircle', metric: 'chatMessages', target: 1 },
+  { key: 'ai-cook', title: 'Let AI Cook', description: 'Log a meal with the AI coach', icon: 'ChefHat', metric: 'chatMealsLogged', target: 1 },
+  { key: 'sous-chef', title: 'Sous Chef', description: "Estimate a recipe's macros with AI", icon: 'Sparkles', metric: 'aiMacrosGenerated', target: 1 },
+
+  // Nutrition
+  { key: 'recipe-rookie', title: 'Recipe Rookie', description: 'Create your first recipe', icon: 'BookOpen', metric: 'recipesCreated', target: 1 },
+  { key: 'full-plate', title: 'Full Plate', description: 'Log 3 meals in a single day', icon: 'UtensilsCrossed', metric: 'maxMealsInDay', target: 3 },
+  { key: 'macro-master', title: 'Macro Master', description: 'Hit all your macro goals in a day', icon: 'Target', metric: 'macroGoalDays', target: 1 },
+  { key: 'stocked-up', title: 'Stocked Up', description: 'Build a shopping list', icon: 'ShoppingCart', metric: 'groceryItems', target: 1 },
+
+  // Health import
+  { key: 'well-rested', title: 'Well Rested', description: 'Import a night of sleep from Apple Health', icon: 'Moon', metric: 'sleepImported', target: 1 },
+  { key: 'step-it-up', title: 'Step It Up', description: 'Sync your steps from Apple Health', icon: 'Footprints', metric: 'stepsImported', target: 1 },
+  { key: 'weigh-in', title: 'Weigh In', description: 'Record your bodyweight via Apple Health', icon: 'Scale', metric: 'bodyweightLogged', target: 1 },
+
+  // Quirky / time-of-day
+  { key: 'early-bird', title: 'Early Bird', description: 'Start a workout before 7am', icon: 'Sunrise', metric: 'workoutBefore7am', target: 1 },
+  { key: 'night-owl', title: 'Night Owl', description: 'Start a workout after 9pm', icon: 'MoonStar', metric: 'workoutAfter9pm', target: 1 },
+  { key: 'midnight-oil', title: 'Burning the Midnight Oil', description: 'Work out between midnight and 4am', icon: 'Clock', metric: 'workoutMidnightTo4am', target: 1 },
+  { key: 'weekend-warrior', title: 'Weekend Warrior', description: 'Train on both Saturday and Sunday', icon: 'Swords', metric: 'weekendWarrior', target: 1 },
+  { key: 'lunch-break', title: 'Lunch Break', description: 'Squeeze in a workout midday (11am–2pm)', icon: 'Sandwich', metric: 'workoutLunch', target: 1 },
+  { key: 'double-day', title: 'Double Day', description: 'Log two workouts in one day', icon: 'Layers', metric: 'doubleDay', target: 1 },
+  { key: 'comeback-kid', title: 'Comeback Kid', description: 'Return to training after a 30-day break', icon: 'RotateCcw', metric: 'comebackAfterGap', target: 1 },
+  { key: 'new-year', title: 'New Year, New Me', description: 'Work out on January 1st', icon: 'PartyPopper', metric: 'newYearWorkout', target: 1 },
+  { key: 'marathoner', title: 'Marathoner', description: 'Finish a workout over 90 minutes long', icon: 'Hourglass', metric: 'marathonSession', target: 1 },
+  { key: 'in-and-out', title: 'In & Out', description: 'Finish a focused workout in under 20 minutes', icon: 'Zap', metric: 'quickSession', target: 1 },
+
+  // Single-session bests
+  { key: 'volume-bomb', title: 'Volume Bomb', description: 'Lift 10,000 kg in a single workout', icon: 'Bomb', metric: 'maxSessionVolumeKg', target: 10_000 },
+  { key: 'centurion', title: 'Centurion', description: 'Do 100 reps in a single workout', icon: 'Repeat2', metric: 'maxSessionReps', target: 100 },
+  { key: 'variety-hour', title: 'Variety Hour', description: 'Train 8 different exercises in one workout', icon: 'Shapes', metric: 'maxSessionExercises', target: 8 },
+  { key: 'heavy-single', title: 'Heavy Single', description: 'Lift 100 kg in a single set', icon: 'Anvil', metric: 'maxSingleSetKg', target: 100 },
 ];
 
 const ONE_OFF_KEYS = new Set(ONE_OFFS.map((o) => o.key));
@@ -415,4 +499,163 @@ export function countWeightPrs(logs: WorkoutLog[]): number {
   }
 
   return prCount;
+}
+
+/** Workout-derived signals for the quirky / time-of-day / single-session achievements. */
+export interface WorkoutSignals {
+  workoutBefore7am: number;
+  workoutAfter9pm: number;
+  workoutMidnightTo4am: number;
+  workoutLunch: number;
+  weekendWarrior: number;
+  doubleDay: number;
+  comebackAfterGap: number;
+  newYearWorkout: number;
+  marathonSession: number;
+  quickSession: number;
+  maxSessionVolumeKg: number;
+  maxSessionReps: number;
+  maxSessionExercises: number;
+  maxSingleSetKg: number;
+}
+
+const MS_PER_DAY = 86_400_000;
+const COMEBACK_GAP_DAYS = 30;
+
+/**
+ * Derives the quirky/time/single-session signals from workout logs. All times
+ * are interpreted in the device's local zone (so "before 7am" means the user's
+ * 7am). Weights convert to kg when the user logs in lbs, matching the
+ * volume-fact convention. Pure.
+ */
+export function computeWorkoutSignals(
+  logs: WorkoutLog[],
+  weightUnitIsLbs: boolean
+): WorkoutSignals {
+  const factor = weightUnitIsLbs ? KG_PER_LB : 1;
+  const s: WorkoutSignals = {
+    workoutBefore7am: 0,
+    workoutAfter9pm: 0,
+    workoutMidnightTo4am: 0,
+    workoutLunch: 0,
+    weekendWarrior: 0,
+    doubleDay: 0,
+    comebackAfterGap: 0,
+    newYearWorkout: 0,
+    marathonSession: 0,
+    quickSession: 0,
+    maxSessionVolumeKg: 0,
+    maxSessionReps: 0,
+    maxSessionExercises: 0,
+    maxSingleSetKg: 0,
+  };
+
+  // Local-midnight epoch (ms) → count of workouts that day.
+  const dayCounts = new Map<number, number>();
+
+  for (const log of logs) {
+    const started = new Date(log.startedAt);
+    const hour = started.getHours();
+    if (hour < 7) s.workoutBefore7am = 1;
+    if (hour >= 21) s.workoutAfter9pm = 1;
+    if (hour < 4) s.workoutMidnightTo4am = 1;
+    if (hour >= 11 && hour < 14) s.workoutLunch = 1;
+    if (started.getMonth() === 0 && started.getDate() === 1) s.newYearWorkout = 1;
+
+    const minutes = (log.durationSeconds ?? 0) / 60;
+    if (minutes >= 90) s.marathonSession = 1;
+    if (minutes > 0 && minutes <= 20) s.quickSession = 1;
+
+    const dayMs = startOfDay(started).getTime();
+    dayCounts.set(dayMs, (dayCounts.get(dayMs) ?? 0) + 1);
+
+    let sessionVolume = 0;
+    let sessionReps = 0;
+    const exerciseIds = new Set<string>();
+    for (const exercise of log.exercises) {
+      exerciseIds.add(exercise.exerciseId);
+      for (const set of exercise.sets) {
+        if (!set.completed) continue;
+        if (set.type === 'reps_weight') {
+          const weightKg = (set.weight ?? 0) * factor;
+          const reps = set.reps ?? 0;
+          sessionVolume += weightKg * reps;
+          sessionReps += reps;
+          if (weightKg > s.maxSingleSetKg) s.maxSingleSetKg = weightKg;
+        } else if (set.type === 'reps_time' || set.type === 'reps_only') {
+          sessionReps += set.reps ?? 0;
+        }
+      }
+    }
+    if (sessionVolume > s.maxSessionVolumeKg) s.maxSessionVolumeKg = sessionVolume;
+    if (sessionReps > s.maxSessionReps) s.maxSessionReps = sessionReps;
+    if (exerciseIds.size > s.maxSessionExercises) s.maxSessionExercises = exerciseIds.size;
+  }
+
+  const days = [...dayCounts.keys()].sort((a, b) => a - b);
+  if ([...dayCounts.values()].some((c) => c >= 2)) s.doubleDay = 1;
+
+  const daySet = new Set(days);
+  for (const dayMs of days) {
+    // Saturday with a workout the next day → trained the whole weekend.
+    if (getDay(new Date(dayMs)) === 6) {
+      const sunday = startOfDay(addDays(new Date(dayMs), 1)).getTime();
+      if (daySet.has(sunday)) {
+        s.weekendWarrior = 1;
+        break;
+      }
+    }
+  }
+
+  for (let i = 1; i < days.length; i++) {
+    if (days[i] - days[i - 1] >= COMEBACK_GAP_DAYS * MS_PER_DAY) {
+      s.comebackAfterGap = 1;
+      break;
+    }
+  }
+
+  return s;
+}
+
+/** Per-day nutrition signals: busiest logging day + days that hit every macro goal. */
+export function computeMealDaySignals(
+  meals: { date: string; macros: { calories: number; protein: number; carbs: number; fat: number } }[],
+  goals: { calories: number; protein: number; carbs: number; fat: number }
+): { maxMealsInDay: number; macroGoalDays: number } {
+  const byDate = new Map<
+    string,
+    { count: number; calories: number; protein: number; carbs: number; fat: number }
+  >();
+  for (const meal of meals) {
+    const entry =
+      byDate.get(meal.date) ?? { count: 0, calories: 0, protein: 0, carbs: 0, fat: 0 };
+    entry.count += 1;
+    entry.calories += meal.macros.calories;
+    entry.protein += meal.macros.protein;
+    entry.carbs += meal.macros.carbs;
+    entry.fat += meal.macros.fat;
+    byDate.set(meal.date, entry);
+  }
+
+  // A "goal day" requires every goal to be set (>0) and met — otherwise a
+  // zeroed goal would unlock it trivially.
+  const goalsSet =
+    goals.calories > 0 && goals.protein > 0 && goals.carbs > 0 && goals.fat > 0;
+
+  let maxMealsInDay = 0;
+  let macroGoalDays = 0;
+  for (const entry of byDate.values()) {
+    if (entry.count > maxMealsInDay) maxMealsInDay = entry.count;
+    if (
+      goalsSet &&
+      entry.calories >= goals.calories &&
+      entry.protein >= goals.protein &&
+      entry.carbs >= goals.carbs &&
+      entry.fat >= goals.fat
+    ) {
+      macroGoalDays += 1;
+    }
+  }
+
+  return { maxMealsInDay, macroGoalDays };
 }
