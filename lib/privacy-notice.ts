@@ -7,5 +7,8 @@ export const PRIVACY_NOTICE_SHORT =
 
 export const SUPPORT_EMAIL = "support@fitbull.app";
 
+// Fallback only: the collision now opens a password→link sheet (see
+// components/auth/link-apple-sheet.tsx). This copy shows when we couldn't
+// determine the colliding email to pre-fill that sheet.
 export const SIWA_COLLISION_COPY =
-  "This email is already used for sign-in with a password. Please sign in with email first, or contact support@fitbull.app to link Apple.";
+  "This email already has a password account. Sign in with email first, then connect Apple from Settings, or contact support@fitbull.app.";

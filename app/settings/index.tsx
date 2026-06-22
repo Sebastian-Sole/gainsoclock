@@ -5,6 +5,7 @@ import { Text } from "@/components/ui/text";
 import { api } from "@/convex/_generated/api";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useMutation } from "convex/react";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
 import {
   Bell,
@@ -16,6 +17,7 @@ import {
   Heart,
   HeartPulse,
   History,
+  Link2,
   LogOut,
   RefreshCw,
   RotateCcw,
@@ -79,6 +81,10 @@ export default function SettingsScreen() {
 
   const deleteAllData = useAction(api.user.deleteAllData);
   const resetOnboarding = useMutation(api.user.resetOnboarding);
+  const linkApple = useAction(api.accountLinking.linkApple);
+  const [appleLinkState, setAppleLinkState] = useState<
+    "idle" | "loading" | "linked"
+  >("idle");
   const clearAuthCache = useAuthCacheStore((s) => s.clear);
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
@@ -112,6 +118,51 @@ export default function SettingsScreen() {
         },
       },
     ]);
+  };
+
+  // Link a verified Apple identity to the already-authenticated account, so the
+  // user can subsequently sign in with Apple on any device. The server
+  // re-verifies the token and refuses an Apple ID already linked elsewhere.
+  const handleConnectApple = async () => {
+    setAppleLinkState("loading");
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      const idToken = credential.identityToken;
+      if (!idToken) {
+        throw new Error("Apple sign-in did not return an identity token");
+      }
+      await linkApple({ idToken });
+      setAppleLinkState("linked");
+      Alert.alert(
+        "Apple connected",
+        "You can now sign in with Apple on any device."
+      );
+    } catch (err) {
+      const code =
+        typeof err === "object" && err !== null && "code" in err
+          ? (err as { code?: string }).code
+          : undefined;
+      // User cancelled the native sheet — silent, back to idle.
+      if (code === "ERR_REQUEST_CANCELED") {
+        setAppleLinkState("idle");
+        return;
+      }
+      const message = err instanceof Error ? err.message : String(err ?? "");
+      Alert.alert(
+        message.includes("apple_already_linked_elsewhere")
+          ? "Already linked"
+          : "Couldn't connect Apple",
+        message.includes("apple_already_linked_elsewhere")
+          ? "This Apple ID is already linked to a different account. Contact support@fitbull.app for help."
+          : "Please try again."
+      );
+      setAppleLinkState("idle");
+    }
   };
 
   const handleRerunOnboarding = async () => {
@@ -709,6 +760,45 @@ export default function SettingsScreen() {
           ACCOUNT
         </Text>
         <View className="rounded-xl bg-card">
+          {Platform.OS === "ios" && (
+            <>
+              <Pressable
+                onPress={() => {
+                  void handleConnectApple();
+                }}
+                disabled={appleLinkState !== "idle"}
+                className="flex-row items-center gap-3 px-4 py-4"
+                accessibilityRole="button"
+                accessibilityLabel="Connect Apple to your account"
+                accessibilityState={{
+                  disabled: appleLinkState !== "idle",
+                  busy: appleLinkState === "loading",
+                }}
+                testID="settings-connect-apple"
+              >
+                <Icon as={Link2} size={20} className="text-primary" />
+                <View className="flex-1">
+                  <Text className="font-medium">
+                    {appleLinkState === "linked"
+                      ? "Apple connected"
+                      : "Connect Apple"}
+                  </Text>
+                  <Text className="text-sm text-muted-foreground">
+                    {appleLinkState === "linked"
+                      ? "Sign in with Apple on any device"
+                      : "Link Sign in with Apple to this account"}
+                  </Text>
+                </View>
+                {appleLinkState === "loading" && (
+                  <ActivityIndicator
+                    size="small"
+                    color={isDark ? "#fff" : "#000"}
+                  />
+                )}
+              </Pressable>
+              <Separator />
+            </>
+          )}
           <Pressable
             onPress={handleSignOut}
             className="flex-row items-center gap-3 px-4 py-4"

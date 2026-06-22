@@ -5,6 +5,7 @@ import {
   findNodeHandle,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -14,10 +15,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useAction } from "convex/react";
 import * as WebBrowser from "expo-web-browser";
 
+import { api } from "@/convex/_generated/api";
 import { Text } from "@/components/ui/text";
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
+import { LinkAppleSheet } from "@/components/auth/link-apple-sheet";
 import { capture } from "@/lib/analytics";
 import { SIWA_COLLISION_COPY } from "@/lib/privacy-notice";
 
@@ -40,12 +44,19 @@ function getSignUpErrorMessage(error: unknown): string {
 export default function SignUpScreen() {
   const router = useRouter();
   const { signIn } = useAuthActions();
+  const checkAppleSignIn = useAction(api.accountLinking.checkAppleSignIn);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  // Set when a SIWA attempt collides with an existing password account; drives
+  // the password→link sheet. Holds the verified Apple token + colliding email.
+  const [linkPrompt, setLinkPrompt] = useState<{
+    email: string;
+    identityToken: string;
+  } | null>(null);
 
   const headingRef = useRef<View | null>(null);
   const startedRef = useRef(false);
@@ -124,6 +135,18 @@ export default function SignUpScreen() {
       if (!identityToken) {
         throw new Error("Apple sign-in did not return an identity token");
       }
+      // Pre-flight: decide collision-vs-sign-in WITHOUT throwing, so a
+      // collision is normal control flow (no red dev error box, works in prod).
+      const status = await checkAppleSignIn({ idToken: identityToken });
+      if (status === "needs_link") {
+        // Apple omits the email on a returning authorization, so the prefill is
+        // best-effort — the link sheet collects the email itself.
+        setLinkPrompt({
+          email: _credential.email ?? email.trim(),
+          identityToken,
+        });
+        return;
+      }
       // Apple only sends `fullName` on the FIRST sign-in for a given
       // (Apple ID, app) pair; on subsequent attempts these fields are null.
       // The server-side `apple-native` provider persists the name on the
@@ -146,8 +169,18 @@ export default function SignUpScreen() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : String(err ?? "");
+      // Fallback for the rare race where a collision appears between the
+      // pre-flight check and signIn (authorize's safety net throws).
       if (message.includes("siwa_email_collision")) {
-        setError(SIWA_COLLISION_COPY);
+        const token = _credential.identityToken;
+        if (token) {
+          setLinkPrompt({
+            email: _credential.email ?? email.trim(),
+            identityToken: token,
+          });
+        } else {
+          setError(SIWA_COLLISION_COPY);
+        }
       } else {
         setError(
           err instanceof Error
@@ -362,6 +395,36 @@ export default function SignUpScreen() {
             </Text>
           </Pressable>
         </ScrollView>
+
+        <Modal
+          visible={linkPrompt !== null}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setLinkPrompt(null)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            className="flex-1 justify-end bg-black/40"
+          >
+            {linkPrompt && (
+              <View className="px-4 pb-8">
+                <LinkAppleSheet
+                  email={linkPrompt.email}
+                  identityToken={linkPrompt.identityToken}
+                  onLinked={() => {
+                    setLinkPrompt(null);
+                    capture({
+                      name: "auth_succeeded",
+                      props: { method: "apple" },
+                    });
+                    focusHeading();
+                  }}
+                  onCancel={() => setLinkPrompt(null)}
+                />
+              </View>
+            )}
+          </KeyboardAvoidingView>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
