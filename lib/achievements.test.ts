@@ -262,6 +262,31 @@ describe('computeWorkoutSignals', () => {
     expect(s.quickSession).toBe(1);
   });
 
+  it('uses strict duration bounds matching the copy (exactly 20/90 do not count)', () => {
+    const s = computeWorkoutSignals(
+      [
+        mkLog('2026-03-10T10:00:00', [ex('a', [rw(50, 5)])], 5400), // exactly 90 min
+        mkLog('2026-03-11T10:00:00', [ex('a', [rw(50, 5)])], 1200), // exactly 20 min
+      ],
+      false
+    );
+    expect(s.marathonSession).toBe(0);
+    expect(s.quickSession).toBe(0);
+  });
+
+  it('counts a comeback gap that spans the US spring-forward DST change', () => {
+    // 2026-03-08 is spring-forward in US zones; this 30-calendar-day gap is
+    // 30*24h − 1h in raw ms, which a millisecond threshold would miss.
+    const s = computeWorkoutSignals(
+      [
+        mkLog('2026-02-20T10:00:00', [ex('a', [rw(50, 5)])]),
+        mkLog('2026-03-22T10:00:00', [ex('a', [rw(50, 5)])]),
+      ],
+      false
+    );
+    expect(s.comebackAfterGap).toBe(1);
+  });
+
   it('counts distinct exercises in a single session', () => {
     const exercises = Array.from({ length: 8 }, (_, i) => ex(`e${i}`, [rw(20, 10)]));
     const s = computeWorkoutSignals([mkLog('2026-03-10T10:00:00', exercises)], false);

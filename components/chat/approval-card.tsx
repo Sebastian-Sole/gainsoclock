@@ -48,11 +48,13 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
         payload: approval.payload,
         conversationClientId,
       });
-      await approveAction({ messageId: messageId as Id<"chatMessages"> });
-      // Achievement: Let AI Cook (logged a meal via the coach).
+      // Achievement: Let AI Cook — mark as soon as the meal is actually created
+      // (executeApproval succeeded), before approveAction, so a transient
+      // failure marking the message UI state doesn't drop the unlock.
       if (approval.type === 'log_meal') {
         useAchievementEventsStore.getState().mark('chatMealLogged');
       }
+      await approveAction({ messageId: messageId as Id<"chatMessages"> });
     } catch (error) {
       console.error('Approval failed:', error);
       Alert.alert(

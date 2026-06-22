@@ -1,4 +1,4 @@
-import { addDays, getDay, startOfDay } from 'date-fns';
+import { addDays, differenceInCalendarDays, getDay, startOfDay } from 'date-fns';
 
 import type { WorkoutLog } from './types';
 
@@ -519,7 +519,6 @@ export interface WorkoutSignals {
   maxSingleSetKg: number;
 }
 
-const MS_PER_DAY = 86_400_000;
 const COMEBACK_GAP_DAYS = 30;
 
 /**
@@ -562,9 +561,10 @@ export function computeWorkoutSignals(
     if (hour >= 11 && hour < 14) s.workoutLunch = 1;
     if (started.getMonth() === 0 && started.getDate() === 1) s.newYearWorkout = 1;
 
+    // Strict bounds to match the copy ("over 90 minutes" / "under 20 minutes").
     const minutes = (log.durationSeconds ?? 0) / 60;
-    if (minutes >= 90) s.marathonSession = 1;
-    if (minutes > 0 && minutes <= 20) s.quickSession = 1;
+    if (minutes > 90) s.marathonSession = 1;
+    if (minutes > 0 && minutes < 20) s.quickSession = 1;
 
     const dayMs = startOfDay(started).getTime();
     dayCounts.set(dayMs, (dayCounts.get(dayMs) ?? 0) + 1);
@@ -607,8 +607,10 @@ export function computeWorkoutSignals(
     }
   }
 
+  // Calendar-day diff (not raw ms) so a 30-day gap spanning a DST change still
+  // counts — ms-deltas between local midnights drift by the ±1h offset.
   for (let i = 1; i < days.length; i++) {
-    if (days[i] - days[i - 1] >= COMEBACK_GAP_DAYS * MS_PER_DAY) {
+    if (differenceInCalendarDays(new Date(days[i]), new Date(days[i - 1])) >= COMEBACK_GAP_DAYS) {
       s.comebackAfterGap = 1;
       break;
     }

@@ -49,7 +49,9 @@ export function AchievementCard({ group, className }: AchievementCardProps) {
   const isMaxed = isLeveled && group.level === group.maxLevel;
   const { progress } = group;
 
-  const clampedCurrent = progress ? Math.min(Math.round(progress.current), progress.target) : 0;
+  // Floor (not round) so a fractional fact just shy of target (e.g. lbs→kg
+  // volume of 9,999.6) never shows 100% while the achievement is still locked.
+  const clampedCurrent = progress ? Math.min(Math.floor(progress.current), progress.target) : 0;
   const pct = progress && progress.target > 0 ? (clampedCurrent / progress.target) * 100 : 0;
   const unlockDateLabel = group.unlockedAt
     ? format(new Date(group.unlockedAt), 'MMM d, yyyy')
