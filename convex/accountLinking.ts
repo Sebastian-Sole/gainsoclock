@@ -66,9 +66,18 @@ export const checkAppleSignIn = action({
         { email }
       );
       if (collision === "collision") return "needs_link";
+    } else if (!email) {
+      // Apple omits `email` after the first authorization. An UNLINKED sub with
+      // no email can only be a prior collision that wasn't linked (a genuine
+      // new user's first token always carries the email; relay/pure-Apple users
+      // get linked on it). We can't check the collision, so route to the link
+      // sheet rather than let `signIn` create a split account. Mirrors the
+      // server-side guard in `auth.ts`. (See PR #78 review.)
+      return "needs_link";
     }
 
-    // New pure-Apple user (or a relay email) → safe to create on sign in.
+    // New pure-Apple user (verified email, no collision; or a relay email) →
+    // safe to create on sign in.
     return "sign_in";
   },
 });

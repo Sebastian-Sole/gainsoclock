@@ -22,9 +22,21 @@ The native `apple-native` `ConvexCredentials` provider in `convex/auth.ts`
    `internal.authInternal.checkSiwaEmailCollision`. If that email belongs to a
    user with at least one **non-apple-native** account (email+password or
    Google), it throws `siwa_email_collision`.
+3. If an **unlinked** sub arrives with **no email at all**, it also throws
+   `siwa_email_collision`. Apple omits the email on authorizations after the
+   first, so an unlinked + email-less token can only be a sub that previously
+   surfaced an email and never finished linking (a genuine new user's first
+   token always carries the email; relay/pure-Apple users are linked by
+   `createAccount` on that first token). We can't run the collision check
+   without an email, so we refuse rather than create a split account — the
+   client routes this to the link sheet, which collects the email + password.
 
 Relay addresses (`@privaterelay.appleid.com`) are authoritative identities for
 their Apple users, so the collision check skips them on purpose.
+
+The same logic runs ahead of sign-in in `checkAppleSignIn` (returns
+`"needs_link"` for both the collision and the unlinked-no-email cases), so the
+client shows the link sheet without a thrown-error round-trip.
 
 No silent double-account is ever created.
 

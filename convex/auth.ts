@@ -139,17 +139,25 @@ const AppleNative = ConvexCredentials<DataModel>({
     // relay addresses are authoritative identities for the Apple user, so we
     // skip the check there. The recourse is the explicit link flow (password
     // re-auth proves account ownership) — see `convex/accountLinking.ts`.
-    if (
-      !linkedUserId &&
-      email &&
-      emailVerified &&
-      !email.endsWith(APPLE_RELAY_DOMAIN)
-    ) {
-      const collision = await ctx.runQuery(
-        internal.authInternal.checkSiwaEmailCollision,
-        { email }
-      );
-      if (collision === "collision") {
+    if (!linkedUserId) {
+      if (email && emailVerified && !email.endsWith(APPLE_RELAY_DOMAIN)) {
+        const collision = await ctx.runQuery(
+          internal.authInternal.checkSiwaEmailCollision,
+          { email }
+        );
+        if (collision === "collision") {
+          throw new Error("siwa_email_collision");
+        }
+      } else if (!email) {
+        // Apple omits `email` on authorizations after the first. An UNLINKED
+        // sub with no email can only be a sub that previously surfaced an email
+        // (Apple always sends it on the first authorization) but never finished
+        // linking — a brand-new user's first token always carries the email,
+        // and relay/pure-Apple users get linked by `createAccount` on that
+        // first token. So we can't run the collision check, and creating a new
+        // account here would reintroduce the silent split. Refuse instead; the
+        // client routes `siwa_email_collision` to the link sheet, which
+        // collects the email + password. (See PR #78 review.)
         throw new Error("siwa_email_collision");
       }
     }
