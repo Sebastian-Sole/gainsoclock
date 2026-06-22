@@ -20,6 +20,7 @@ import { Icon } from "@/components/ui/icon";
 import { Text } from "@/components/ui/text";
 import { api } from "@/convex/_generated/api";
 import { resetAnalytics } from "@/lib/analytics";
+import { logOutPurchases } from "@/hooks/use-purchases";
 import { cn } from "@/lib/utils";
 import { useAuthCacheStore } from "@/stores/auth-cache-store";
 import { useSubscriptionStore } from "@/stores/subscription-store";
@@ -76,15 +77,7 @@ export default function DeleteAccountScreen() {
         console.warn("[delete-account] AsyncStorage.clear failed:", e);
       }
 
-      if (Platform.OS !== "web") {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const Purchases = require("react-native-purchases").default;
-          await Purchases?.logOut?.().catch(() => {});
-        } catch {
-          // RevenueCat not available
-        }
-      }
+      await logOutPurchases();
 
       // expo-secure-store has no bulk clear; the Convex Auth token is keyed
       // under a known prefix — remove by best-effort enumeration.

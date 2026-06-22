@@ -18,6 +18,7 @@ import { RecipeFilterModal, DEFAULT_FILTERS, hasActiveFilters } from './recipe-f
 import { applyRecipeFilters } from '@/lib/recipe-filters';
 import type { RecipeFilters } from './recipe-filter-modal';
 import type { Recipe, Macros } from '@/lib/types';
+import { parseLocaleNumber } from '@/lib/format';
 
 interface LogMealModalProps {
   visible: boolean;
@@ -76,7 +77,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
 
   const handleLogFromRecipe = () => {
     if (!selectedRecipe) return;
-    const mult = parseFloat(portion) || 1;
+    const mult = parseLocaleNumber(portion) || 1;
     const recipeMacros = selectedRecipe.macros ?? { calories: 0, protein: 0, carbs: 0, fat: 0 };
     const servings = selectedRecipe.servings || 1;
 
@@ -175,6 +176,10 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
           </Pressable>
           <Pressable
             onPress={() => { setMode('quick'); setSelectedRecipe(null); }}
+            accessibilityRole="button"
+            accessibilityLabel="Quick add a meal"
+            accessibilityState={{ selected: mode === 'quick' }}
+            testID="log-meal-quick-tab"
             className={`flex-1 items-center rounded-lg py-2 ${mode === 'quick' ? 'bg-primary' : 'border border-border'}`}
           >
             <Text className={mode === 'quick' ? 'font-medium text-primary-foreground' : 'font-medium text-foreground'}>
@@ -214,7 +219,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
                     {(['calories', 'protein', 'carbs', 'fat'] as const).map((key) => {
                       const base = selectedRecipe.macros![key];
                       const servings = selectedRecipe.servings || 1;
-                      const mult = parseFloat(portion) || 1;
+                      const mult = parseLocaleNumber(portion) || 1;
                       const val = Math.round((base / servings) * mult);
                       return (
                         <View key={key} className="items-center">
@@ -308,6 +313,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
               placeholder="e.g. Protein shake"
               placeholderTextColor="#9ca3af"
               autoFocus
+              testID="log-meal-quick-title"
               className="mb-4 rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
             />
 
@@ -362,6 +368,10 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
             <Pressable
               onPress={handleQuickLog}
               disabled={!quickTitle.trim()}
+              accessibilityRole="button"
+              accessibilityLabel="Log meal"
+              accessibilityState={{ disabled: !quickTitle.trim() }}
+              testID="log-meal-quick-submit"
               className={`items-center rounded-xl py-4 ${quickTitle.trim() ? 'bg-primary' : 'bg-primary/30'}`}
             >
               <Text className={`font-medium ${quickTitle.trim() ? 'text-primary-foreground' : 'text-primary-foreground/50'}`}>

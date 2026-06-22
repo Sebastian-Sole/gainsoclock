@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
 import { generateId } from '@/lib/id';
-import { syncToConvex } from '@/lib/convex-sync';
+import { syncToConvex, getPendingClientIds, isQueueLoaded } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
 import type { WorkoutTemplate, TemplateExercise } from '@/lib/types';
 
@@ -90,7 +90,10 @@ export const useTemplateStore = create<TemplateState>()(
           ),
         }));
 
-        const syncArgs: Record<string, unknown> = { clientId: id, updatedAt: now };
+        const syncArgs: Record<string, unknown> & { clientId: string; updatedAt: string } = {
+          clientId: id,
+          updatedAt: now,
+        };
         if (updates.name !== undefined) syncArgs.name = updates.name;
         if (updates.notes !== undefined) syncArgs.notes = updates.notes;
         if (updates.exercises !== undefined) {
@@ -142,43 +145,53 @@ export const useTemplateStore = create<TemplateState>()(
         const localTemplates = get().templates;
         const localById = new Map(localTemplates.map((t) => [t.id, t]));
 
+        const pending = getPendingClientIds();
+        const queueKnown = isQueueLoaded();
+
+        const toLocal = (st: (typeof serverTemplates)[number]): WorkoutTemplate => ({
+          id: st.clientId,
+          name: st.name,
+          notes: st.notes,
+          exercises: st.exercises.map((e) => ({
+            id: e.id,
+            exerciseId: e.exerciseId,
+            name: e.name,
+            type: e.type as TemplateExercise['type'],
+            order: e.order,
+            restTimeSeconds: e.restTimeSeconds,
+            defaultSetsCount: e.defaultSetsCount,
+            suggestedReps: e.suggestedReps,
+            suggestedWeight: e.suggestedWeight,
+            suggestedTime: e.suggestedTime,
+            suggestedDistance: e.suggestedDistance,
+          })),
+          createdAt: st.createdAt,
+          updatedAt: st.updatedAt,
+        });
+
         const merged: WorkoutTemplate[] = [];
         const seenIds = new Set<string>();
 
-        // For each server template, prefer local version if it exists (may have unsaved changes)
+        // Queue-aware last-write-wins: keep local only while it has writes in
+        // flight (or the queue isn't loaded); otherwise take whichever side has
+        // the newer `updatedAt` (tie → server), so cross-device edits land.
         for (const st of serverTemplates) {
           seenIds.add(st.clientId);
           const local = localById.get(st.clientId);
-          if (local) {
+          if (local && (pending.has(local.id) || !queueKnown)) {
+            merged.push(local);
+          } else if (local && local.updatedAt > st.updatedAt) {
             merged.push(local);
           } else {
-            // Server-only: map to local shape
-            merged.push({
-              id: st.clientId,
-              name: st.name,
-              notes: st.notes,
-              exercises: st.exercises.map((e) => ({
-                id: e.id,
-                exerciseId: e.exerciseId,
-                name: e.name,
-                type: e.type as TemplateExercise['type'],
-                order: e.order,
-                restTimeSeconds: e.restTimeSeconds,
-                defaultSetsCount: e.defaultSetsCount,
-                suggestedReps: e.suggestedReps,
-                suggestedWeight: e.suggestedWeight,
-                suggestedTime: e.suggestedTime,
-                suggestedDistance: e.suggestedDistance,
-              })),
-              createdAt: st.createdAt,
-              updatedAt: st.updatedAt,
-            });
+            merged.push(toLocal(st));
           }
         }
 
-        // Preserve local-only templates (not yet on server)
+        // Local-only templates: keep an unsynced create, otherwise drop it —
+        // the templates query is unscoped, so server absence IS deletion.
         for (const t of localTemplates) {
-          if (!seenIds.has(t.id)) {
+          if (seenIds.has(t.id)) continue;
+          if (pending.has(t.id) || !queueKnown) {
             merged.push(t);
           }
         }

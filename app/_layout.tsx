@@ -49,6 +49,8 @@ configureReanimatedLogger({
 
 SplashScreen.preventAutoHideAsync();
 
+if (__DEV__) console.time("cold-start");
+
 const CONVEX_URL = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = CONVEX_URL
   ? new ConvexReactClient(CONVEX_URL, { unsavedChangesWarning: false })
@@ -110,6 +112,10 @@ function RootNavigator() {
   const userIdResult = useQuery(api.user.me);
   const pathname = usePathname();
   const lastIdentifiedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (__DEV__) console.timeEnd("cold-start");
+  }, []);
 
   useEffect(() => {
     if (!isLoading && !hasHiddenSplash.current) {

@@ -87,4 +87,4 @@ These rules are enforceable. If a rule can be enforced by ESLint/TypeScript, pre
 - Do not add `console.log` to committed code — use `__DEV__` guards or the logger in `lib/` if one exists.
 - Do not regenerate `convex/_generated/*` by hand; it's produced by the Convex CLI.
 - Do not edit `ios/` or `android/` by hand unless you're fixing a config plugin. Prefer Expo config plugins; `expo prebuild --clean` should always reproduce the native projects.
-- Do not introduce a test runner without discussion. The project has no test script today; adding one is a stack decision, not a per-PR choice.
+- The test-runner stack decision is made: **Vitest over `lib/**` pure modules** (`pnpm test`; scope and rationale in `docs/decisions/test-runner.md`). Adding `lib/**` characterization/unit tests is now a normal per-PR change. Adding component/React testing (`react-test-renderer`/RNTL or `jest-expo`), or any second runner, is still a SEPARATE stack decision that needs discussion first.

@@ -34,9 +34,12 @@ export function HealthKitReaskCard(): React.JSX.Element | null {
   const [pending, setPending] = useState(false);
   const shownRef = useRef(false);
 
-  // TODO(plan-09): wire up the real workout-log count gate. Until that lands,
-  // we treat "profile exists + dataSource: manual" as the render condition.
-  const eligibleByProfile = profile?.dataSource === 'manual';
+  const hasWorkout = useQuery(api.workoutLogs.hasAnyLog);
+  // Spec (plan-06 §160-169): manual data source AND ≥1 logged workout.
+  // `hasWorkout === true` renders false while loading — "false under
+  // uncertainty" per the spec.
+  const eligibleByProfile =
+    profile?.dataSource === 'manual' && hasWorkout === true;
   const dismissedRecently =
     reaskState.lastDismissedAt != null &&
     Date.now() - Date.parse(reaskState.lastDismissedAt) < THIRTY_DAYS_MS;

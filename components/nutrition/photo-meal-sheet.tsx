@@ -69,6 +69,7 @@ export function PhotoMealSheet({ visible, onClose, date }: PhotoMealSheetProps) 
   const { presentPaywall } = usePurchases();
 
   const generateUploadUrl = useMutation(api.nutritionVision.generateMealPhotoUploadUrl);
+  const registerMealPhoto = useMutation(api.nutritionVision.registerMealPhoto);
   const analyzeMealPhoto = useAction(api.nutritionVision.analyzeMealPhoto);
   const discardMealPhoto = useMutation(api.nutritionVision.discardMealPhoto);
 
@@ -136,6 +137,11 @@ export function PhotoMealSheet({ visible, onClose, date }: PhotoMealSheetProps) 
       if (!uploadResponse.ok) throw new Error(`Upload failed: ${uploadResponse.status}`);
       const uploadJson: { storageId: Id<'_storage'> } = await uploadResponse.json();
       storageId = uploadJson.storageId;
+
+      // 1b. Register ownership so analyze/discard can be enforced server-side.
+      // A failure here throws into the catch below (same path as an upload
+      // failure), which discards the photo and shows the error state.
+      await registerMealPhoto({ storageId });
 
       // 2. Analyze
       const result: AnalyzeResult = await analyzeMealPhoto({ storageId });

@@ -55,12 +55,13 @@ export function TodayTab() {
   // Hydrate store from server when data arrives
   useEffect(() => {
     if (serverMeals === undefined) return;
-    hydrateFromServer(serverMeals);
-  }, [serverMeals]);
+    hydrateFromServer(serverMeals, today);
+  }, [serverMeals, today]);
 
-  // Calculate consumed macros
+  // Calculate consumed macros — filter to the current date as a belt-and-braces
+  // guard for the one render between a date flip and the hydration effect re-run.
   const consumed = useMemo((): Macros => {
-    return todayMeals.reduce(
+    return todayMeals.filter((m) => m.date === today).reduce(
       (acc, meal) => ({
         calories: acc.calories + meal.macros.calories,
         protein: acc.protein + meal.macros.protein,
@@ -69,7 +70,7 @@ export function TodayTab() {
       }),
       { calories: 0, protein: 0, carbs: 0, fat: 0 }
     );
-  }, [todayMeals]);
+  }, [todayMeals, today]);
 
   return (
     <View className="flex-1">

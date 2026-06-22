@@ -20,35 +20,36 @@ import { useAchievements } from '@/hooks/use-achievements';
 
 export default function AchievementsScreen() {
   const router = useRouter();
-  const { all, unlocked, progress } = useAchievements();
+  const { groups } = useAchievements();
   const recap = useMonthlyRecap();
 
   const recapRef = useRef<View>(null);
   const [isSharing, setIsSharing] = useState(false);
 
-  const unlockedCount = unlocked.size;
+  const unlockedCount = groups.filter((g) => g.level >= 1).length;
 
-  // Sort: unlocked (newest first) → in-progress by completion % → the rest.
-  // Definition order breaks all ties so the list is stable.
+  // Sort: started (newest level first) → locked-but-in-progress by % → the
+  // rest. Catalog order breaks ties so the list is stable.
   const sorted = useMemo(() => {
-    const entries = all.map((def, index) => {
-      const unlockedAt = unlocked.get(def.key) ?? null;
-      const p = progress(def);
+    const entries = groups.map((group, index) => {
+      const p = group.progress;
       const pct = p && p.target > 0 ? Math.min(p.current / p.target, 1) : 0;
-      return { def, index, unlockedAt, progress: p, pct };
+      return { group, index, pct };
     });
     entries.sort((a, b) => {
-      if (a.unlockedAt !== null || b.unlockedAt !== null) {
-        if (a.unlockedAt === null) return 1;
-        if (b.unlockedAt === null) return -1;
-        if (a.unlockedAt !== b.unlockedAt) return a.unlockedAt < b.unlockedAt ? 1 : -1;
+      const aAt = a.group.unlockedAt;
+      const bAt = b.group.unlockedAt;
+      if (aAt !== null || bAt !== null) {
+        if (aAt === null) return 1;
+        if (bAt === null) return -1;
+        if (aAt !== bAt) return aAt < bAt ? 1 : -1;
         return a.index - b.index;
       }
       if (a.pct !== b.pct) return b.pct - a.pct;
       return a.index - b.index;
     });
     return entries;
-  }, [all, unlocked, progress]);
+  }, [groups]);
 
   const handleShareMonth = useCallback(async () => {
     if (isSharing) return;
@@ -76,7 +77,7 @@ export default function AchievementsScreen() {
         <View className="flex-1">
           <Text className="text-lg font-bold">Achievements</Text>
           <Text className="text-sm text-muted-foreground">
-            {unlockedCount}/{all.length} unlocked
+            {unlockedCount}/{groups.length} unlocked
           </Text>
         </View>
         <Pressable
@@ -114,10 +115,8 @@ export default function AchievementsScreen() {
         <View className="flex-row flex-wrap justify-between pb-8">
           {sorted.map((entry) => (
             <AchievementCard
-              key={entry.def.key}
-              def={entry.def}
-              unlockedAt={entry.unlockedAt}
-              progress={entry.unlockedAt === null ? entry.progress : null}
+              key={entry.group.key}
+              group={entry.group}
               className="mb-3 w-[48.5%]"
             />
           ))}

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as accountLinking from "../accountLinking.js";
 import type * as aiTools from "../aiTools.js";
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
@@ -20,6 +21,7 @@ import type * as crons from "../crons.js";
 import type * as email from "../email.js";
 import type * as exerciseLibrary from "../exerciseLibrary.js";
 import type * as exercises from "../exercises.js";
+import type * as fitnessMetrics from "../fitnessMetrics.js";
 import type * as healthData from "../healthData.js";
 import type * as http from "../http.js";
 import type * as mealLogs from "../mealLogs.js";
@@ -51,6 +53,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  accountLinking: typeof accountLinking;
   aiTools: typeof aiTools;
   analytics: typeof analytics;
   auth: typeof auth;
@@ -63,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   email: typeof email;
   exerciseLibrary: typeof exerciseLibrary;
   exercises: typeof exercises;
+  fitnessMetrics: typeof fitnessMetrics;
   healthData: typeof healthData;
   http: typeof http;
   mealLogs: typeof mealLogs;

@@ -35,22 +35,25 @@ interface MemoizedSetRowProps {
   set: WorkoutSet;
   index: number;
   exerciseId: string;
-  exercise: Exercise;
+  restTimeSeconds: number;
   onUpdateSet: (exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => void;
-  onToggleSet: (exerciseId: string, setId: string, exercise: Exercise) => void;
+  onToggleSet: (exerciseId: string, setId: string, restTimeSeconds: number, wasCompleted: boolean) => void;
   onRemoveSet: (exerciseId: string, setId: string) => void;
 }
 
 const MemoizedSetRow = React.memo(function MemoizedSetRow({
-  set, index, exerciseId, exercise, onUpdateSet, onToggleSet, onRemoveSet,
+  set, index, exerciseId, restTimeSeconds, onUpdateSet, onToggleSet, onRemoveSet,
 }: MemoizedSetRowProps) {
   const handleUpdate = useCallback(
     (updates: Partial<WorkoutSet>) => onUpdateSet(exerciseId, set.id, updates),
     [onUpdateSet, exerciseId, set.id]
   );
   const handleToggle = useCallback(
-    () => onToggleSet(exerciseId, set.id, exercise),
-    [onToggleSet, exerciseId, set.id, exercise]
+    // Pass the facts the toggle needs (rest time + prior completion state)
+    // instead of the whole `exercise` object, so this row keeps prop identity
+    // when a sibling set in the same exercise is edited.
+    () => onToggleSet(exerciseId, set.id, restTimeSeconds, set.completed),
+    [onToggleSet, exerciseId, set.id, restTimeSeconds, set.completed]
   );
   const handleRemove = useCallback(
     () => onRemoveSet(exerciseId, set.id),
@@ -67,6 +70,13 @@ const MemoizedSetRow = React.memo(function MemoizedSetRow({
     />
   );
 });
+
+// Isolates the 1 Hz workout-timer tick to a leaf component so the whole
+// active-workout screen no longer re-renders every second.
+function WorkoutTimerDisplay({ startedAt }: { startedAt: string | null }) {
+  const elapsed = useWorkoutTimer(startedAt);
+  return <Text className="text-sm text-primary font-medium">{formatDuration(elapsed)}</Text>;
+}
 
 export default function ActiveWorkoutScreen() {
   const router = useRouter();
@@ -93,7 +103,6 @@ export default function ActiveWorkoutScreen() {
 
   const generateWorkoutFeedback = useAction(api.workoutFeedback.generateFeedback);
 
-  const elapsed = useWorkoutTimer(activeWorkout?.startedAt ?? null);
   const { isActive: isRestActive, remaining: restRemaining, stop: stopRest } = useRestTimer();
 
   // Flag the rest-timer notification handler: suppress the alert only while
@@ -115,17 +124,15 @@ export default function ActiveWorkoutScreen() {
     label: string;
   } | null>(null);
 
-  const handleToggleSet = useCallback((exerciseId: string, setId: string, exercise: Exercise) => {
+  const handleToggleSet = useCallback((exerciseId: string, setId: string, restTimeSeconds: number, wasCompleted: boolean) => {
     Keyboard.dismiss();
-    const set = exercise.sets.find((s) => s.id === setId);
-    const wasCompleted = set?.completed ?? false;
 
     toggleSetComplete(exerciseId, setId);
     mediumHaptic();
 
     // Start rest timer if set was just completed
-    if (!wasCompleted && exercise.restTimeSeconds > 0) {
-      startRestTimer(exercise.restTimeSeconds);
+    if (!wasCompleted && restTimeSeconds > 0) {
+      startRestTimer(restTimeSeconds);
     }
   }, [toggleSetComplete, startRestTimer]);
 
@@ -161,8 +168,13 @@ export default function ActiveWorkoutScreen() {
   const handleUpdateSet = useCallback((exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => {
     updateSet(exerciseId, setId, updates);
 
-    // Show "Apply to all below" when editing a set that has sets after it
-    const exercise = activeWorkout?.exercises.find((e) => e.id === exerciseId);
+    // Show "Apply to all below" when editing a set that has sets after it.
+    // Read post-update store state instead of closing over `activeWorkout`:
+    // `updateSet` is synchronous and never changes set order/count, so the
+    // prompt logic is behavior-identical while keeping this callback stable
+    // (so memoized rows don't re-render on every keystroke).
+    const current = useWorkoutStore.getState().activeWorkout;
+    const exercise = current?.exercises.find((e) => e.id === exerciseId);
     if (!exercise) return;
     const setIndex = exercise.sets.findIndex((s) => s.id === setId);
     if (setIndex === -1 || setIndex >= exercise.sets.length - 1) return; // no sets below
@@ -174,7 +186,7 @@ export default function ActiveWorkoutScreen() {
     } else if ('distance' in updates && updates.distance !== undefined) {
       setApplyAllPrompt({ exerciseId, setIndex, field: 'distance', value: updates.distance, label: `${updates.distance} ${distanceUnit}` });
     }
-  }, [updateSet, activeWorkout, weightUnit, distanceUnit]);
+  }, [updateSet, weightUnit, distanceUnit]);
 
   const handleRemoveSet = useCallback((exerciseId: string, setId: string) => {
     removeSet(exerciseId, setId);
@@ -220,6 +232,13 @@ export default function ActiveWorkoutScreen() {
               sets: e.sets,
             }));
 
+            // Compute elapsed directly from the workout's start time (matching
+            // use-workout-timer's arithmetic) now that the 1 Hz `elapsed` state
+            // lives inside WorkoutTimerDisplay rather than this screen.
+            const durationSeconds = workout.startedAt
+              ? Math.floor((Date.now() - new Date(workout.startedAt).getTime()) / 1000)
+              : 0;
+
             const log: WorkoutLog = {
               id: generateId(),
               templateId: workout.templateId,
@@ -227,7 +246,7 @@ export default function ActiveWorkoutScreen() {
               exercises: logExercises,
               startedAt: workout.startedAt,
               completedAt: new Date().toISOString(),
-              durationSeconds: elapsed,
+              durationSeconds,
             };
             addLog(log);
             saveWorkoutToHealthKit(log);
@@ -296,7 +315,7 @@ export default function ActiveWorkoutScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-background" testID="workout-active-screen">
       {/* Header — fixed height so rest-timer swap doesn't shift layout */}
       <View className={`h-16 flex-row items-center gap-2 border-b px-4 ${isRestActive ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
         <Pressable
@@ -324,7 +343,7 @@ export default function ActiveWorkoutScreen() {
             <>
               <View key="workout-header" className="flex-1">
                 <Text className="text-lg font-bold" numberOfLines={1}>{activeWorkout.templateName}</Text>
-                <Text className="text-sm text-primary font-medium">{formatDuration(elapsed)}</Text>
+                <WorkoutTimerDisplay startedAt={activeWorkout.startedAt} />
               </View>
               <View className="flex-row items-center gap-2">
                 <Badge variant="secondary">
@@ -442,7 +461,7 @@ export default function ActiveWorkoutScreen() {
                     set={set}
                     index={setIndex}
                     exerciseId={exercise.id}
-                    exercise={exercise}
+                    restTimeSeconds={exercise.restTimeSeconds}
                     onUpdateSet={handleUpdateSet}
                     onToggleSet={handleToggleSet}
                     onRemoveSet={handleRemoveSet}
@@ -483,6 +502,9 @@ export default function ActiveWorkoutScreen() {
         {/* Add Exercise Button */}
         <Pressable
           onPress={handleAddExercise}
+          accessibilityRole="button"
+          accessibilityLabel="Add exercise"
+          testID="workout-add-exercise"
           className="mt-6 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-4"
         >
           <Icon as={Plus} size={20} className="text-primary" />
@@ -494,6 +516,9 @@ export default function ActiveWorkoutScreen() {
       <View className="absolute inset-x-0 bottom-0 border-t border-border bg-background px-4 pb-8 pt-4">
         <Pressable
           onPress={handleEndWorkout}
+          accessibilityRole="button"
+          accessibilityLabel="End workout"
+          testID="workout-finish"
           className="items-center rounded-xl bg-destructive py-4"
         >
           <Text className="font-semibold text-destructive-foreground">End Workout</Text>

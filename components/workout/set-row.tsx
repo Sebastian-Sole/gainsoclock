@@ -51,12 +51,14 @@ export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggl
               placeholder="0"
               className="flex-1"
               allowDecimals
+              testID={`set-${index}-weight`}
             />
             <SetInput
               value={set.reps}
               onValueChange={(reps) => onUpdate({ reps } as Partial<WorkoutSet>)}
               placeholder="0"
               className="flex-1"
+              testID={`set-${index}-reps`}
             />
           </>
         );
@@ -158,6 +160,10 @@ export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggl
         <View className="flex-row items-center gap-1">
           <Pressable
             onPress={handleToggle}
+            accessibilityRole="button"
+            accessibilityLabel={`Mark set ${index + 1} complete`}
+            accessibilityState={{ checked: set.completed }}
+            testID={`set-${index}-complete`}
             className={cn(
               'h-8 w-8 items-center justify-center rounded-md',
               set.completed ? 'bg-primary' : 'border border-border'

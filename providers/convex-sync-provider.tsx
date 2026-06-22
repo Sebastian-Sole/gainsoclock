@@ -59,6 +59,13 @@ function SyncEngine() {
     from: loadedRange.from,
     to: loadedRange.to,
   });
+  const fullHydrationDone = useHistoryStore((s) => s.fullHydrationDone);
+  const localLogCount = useHistoryStore((s) => s.logs.length);
+  const needsFullHydration = !fullHydrationDone && localLogCount === 0;
+  const fullLogs = useQuery(
+    api.workoutLogs.listFull,
+    needsFullHydration ? {} : "skip"
+  );
   const settings = useQuery(api.settings.get);
   const recipes = useQuery(api.recipes.listRecipes);
   const nutritionGoals = useQuery(api.nutritionGoals.get);
@@ -154,12 +161,21 @@ function SyncEngine() {
     useTemplateStore.getState().hydrateFromServer(templates);
   }, [templates]);
 
+  // One-shot full hydration: seed exercises+sets when the local store is
+  // empty (new device / reinstall). listMeta keeps it fresh afterwards.
+  useEffect(() => {
+    if (!needsFullHydration || fullLogs === undefined) return;
+    useHistoryStore.getState().hydrateFromServer(fullLogs);
+    useHistoryStore.getState().markFullHydrationDone();
+  }, [fullLogs, needsFullHydration]);
+
   // Hydrate history store from server
   useEffect(() => {
-    if (logs === undefined) return;
+    if (logs === undefined || (needsFullHydration && fullLogs === undefined))
+      return;
     useHistoryStore.getState().hydrateFromServer(logs);
     useHistoryStore.getState().markRangeFetched();
-  }, [logs]);
+  }, [logs, needsFullHydration, fullLogs]);
 
   // Hydrate settings store from server
   useEffect(() => {

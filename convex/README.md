@@ -88,3 +88,12 @@ function handleButtonPress() {
 Use the Convex CLI to push your functions to a deployment. See everything
 the Convex CLI can do by running `npx convex -h` in your project root
 directory. To learn more, launch the docs with `npx convex docs`.
+
+## Why convex/package.json exists
+
+The `"use node"` actions in this directory (`analytics.ts`, `chatActions.ts`,
+`onboardingActions.ts`, `email.ts`, `posthogServer.ts`) are bundled by the
+Convex CLI, which resolves their third-party dependencies. This manifest
+declares those dependencies explicitly. **Keep its version ranges identical
+to the root `package.json`** — drift here means the deployment runs a
+different version than local dev. Current pairs: `openai`, `posthog-node`.

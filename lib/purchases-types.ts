@@ -60,6 +60,7 @@ export interface PurchasesShim {
     productIds: string[],
   ) => Promise<Record<string, unknown>>;
   syncPurchasesForResult?: () => Promise<unknown>;
+  logOut?: () => Promise<unknown>;
 }
 
 export interface RevenueCatUIShim {

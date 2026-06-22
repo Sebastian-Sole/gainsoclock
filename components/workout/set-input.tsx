@@ -8,9 +8,10 @@ interface SetInputProps {
   placeholder?: string;
   className?: string;
   allowDecimals?: boolean;
+  testID?: string;
 }
 
-export function SetInput({ value, onValueChange, placeholder, className, allowDecimals = false }: SetInputProps) {
+export function SetInput({ value, onValueChange, placeholder, className, allowDecimals = false, testID }: SetInputProps) {
   const [text, setText] = useState(value === 0 ? '' : String(value));
 
   // Sync external value changes (e.g. bulk edit) into local text
@@ -38,6 +39,7 @@ export function SetInput({ value, onValueChange, placeholder, className, allowDe
 
   return (
     <TextInput
+      testID={testID}
       value={text}
       onChangeText={handleChange}
       onBlur={() => {

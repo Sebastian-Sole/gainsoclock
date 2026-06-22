@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
 import { Apple, Plus, UtensilsCrossed } from 'lucide-react-native';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, {
     Easing,
     cancelAnimation,
+    makeMutable,
     useAnimatedStyle,
     useSharedValue,
     withSpring,
@@ -137,16 +138,16 @@ export default function DemoMealsScreen() {
   const caloriesCardScale = useSharedValue(0.94);
   const caloriesFraction = useSharedValue(0);
 
-  const macrosOpacity = MACROS.map(() => useSharedValue(0));
-  const macrosY = MACROS.map(() => useSharedValue(8));
-  const macrosFraction = MACROS.map(() => useSharedValue(0));
+  const [macrosOpacity] = useState(() => MACROS.map(() => makeMutable(0)));
+  const [macrosY] = useState(() => MACROS.map(() => makeMutable(8)));
+  const [macrosFraction] = useState(() => MACROS.map(() => makeMutable(0)));
 
   const logButtonOpacity = useSharedValue(0);
   const logButtonY = useSharedValue(10);
 
   const mealsHeaderOpacity = useSharedValue(0);
-  const mealsOpacity = MEALS.map(() => useSharedValue(0));
-  const mealsY = MEALS.map(() => useSharedValue(16));
+  const [mealsOpacity] = useState(() => MEALS.map(() => makeMutable(0)));
+  const [mealsY] = useState(() => MEALS.map(() => makeMutable(16)));
 
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const setTimer = (fn: () => void, ms: number) => {
@@ -486,7 +487,7 @@ export default function DemoMealsScreen() {
               {/* Today's meals */}
               <Animated.View style={mealsHeaderStyle}>
                 <Text className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Today's meals
+                  Today&apos;s meals
                 </Text>
               </Animated.View>
 

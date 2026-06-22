@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
 import { generateId } from '@/lib/id';
-import { syncToConvex } from '@/lib/convex-sync';
+import { syncToConvex, getPendingClientIds, isQueueLoaded } from '@/lib/convex-sync';
 import { recomputeProteinNudge } from '@/lib/notifications';
 import { api } from '@/convex/_generated/api';
 import { format } from 'date-fns';
@@ -31,7 +31,7 @@ interface MealLogState {
     macros: { calories: number; protein: number; carbs: number; fat: number };
     notes?: string;
     loggedAt: string;
-  }>) => void;
+  }>, date: string) => void;
 }
 
 function todayLocal() {
@@ -99,21 +99,26 @@ export const useMealLogStore = create<MealLogState>()(
         recomputeProteinNudgeFromStore();
       },
 
-      hydrateFromServer: (meals) => {
+      hydrateFromServer: (meals, date) => {
         const localMeals = get().todayMeals;
         const localById = new Map(localMeals.map((m) => [m.id, m]));
+
+        const pending = getPendingClientIds();
+        const queueKnown = isQueueLoaded();
 
         const merged: MealLog[] = [];
         const seenIds = new Set<string>();
 
-        // For each server meal, prefer local version if it exists (may have unsaved changes)
+        // Queue-aware server-wins for the queried date: keep local only while
+        // it has writes in flight (or the queue isn't loaded); otherwise the
+        // server copy wins so cross-device edits land.
         for (const sm of meals) {
           seenIds.add(sm.clientId);
           const local = localById.get(sm.clientId);
-          if (local) {
+          if (local && (pending.has(local.id) || !queueKnown)) {
             merged.push(local);
           } else {
-            // Server-only: map to local shape
+            // Server-only or server-wins: map to local shape.
             merged.push({
               id: sm.clientId,
               date: sm.date,
@@ -127,14 +132,17 @@ export const useMealLogStore = create<MealLogState>()(
           }
         }
 
-        // Preserve local-only meals (not yet on server)
+        // Local-only meals for the SAME day: keep an unsynced create, otherwise
+        // drop it (the server authoritatively covered this date → deletion).
+        // Other-day meals are stale leftovers — drop them via the date guard.
         for (const m of localMeals) {
-          if (!seenIds.has(m.id)) {
+          if (seenIds.has(m.id) || m.date !== date) continue;
+          if (pending.has(m.id) || !queueKnown) {
             merged.push(m);
           }
         }
 
-        set({ todayMeals: merged, mealsDate: todayLocal() });
+        set({ todayMeals: merged, mealsDate: date });
         recomputeProteinNudgeFromStore();
       },
     }),

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
-import { syncToConvex } from '@/lib/convex-sync';
+import { syncToConvex, getPendingClientIds, isQueueLoaded } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
 import type { WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
 import { format, startOfMonth, subMonths } from 'date-fns';
@@ -16,6 +16,12 @@ function flattenSet(s: WorkoutSet) {
     ...('weight' in s && { weight: s.weight }),
     ...('time' in s && { time: s.time }),
     ...('distance' in s && { distance: s.distance }),
+    ...(s.rpe !== undefined && { rpe: s.rpe }),
+    ...(s.variant !== undefined && { variant: s.variant }),
+    ...('metric' in s && { metric: s.metric }),
+    ...('paceSeconds' in s && s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
+    ...('speed' in s && s.speed !== undefined && { speed: s.speed }),
+    ...('distanceUnit' in s && { distanceUnit: s.distanceUnit }),
   };
 }
 
@@ -40,6 +46,9 @@ interface HistoryState {
   loadedRange: { from: string; to: string };
   /** The oldest `from` for which the server has actually returned data. */
   fetchedRangeFrom: string;
+  /** True once the one-shot full hydration (listFull seed) has run. */
+  fullHydrationDone: boolean;
+  markFullHydrationDone: () => void;
 
   addLog: (log: WorkoutLog) => void;
   updateLog: (id: string, updates: Partial<Omit<WorkoutLog, 'id'>>) => void;
@@ -71,6 +80,12 @@ interface HistoryState {
         weight?: number;
         time?: number;
         distance?: number;
+        rpe?: number;
+        variant?: string;
+        metric?: string;
+        paceSeconds?: number;
+        speed?: number;
+        distanceUnit?: string;
       }>;
     }>;
   }>) => void;
@@ -82,6 +97,7 @@ export const useHistoryStore = create<HistoryState>()(
       logs: [],
       loadedRange: getDefaultRange(),
       fetchedRangeFrom: getDefaultRange().from,
+      fullHydrationDone: false,
 
       extendRange: (viewingMonth: Date) => {
         const needed = startOfMonth(subMonths(viewingMonth, 4)).toISOString();
@@ -93,6 +109,10 @@ export const useHistoryStore = create<HistoryState>()(
 
       markRangeFetched: () => {
         set({ fetchedRangeFrom: get().loadedRange.from });
+      },
+
+      markFullHydrationDone: () => {
+        set({ fullHydrationDone: true });
       },
 
       addLog: (log) => {
@@ -178,49 +198,80 @@ export const useHistoryStore = create<HistoryState>()(
       hydrateFromServer: (serverLogs) => {
         const localLogs = get().logs;
         const localById = new Map(localLogs.map((l) => [l.id, l]));
+        const { fetchedRangeFrom, loadedRange } = get();
+
+        const pending = getPendingClientIds();
+        const queueKnown = isQueueLoaded();
+
+        // Map a server payload into the local WorkoutLog shape. `exercises` is
+        // absent on metadata-only (listMeta) payloads, present on full seeds.
+        const toLocal = (sl: (typeof serverLogs)[number]): WorkoutLog => ({
+          id: sl.clientId,
+          templateId: sl.templateId,
+          templateName: sl.templateName,
+          exercises: (sl.exercises ?? []).map((e) => ({
+            id: e.clientId,
+            exerciseId: e.exerciseClientId,
+            name: e.name,
+            type: e.type as WorkoutLogExercise['type'],
+            order: e.order,
+            restTimeSeconds: e.restTimeSeconds,
+            sets: e.sets.map((s) => ({
+              id: s.clientId,
+              completed: s.completed,
+              type: s.type,
+              ...('reps' in s && s.reps !== undefined && { reps: s.reps }),
+              ...('weight' in s && s.weight !== undefined && { weight: s.weight }),
+              ...('time' in s && s.time !== undefined && { time: s.time }),
+              ...('distance' in s && s.distance !== undefined && { distance: s.distance }),
+              ...(s.rpe !== undefined && { rpe: s.rpe }),
+              ...(s.variant !== undefined && { variant: s.variant }),
+              ...(s.metric !== undefined && { metric: s.metric }),
+              ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
+              ...(s.speed !== undefined && { speed: s.speed }),
+              ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
+            })) as WorkoutSet[],
+          })),
+          startedAt: sl.startedAt,
+          completedAt: sl.completedAt,
+          durationSeconds: sl.durationSeconds,
+        });
 
         const merged: WorkoutLog[] = [];
         const seenIds = new Set<string>();
 
-        // For each server log, prefer local version if it exists (may have unsaved changes)
+        // Queue-aware server-wins: keep local only while it has writes in
+        // flight (or the queue isn't loaded yet); a metadata-only payload
+        // must not replace a full local copy with content; otherwise the
+        // server copy wins (so cross-device edits propagate).
         for (const sl of serverLogs) {
           seenIds.add(sl.clientId);
           const local = localById.get(sl.clientId);
-          if (local) {
+          if (local && (pending.has(local.id) || !queueKnown)) {
+            merged.push(local);
+          } else if (
+            local &&
+            !(sl.exercises && sl.exercises.length > 0) &&
+            local.exercises.length > 0
+          ) {
+            // Metadata-only payload can't replace full local content.
             merged.push(local);
           } else {
-            // Server-only: map exercise/set data if available, otherwise empty
-            merged.push({
-              id: sl.clientId,
-              templateId: sl.templateId,
-              templateName: sl.templateName,
-              exercises: (sl.exercises ?? []).map((e) => ({
-                id: e.clientId,
-                exerciseId: e.exerciseClientId,
-                name: e.name,
-                type: e.type as WorkoutLogExercise['type'],
-                order: e.order,
-                restTimeSeconds: e.restTimeSeconds,
-                sets: e.sets.map((s) => ({
-                  id: s.clientId,
-                  completed: s.completed,
-                  type: s.type,
-                  ...('reps' in s && s.reps !== undefined && { reps: s.reps }),
-                  ...('weight' in s && s.weight !== undefined && { weight: s.weight }),
-                  ...('time' in s && s.time !== undefined && { time: s.time }),
-                  ...('distance' in s && s.distance !== undefined && { distance: s.distance }),
-                })) as WorkoutSet[],
-              })),
-              startedAt: sl.startedAt,
-              completedAt: sl.completedAt,
-              durationSeconds: sl.durationSeconds,
-            });
+            merged.push(toLocal(sl));
           }
         }
 
-        // Preserve local-only logs
+        // Local-only logs: keep an unsynced create, otherwise drop it if the
+        // server authoritatively covered its range (delete propagation); keep
+        // logs outside the fetched range (just not fetched, not deleted).
         for (const l of localLogs) {
-          if (!seenIds.has(l.id)) {
+          if (seenIds.has(l.id)) continue;
+          if (pending.has(l.id) || !queueKnown) {
+            merged.push(l);
+          } else if (l.completedAt >= fetchedRangeFrom && l.completedAt <= loadedRange.to) {
+            // Server covered this range and didn't return it → deleted.
+            continue;
+          } else {
             merged.push(l);
           }
         }

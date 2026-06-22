@@ -199,6 +199,13 @@ function computeExerciseStats(logs: WorkoutLog[]): ExerciseStats[] {
           stats.totalDistance += set.distance;
         } else if (set.type === 'reps_only') {
           stats.totalReps += set.reps;
+        } else if (set.type === 'intervals') {
+          if (set.variant === 'work') {
+            stats.totalTime += set.time;
+            if (set.metric === 'distance' && set.distance !== undefined) {
+              stats.totalDistance += set.distance;
+            }
+          }
         }
 
         // Track personal bests
@@ -406,6 +413,10 @@ function computeTotals(logs: WorkoutLog[]): TotalStats {
           totalDistance += set.distance;
         } else if (set.type === 'reps_only') {
           totalReps += set.reps;
+        } else if (set.type === 'intervals') {
+          if (set.variant === 'work' && set.metric === 'distance' && set.distance !== undefined) {
+            totalDistance += set.distance;
+          }
         }
       }
     }

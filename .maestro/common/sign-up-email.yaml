@@ -1,0 +1,39 @@
+appId: com.soleinnovations.fitbull
+---
+# Reusable email sign-up step. Imported via `runFlow: common/sign-up-email.yaml`.
+#
+# A fresh, wiped install (see common/launch-app.yaml) lands signed-out on
+# /(auth)/sign-up — the auth-guard routes signed-out users there. We create a
+# brand-new account with the email/password passed via -e EMAIL / -e PASSWORD.
+#
+# All four handles exist as real testIDs (no optional-tap fallbacks needed):
+#   signup-email-input / signup-password-input / signup-confirm-input / signup-submit
+#
+# Run with:
+#   maestro test -e EMAIL=qa+run@example.com -e PASSWORD=hunter2hunter2 .maestro/...
+
+- assertVisible:
+    id: "signup-submit"
+    timeout: 15000
+
+- tapOn:
+    id: "signup-email-input"
+- inputText: ${EMAIL}
+
+- tapOn:
+    id: "signup-password-input"
+- inputText: ${PASSWORD}
+
+- tapOn:
+    id: "signup-confirm-input"
+- inputText: ${PASSWORD}
+
+- hideKeyboard
+
+- tapOn:
+    id: "signup-submit"
+
+# Auth-guard routes the new (unfinished) account into onboarding.
+- assertVisible:
+    id: "onboarding-welcome-continue"
+    timeout: 20000

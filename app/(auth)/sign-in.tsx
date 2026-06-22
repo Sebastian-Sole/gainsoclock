@@ -5,6 +5,7 @@ import {
   findNodeHandle,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -14,11 +15,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useConvexAuth } from "convex/react";
+import { useAction, useConvexAuth } from "convex/react";
 import * as WebBrowser from "expo-web-browser";
 
+import { api } from "@/convex/_generated/api";
 import { Text } from "@/components/ui/text";
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
+import { LinkAppleSheet } from "@/components/auth/link-apple-sheet";
 import { capture } from "@/lib/analytics";
 import { SIWA_COLLISION_COPY } from "@/lib/privacy-notice";
 import { useOnboardingStatus } from "@/hooks/use-onboarding-status";
@@ -49,6 +52,7 @@ function getSignInErrorMessage(error: unknown): string {
 export default function SignInScreen() {
   const router = useRouter();
   const { signIn } = useAuthActions();
+  const checkAppleSignIn = useAction(api.accountLinking.checkAppleSignIn);
   const { isAuthenticated } = useConvexAuth();
   const onboarding = useOnboardingStatus();
 
@@ -56,6 +60,12 @@ export default function SignInScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  // Set when a SIWA attempt collides with an existing password account; drives
+  // the password→link sheet. Holds the verified Apple token + colliding email.
+  const [linkPrompt, setLinkPrompt] = useState<{
+    email: string;
+    identityToken: string;
+  } | null>(null);
 
   const headingRef = useRef<View | null>(null);
 
@@ -131,6 +141,18 @@ export default function SignInScreen() {
       if (!identityToken) {
         throw new Error("Apple sign-in did not return an identity token");
       }
+      // Pre-flight: decide collision-vs-sign-in WITHOUT throwing, so a
+      // collision is normal control flow (no red dev error box, works in prod).
+      const status = await checkAppleSignIn({ idToken: identityToken });
+      if (status === "needs_link") {
+        // Apple omits the email on a returning authorization, so the prefill is
+        // best-effort — the link sheet collects the email itself.
+        setLinkPrompt({
+          email: credential.email ?? email.trim(),
+          identityToken,
+        });
+        return;
+      }
       // Apple only sends `fullName` on the FIRST sign-in for a given
       // (Apple ID, app) pair; on subsequent attempts these fields are null.
       // The server-side `apple-native` provider persists the name on the
@@ -153,8 +175,18 @@ export default function SignInScreen() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : String(err ?? "");
+      // Fallback for the rare race where a collision appears between the
+      // pre-flight check and signIn (authorize's safety net throws).
       if (message.includes("siwa_email_collision")) {
-        setError(SIWA_COLLISION_COPY);
+        const token = credential.identityToken;
+        if (token) {
+          setLinkPrompt({
+            email: credential.email ?? email.trim(),
+            identityToken: token,
+          });
+        } else {
+          setError(SIWA_COLLISION_COPY);
+        }
       } else {
         setError(
           err instanceof Error
@@ -252,6 +284,7 @@ export default function SignInScreen() {
             keyboardType="email-address"
             textContentType="emailAddress"
             accessibilityLabelledBy="signin-email-label"
+            testID="signin-email-input"
             className="mb-4 min-h-[44px] rounded-xl border border-input bg-card px-4 py-4 text-[16px] text-foreground"
           />
 
@@ -273,6 +306,7 @@ export default function SignInScreen() {
             secureTextEntry
             textContentType="password"
             accessibilityLabelledBy="signin-password-label"
+            testID="signin-password-input"
             className="mb-6 min-h-[44px] rounded-xl border border-input bg-card px-4 py-4 text-[16px] text-foreground"
           />
 
@@ -344,6 +378,36 @@ export default function SignInScreen() {
             </Text>
           </Pressable>
         </ScrollView>
+
+        <Modal
+          visible={linkPrompt !== null}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setLinkPrompt(null)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            className="flex-1 justify-end bg-black/40"
+          >
+            {linkPrompt && (
+              <View className="px-4 pb-8">
+                <LinkAppleSheet
+                  email={linkPrompt.email}
+                  identityToken={linkPrompt.identityToken}
+                  onLinked={() => {
+                    setLinkPrompt(null);
+                    capture({
+                      name: "auth_succeeded",
+                      props: { method: "apple" },
+                    });
+                    focusHeading();
+                  }}
+                  onCancel={() => setLinkPrompt(null)}
+                />
+              </View>
+            )}
+          </KeyboardAvoidingView>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
