@@ -37,20 +37,28 @@ interface RecordRowProps {
  */
 function AchievementsEntry() {
   const router = useRouter();
-  const { all, unlocked } = useAchievements();
+  const { groups } = useAchievements();
 
-  const recentDefs = useMemo(() => {
-    const newestFirst = [...unlocked.entries()].sort((a, b) => (a[1] < b[1] ? 1 : -1));
-    return newestFirst
-      .slice(0, 3)
-      .flatMap(([key]) => all.filter((def) => def.key === key));
-  }, [all, unlocked]);
+  const unlockedCount = useMemo(
+    () => groups.filter((g) => g.level >= 1).length,
+    [groups]
+  );
+
+  // The 3 most recently leveled-up families/one-offs, newest first.
+  const recent = useMemo(
+    () =>
+      groups
+        .filter((g) => g.unlockedAt !== null)
+        .sort((a, b) => (a.unlockedAt! < b.unlockedAt! ? 1 : -1))
+        .slice(0, 3),
+    [groups]
+  );
 
   return (
     <Pressable
       onPress={() => router.push('/achievements')}
       accessibilityRole="button"
-      accessibilityLabel={`Achievements, ${unlocked.size} of ${all.length} unlocked`}
+      accessibilityLabel={`Achievements, ${unlockedCount} of ${groups.length} unlocked`}
       accessibilityHint="Opens your trophy room"
       testID="records-achievements-entry"
       className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-4"
@@ -61,17 +69,17 @@ function AchievementsEntry() {
       <View className="flex-1">
         <Text className="font-semibold">Achievements</Text>
         <Text className="text-sm text-muted-foreground">
-          {unlocked.size}/{all.length} unlocked
+          {unlockedCount}/{groups.length} unlocked
         </Text>
       </View>
-      {recentDefs.length > 0 && (
+      {recent.length > 0 && (
         <View className="flex-row gap-1.5">
-          {recentDefs.map((def) => (
+          {recent.map((g) => (
             <View
-              key={def.key}
+              key={g.key}
               className="h-8 w-8 items-center justify-center rounded-full bg-primary/10"
             >
-              <Icon as={getAchievementIcon(def.icon)} size={15} className="text-primary" />
+              <Icon as={getAchievementIcon(g.icon)} size={15} className="text-primary" />
             </View>
           ))}
         </View>

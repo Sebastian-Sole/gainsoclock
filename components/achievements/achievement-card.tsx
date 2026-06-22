@@ -5,10 +5,14 @@ import { View } from 'react-native';
 import { Icon } from '@/components/ui/icon';
 import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
-import type { AchievementDef, AchievementTier } from '@/lib/achievements';
+import {
+  romanNumeral,
+  type AchievementGroup,
+  type AchievementTier,
+} from '@/lib/achievements';
 import { cn } from '@/lib/utils';
 
-// `AchievementDef.icon` is a lucide export name (string), so look components
+// `AchievementGroup.icon` is a lucide export name (string), so look components
 // up in the `icons` map. Widened to a string-keyed record — no cast needed,
 // every value is a LucideIcon.
 const ICON_BY_NAME: Record<string, LucideIcon> = icons;
@@ -34,31 +38,39 @@ export const TIER_LABEL: Record<AchievementTier, string> = {
 };
 
 interface AchievementCardProps {
-  def: AchievementDef;
-  /** ISO timestamp when unlocked, null while locked. */
-  unlockedAt: string | null;
-  /** Progress toward the unlock target, null when not trackable. */
-  progress: { current: number; target: number } | null;
+  group: AchievementGroup;
   className?: string;
 }
 
-export function AchievementCard({ def, unlockedAt, progress, className }: AchievementCardProps) {
-  const IconGlyph = getAchievementIcon(def.icon);
-  const isUnlocked = unlockedAt !== null;
+export function AchievementCard({ group, className }: AchievementCardProps) {
+  const IconGlyph = getAchievementIcon(group.icon);
+  const isUnlocked = group.level >= 1;
+  const isLeveled = group.maxLevel > 1;
+  const isMaxed = isLeveled && group.level === group.maxLevel;
+  const { progress } = group;
 
-  const clampedCurrent = progress ? Math.min(Math.round(progress.current), progress.target) : 0;
+  // Floor (not round) so a fractional fact just shy of target (e.g. lbs→kg
+  // volume of 9,999.6) never shows 100% while the achievement is still locked.
+  const clampedCurrent = progress ? Math.min(Math.floor(progress.current), progress.target) : 0;
   const pct = progress && progress.target > 0 ? (clampedCurrent / progress.target) * 100 : 0;
-  const unlockDateLabel = isUnlocked ? format(new Date(unlockedAt), 'MMM d, yyyy') : null;
+  const unlockDateLabel = group.unlockedAt
+    ? format(new Date(group.unlockedAt), 'MMM d, yyyy')
+    : null;
 
+  // Top-right marker: lock while locked, the roman level (or "MAX") once
+  // leveled-up, nothing for an unlocked one-off.
+  const levelBadge =
+    isLeveled && isUnlocked ? (isMaxed ? 'MAX' : romanNumeral(group.level)) : null;
+
+  const tierWord = TIER_LABEL[group.tier];
+  const progressClause = progress ? `, ${clampedCurrent} of ${progress.target}` : '';
   const a11yLabel = isUnlocked
-    ? `${def.title}, ${TIER_LABEL[def.tier]} achievement, unlocked ${unlockDateLabel}. ${def.description}`
-    : `${def.title}, ${TIER_LABEL[def.tier]} achievement, locked${
-        progress ? `, ${clampedCurrent} of ${progress.target}` : ''
-      }. ${def.description}`;
+    ? `${group.title}, ${tierWord} achievement, unlocked ${unlockDateLabel}${progressClause}. ${group.description}`
+    : `${group.title}, ${tierWord} achievement, locked${progressClause}. ${group.description}`;
 
   return (
     <View
-      testID={`achievement-card-${def.key}`}
+      testID={`achievement-card-${group.key}`}
       accessible
       accessibilityLabel={a11yLabel}
       className={cn('rounded-xl border border-border bg-card p-4', className)}
@@ -67,7 +79,7 @@ export function AchievementCard({ def, unlockedAt, progress, className }: Achiev
         <View
           className={cn(
             'h-12 w-12 items-center justify-center rounded-full',
-            isUnlocked ? TIER_CIRCLE[def.tier] : 'bg-muted'
+            isUnlocked ? TIER_CIRCLE[group.tier] : 'bg-muted'
           )}
         >
           <Icon
@@ -76,28 +88,34 @@ export function AchievementCard({ def, unlockedAt, progress, className }: Achiev
             className={isUnlocked ? 'text-primary' : 'text-muted-foreground/60'}
           />
         </View>
-        {!isUnlocked && <Icon as={Lock} size={14} className="text-muted-foreground/60" />}
+        {levelBadge ? (
+          <View className="rounded-full bg-primary/15 px-2 py-0.5">
+            <Text className="text-[11px] font-bold text-primary">{levelBadge}</Text>
+          </View>
+        ) : !isUnlocked ? (
+          <Icon as={Lock} size={14} className="text-muted-foreground/60" />
+        ) : null}
       </View>
 
       <Text
         className={cn('mt-3 font-semibold', !isUnlocked && 'text-muted-foreground')}
         numberOfLines={2}
       >
-        {def.title}
+        {group.title}
       </Text>
       <Text className="mt-0.5 text-xs text-muted-foreground" numberOfLines={2}>
-        {def.description}
+        {group.description}
       </Text>
 
-      {isUnlocked ? (
-        <Text className="mt-2 text-xs font-medium text-primary">{unlockDateLabel}</Text>
-      ) : progress ? (
+      {unlockDateLabel ? (
+        <Text className="mt-2 text-xs font-medium text-primary">
+          {isMaxed ? `Max level · ${unlockDateLabel}` : unlockDateLabel}
+        </Text>
+      ) : null}
+
+      {progress ? (
         <View className="mt-2 gap-1">
-          <Progress
-            value={pct}
-            className="h-1.5 bg-muted"
-            indicatorClassName="bg-primary/70"
-          />
+          <Progress value={pct} className="h-1.5 bg-muted" indicatorClassName="bg-primary/70" />
           <Text className="text-xs text-muted-foreground">
             {clampedCurrent.toLocaleString()}/{progress.target.toLocaleString()}
           </Text>

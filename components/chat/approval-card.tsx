@@ -13,6 +13,7 @@ import { PlanPreview } from './plan-preview';
 import { UpdatePlanPreview } from './update-plan-preview';
 import { RecipePreview } from './recipe-preview';
 import { MealLogPreview } from './meal-log-preview';
+import { useAchievementEventsStore } from '@/stores/achievement-events-store';
 import type { Id } from '@/convex/_generated/dataModel';
 
 interface ApprovalCardProps {
@@ -47,6 +48,12 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
         payload: approval.payload,
         conversationClientId,
       });
+      // Achievement: Let AI Cook — mark as soon as the meal is actually created
+      // (executeApproval succeeded), before approveAction, so a transient
+      // failure marking the message UI state doesn't drop the unlock.
+      if (approval.type === 'log_meal') {
+        useAchievementEventsStore.getState().mark('chatMealLogged');
+      }
       await approveAction({ messageId: messageId as Id<"chatMessages"> });
     } catch (error) {
       console.error('Approval failed:', error);

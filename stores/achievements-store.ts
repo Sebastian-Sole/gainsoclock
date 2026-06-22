@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { migrateLegacyUnlocks } from '@/lib/achievements';
 import { zustandStorage } from '@/lib/storage';
 
 /**
@@ -41,6 +42,21 @@ export const useAchievementsStore = create<AchievementsState>()(
     {
       name: 'achievements-storage',
       storage: zustandStorage,
+      // v1: milestone achievements became leveled families (Streaker I/II/III).
+      // Map legacy single-threshold keys onto the new `${family}.${level}` keys
+      // so prior unlocks survive the update without re-firing as toasts.
+      version: 1,
+      migrate: (persisted, version) => {
+        const state = persisted as Partial<AchievementsState> | undefined;
+        if (!state) return state as unknown as AchievementsState;
+        if (version < 1) {
+          return {
+            ...state,
+            unlocked: migrateLegacyUnlocks(state.unlocked ?? {}),
+          } as AchievementsState;
+        }
+        return state as AchievementsState;
+      },
     }
   )
 );
