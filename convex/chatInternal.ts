@@ -264,7 +264,8 @@ export const getUserContext = internalQuery({
             defaultRestTime: settings.defaultRestTime,
           }
         : { weightUnit: "kg", distanceUnit: "km", defaultRestTime: 90 },
-      exercises: exercises.map((e) => ({ name: e.name, type: e.type })),
+      exercises: exercises.slice(-150).map((e) => ({ name: e.name, type: e.type })),
+      exercisesTotal: exercises.length,
       templates: templatesWithExercises,
       recentLogs,
       exerciseHistory,

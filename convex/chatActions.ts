@@ -394,6 +394,7 @@ interface UserContext {
     defaultRestTime: number;
   };
   exercises: { name: string; type: string }[];
+  exercisesTotal: number;
   templates: {
     clientId: string;
     name: string;
@@ -527,7 +528,10 @@ function buildSystemPrompt(
 ): string {
   const exerciseList =
     context.exercises.length > 0
-      ? context.exercises.map((e) => `- ${e.name} (${e.type})`).join("\n")
+      ? context.exercises.map((e) => `- ${e.name} (${e.type})`).join("\n") +
+        (context.exercisesTotal > context.exercises.length
+          ? `\n- …and ${context.exercisesTotal - context.exercises.length} more (older)`
+          : "")
       : "No exercises yet.";
 
   const templateList =
@@ -826,28 +830,55 @@ export const sendMessage = action({
 
         // First tool call goes on the main assistant message (with text content)
         const firstToolCall = toolCalls[0];
-        const firstToolArgs = JSON.parse(firstToolCall.arguments);
+        let firstToolArgs: unknown;
+        let firstToolArgsOk = true;
+        try {
+          firstToolArgs = JSON.parse(firstToolCall.arguments);
+        } catch {
+          firstToolArgsOk = false;
+          console.error(
+            `[chat] tool-call arguments unparseable (likely token truncation): ${firstToolCall.name}`,
+          );
+        }
 
-        await ctx.runMutation(internal.chat.updateMessageWithToolCalls, {
-          messageId: assistantMessageId,
-          content: fullContent,
-          toolCalls: toolCalls.map((tc) => ({
-            id: tc.id,
-            name: tc.name,
-            arguments: tc.arguments,
-          })),
-          pendingApproval: {
-            type: getApprovalType(firstToolCall.name),
-            payload: JSON.stringify(firstToolArgs),
-            status: "pending",
-          },
-          status: "complete",
-        });
+        if (firstToolArgsOk) {
+          await ctx.runMutation(internal.chat.updateMessageWithToolCalls, {
+            messageId: assistantMessageId,
+            content: fullContent,
+            toolCalls: toolCalls.map((tc) => ({
+              id: tc.id,
+              name: tc.name,
+              arguments: tc.arguments,
+            })),
+            pendingApproval: {
+              type: getApprovalType(firstToolCall.name),
+              payload: JSON.stringify(firstToolArgs),
+              status: "pending",
+            },
+            status: "complete",
+          });
+        } else {
+          // Truncated tool-call JSON — degrade to the streamed text content
+          // instead of failing the whole turn.
+          await ctx.runMutation(internal.chat.updateMessageContent, {
+            messageId: assistantMessageId,
+            content: fullContent,
+            status: "complete",
+          });
+        }
 
         // Additional tool calls each get their own assistant message
         for (let i = 1; i < toolCalls.length; i++) {
           const tc = toolCalls[i];
-          const tcArgs = JSON.parse(tc.arguments);
+          let tcArgs: unknown;
+          try {
+            tcArgs = JSON.parse(tc.arguments);
+          } catch {
+            console.error(
+              `[chat] tool-call arguments unparseable (likely token truncation): ${tc.name}`,
+            );
+            continue;
+          }
 
           await ctx.runMutation(internal.chat.insertMessage, {
             userId,
@@ -899,6 +930,9 @@ export const sendMessage = action({
         }
       }
     } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error(`[chat] sendMessage failed: ${reason}`);
+
       // Mark message as error
       await ctx.runMutation(internal.chat.updateMessageContent, {
         messageId: assistantMessageId,
