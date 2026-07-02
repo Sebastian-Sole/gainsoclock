@@ -72,8 +72,9 @@ export interface StreakStats {
   /**
    * Whether today already has a workout (Fitbull log or synced external).
    * Today not yet covered doesn't break the streak (grace until midnight)
-   * but doesn't count either. Set by `hooks/use-stats.ts`; undefined when
-   * streaks come from the legacy `computeStreaks` path.
+   * but doesn't count either. Streaks are computed exclusively in
+   * `hooks/use-stats.ts` via `lib/streaks.ts`; this field is always set
+   * there.
    */
   todayCovered?: boolean;
   /**
@@ -139,14 +140,6 @@ export interface AllStats {
 }
 
 // ---- Helpers ----
-
-function getUniqueDates(logs: WorkoutLog[]): string[] {
-  const dateSet = new Set<string>();
-  for (const log of logs) {
-    dateSet.add(format(new Date(log.startedAt), 'yyyy-MM-dd'));
-  }
-  return Array.from(dateSet).sort();
-}
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -246,68 +239,6 @@ function computeExerciseStats(logs: WorkoutLog[]): ExerciseStats[] {
   return Array.from(exerciseMap.values()).sort(
     (a, b) => b.totalAppearances - a.totalAppearances
   );
-}
-
-// Legacy logs-only streaks. `hooks/use-stats.ts` overrides this with the
-// rest-day-aware + external-workout-aware computation in `lib/streaks.ts`;
-// this remains as the fallback baked into `computeAllStats` for callers
-// that only have workout logs.
-function computeStreaks(logs: WorkoutLog[], now: Date): StreakStats {
-  const dates = getUniqueDates(logs);
-
-  if (dates.length === 0) {
-    return { currentStreak: 0, longestStreak: 0, longestStreakStart: '', longestStreakEnd: '' };
-  }
-
-  // Compute longest streak
-  let longestStreak = 1;
-  let longestStart = 0;
-  let currentRun = 1;
-  let runStart = 0;
-
-  for (let i = 1; i < dates.length; i++) {
-    const prev = new Date(dates[i - 1]);
-    const curr = new Date(dates[i]);
-    const diff = differenceInCalendarDays(curr, prev);
-
-    if (diff === 1) {
-      currentRun++;
-      if (currentRun > longestStreak) {
-        longestStreak = currentRun;
-        longestStart = runStart;
-      }
-    } else {
-      currentRun = 1;
-      runStart = i;
-    }
-  }
-
-  const longestStreakStart = dates[longestStart];
-  const longestStreakEnd = dates[longestStart + longestStreak - 1];
-
-  // Compute current streak (count back from today or yesterday)
-  const todayStr = format(now, 'yyyy-MM-dd');
-  const yesterdayDate = new Date(now);
-  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterdayStr = format(yesterdayDate, 'yyyy-MM-dd');
-
-  let currentStreak = 0;
-  const lastDate = dates[dates.length - 1];
-
-  if (lastDate === todayStr || lastDate === yesterdayStr) {
-    currentStreak = 1;
-    for (let i = dates.length - 2; i >= 0; i--) {
-      const curr = new Date(dates[i + 1]);
-      const prev = new Date(dates[i]);
-      if (differenceInCalendarDays(curr, prev) === 1) {
-        currentStreak++;
-      } else {
-        break;
-      }
-    }
-  }
-
-  return { currentStreak, longestStreak, longestStreakStart, longestStreakEnd };
 }
 
 function computeBestMonth(logs: WorkoutLog[]): MonthRecord | null {
@@ -531,12 +462,16 @@ function computeFavorites(logs: WorkoutLog[]): FavoriteStats {
 
 // ---- Main entry point ----
 
-export function computeAllStats(logs: WorkoutLog[], now: Date): AllStats {
+// Streaks are not computed here. Both callers (`hooks/use-stats.ts` and
+// `components/achievements/monthly-recap-card.tsx`) compute streaks
+// themselves via the rest-day-aware + external-workout-aware engine in
+// `lib/streaks.ts`; `hooks/use-stats.ts` fills in `AllStats.streaks`
+// explicitly. See plan 043.
+export function computeAllStats(logs: WorkoutLog[], now: Date): Omit<AllStats, 'streaks'> {
   const totals = computeTotals(logs);
 
   return {
     exerciseStats: computeExerciseStats(logs),
-    streaks: computeStreaks(logs, now),
     bestMonth: computeBestMonth(logs),
     bestYear: computeBestYear(logs),
     currentYear: computeCurrentYearStats(logs, now),
