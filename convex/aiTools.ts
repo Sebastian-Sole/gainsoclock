@@ -400,6 +400,55 @@ function validateLogMealPayload(data: Record<string, unknown>): LogMealPayload {
   };
 }
 
+interface NutritionGoalsPayload {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+// Sanity bounds mirroring the coach's safety posture elsewhere in this file —
+// reject absurd targets rather than silently saving them.
+const MIN_CALORIES = 800;
+const MAX_CALORIES = 10000;
+const MIN_MACRO_GRAMS = 0;
+const MAX_MACRO_GRAMS = 1000;
+
+function assertInRange(
+  val: number,
+  field: string,
+  min: number,
+  max: number
+): void {
+  if (val < min || val > max) {
+    throw new Error(
+      `Invalid payload: "${field}" must be between ${min} and ${max}.`
+    );
+  }
+}
+
+/** Validate the set_nutrition_goals payload. */
+function validateNutritionGoalsPayload(
+  data: Record<string, unknown>
+): NutritionGoalsPayload {
+  assertNumber(data.calories, "calories");
+  assertNumber(data.protein, "protein");
+  assertNumber(data.carbs, "carbs");
+  assertNumber(data.fat, "fat");
+
+  assertInRange(data.calories, "calories", MIN_CALORIES, MAX_CALORIES);
+  assertInRange(data.protein, "protein", MIN_MACRO_GRAMS, MAX_MACRO_GRAMS);
+  assertInRange(data.carbs, "carbs", MIN_MACRO_GRAMS, MAX_MACRO_GRAMS);
+  assertInRange(data.fat, "fat", MIN_MACRO_GRAMS, MAX_MACRO_GRAMS);
+
+  return {
+    calories: data.calories as number,
+    protein: data.protein as number,
+    carbs: data.carbs as number,
+    fat: data.fat as number,
+  };
+}
+
 // --- End validation helpers ---
 
 /**
@@ -759,6 +808,23 @@ export const executeApproval = mutation({
         notes: noteParts.length > 0 ? noteParts.join(" — ") : undefined,
         loggedAt: now,
       });
+    } else if (args.type === "set_nutrition_goals") {
+      // Validate
+      const goals = validateNutritionGoalsPayload(data);
+
+      // Same patch-or-insert as convex/nutritionGoals.ts's upsert mutation,
+      // inlined here (per this file's convention of not importing other
+      // public mutations) rather than calling it directly.
+      const existing = await ctx.db
+        .query("nutritionGoals")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .unique();
+
+      if (existing) {
+        await ctx.db.patch(existing._id, goals);
+      } else {
+        await ctx.db.insert("nutritionGoals", { userId, ...goals });
+      }
     }
   },
 });

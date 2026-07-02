@@ -13,6 +13,7 @@ import { PlanPreview } from './plan-preview';
 import { UpdatePlanPreview } from './update-plan-preview';
 import { RecipePreview } from './recipe-preview';
 import { MealLogPreview } from './meal-log-preview';
+import { NutritionGoalsPreview } from './nutrition-goals-preview';
 import { useAchievementEventsStore } from '@/stores/achievement-events-store';
 import type { Id } from '@/convex/_generated/dataModel';
 
@@ -95,6 +96,9 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
           {approval.type === 'log_meal' && (
             <MealLogPreview data={payload} collapsed />
           )}
+          {approval.type === 'set_nutrition_goals' && (
+            <NutritionGoalsPreview data={payload} collapsed />
+          )}
           <View className="flex-row items-center justify-center gap-1 mt-2 pt-2 border-t border-border">
             <Text className="text-xs text-muted-foreground">Tap to view details</Text>
             <Icon as={ChevronDown} size={12} className="text-muted-foreground" />
@@ -168,6 +172,9 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
             )}
             {approval.type === 'log_meal' && (
               <MealLogPreview data={payload} />
+            )}
+            {approval.type === 'set_nutrition_goals' && (
+              <NutritionGoalsPreview data={payload} />
             )}
           </ScrollView>
 
