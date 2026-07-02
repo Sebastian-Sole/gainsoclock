@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useMutation, useQuery } from 'convex/react';
@@ -8,12 +8,17 @@ import { api } from '@/convex/_generated/api';
 import { Text } from '@/components/ui/text';
 import { usePurchases } from '@/hooks/use-purchases';
 import { capture } from '@/lib/analytics';
+import { lightHaptic } from '@/lib/haptics';
 import { logPaywallDiagnostics } from '@/lib/paywall-diag';
 import { useAuthCacheStore } from '@/stores/auth-cache-store';
 
 const LOGIN_TIMEOUT_MS = 4000;
 const MARK_COMPLETE_MAX_ATTEMPTS = 3;
 const MARK_COMPLETE_BASE_BACKOFF_MS = 500;
+// After this long on the spinner, surface a manual escape so a paywall that
+// never presents (RC UI unavailable / offerings that never resolve) is never
+// a dead-end. Guideline 2.1(a): the pricing step must always be exitable.
+const MANUAL_ESCAPE_DELAY_MS = 6000;
 
 // Offering selection by build environment. Decoupled from RC dashboard's
 // project-wide Default flag so we don't have to toggle dashboard state when
@@ -52,7 +57,51 @@ export default function PaywallScreen() {
   const markOnboardingComplete = useMutation(api.user.markOnboardingComplete);
   const [errorCopy, setErrorCopy] = useState<string | null>(null);
   const [statusCopy, setStatusCopy] = useState('Opening pricing…');
+  const [showManualContinue, setShowManualContinue] = useState(false);
   const ranRef = useRef(false);
+  const finishedRef = useRef(false);
+
+  // Idempotent "leave onboarding" step. Writes the offline auth cache first
+  // (the auth-guard treats it as truth while the server query resolves) then
+  // best-effort persists to the server with linear backoff — but always
+  // navigates, so a failed mutation never traps the user re-looping onboarding.
+  // Guarded by a ref so the present-flow's finally and the manual escape can't
+  // double-fire it.
+  const finish = useCallback(async () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    useAuthCacheStore.getState().setHasCompletedOnboarding(true);
+    for (let attempt = 0; attempt < MARK_COMPLETE_MAX_ATTEMPTS; attempt++) {
+      try {
+        await markOnboardingComplete();
+        break;
+      } catch (markErr) {
+        if (__DEV__) {
+          console.warn(
+            `[paywall] markOnboardingComplete attempt ${attempt + 1} failed`,
+            markErr
+          );
+        }
+        if (attempt < MARK_COMPLETE_MAX_ATTEMPTS - 1) {
+          await new Promise((r) =>
+            setTimeout(r, MARK_COMPLETE_BASE_BACKOFF_MS * (attempt + 1))
+          );
+        }
+      }
+    }
+    router.replace('/(tabs)');
+  }, [markOnboardingComplete, router]);
+
+  // Reveal a manual escape after a short delay. When the paywall presents
+  // normally the RC sheet sits on top of this and it's never seen; when the
+  // present hangs, this is the user's way out.
+  useEffect(() => {
+    const t = setTimeout(
+      () => setShowManualContinue(true),
+      MANUAL_ESCAPE_DELAY_MS
+    );
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     if (ranRef.current) return;
@@ -148,40 +197,13 @@ export default function PaywallScreen() {
         capture({ name: 'revenuecat_ui_unavailable', props: {} });
         setErrorCopy(e instanceof Error ? e.message : 'Unknown');
       } finally {
-        // Mark onboarding complete BEFORE navigating away. Otherwise the
-        // auth-guard sees `hasCompletedOnboarding: false` on /(tabs) and
-        // bounces the user straight back into demo-chat → loop.
-        //
-        // Belt-and-braces:
-        //   1. Write through to the offline auth cache first. `use-onboarding-status`
-        //      treats the cached value as truth while offline, and any subsequent
-        //      bounce reads from the same cache before the server query resolves.
-        //   2. Retry the server mutation up to 3 times with linear backoff. If
-        //      every attempt fails we still navigate — the cache write above is
-        //      the safety net so the user isn't trapped re-looping.
-        useAuthCacheStore.getState().setHasCompletedOnboarding(true);
-        for (let attempt = 0; attempt < MARK_COMPLETE_MAX_ATTEMPTS; attempt++) {
-          try {
-            await markOnboardingComplete();
-            break;
-          } catch (markErr) {
-            if (__DEV__) {
-              console.warn(
-                `[paywall] markOnboardingComplete attempt ${attempt + 1} failed`,
-                markErr
-              );
-            }
-            if (attempt < MARK_COMPLETE_MAX_ATTEMPTS - 1) {
-              await new Promise((r) =>
-                setTimeout(r, MARK_COMPLETE_BASE_BACKOFF_MS * (attempt + 1))
-              );
-            }
-          }
-        }
-        router.replace('/(tabs)');
+        // Mark onboarding complete BEFORE navigating away, or the auth-guard
+        // sees `hasCompletedOnboarding: false` on /(tabs) and bounces the user
+        // straight back into demo-chat → loop. `finish()` is idempotent.
+        await finish();
       }
     })();
-  }, [checkStatus, markOnboardingComplete, presentPaywall, router, userId]);
+  }, [checkStatus, finish, presentPaywall, router, userId]);
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -194,6 +216,23 @@ export default function PaywallScreen() {
           <Text className="mt-2 text-center text-xs text-destructive">
             {errorCopy}
           </Text>
+        ) : null}
+        {showManualContinue ? (
+          <Pressable
+            onPress={() => {
+              lightHaptic();
+              capture({ name: 'paywall_dismissed', props: {} });
+              void finish();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Continue"
+            hitSlop={10}
+            className="mt-8 rounded-2xl bg-primary px-8 py-4 active:opacity-80"
+          >
+            <Text className="text-base font-semibold text-primary-foreground">
+              Continue
+            </Text>
+          </Pressable>
         ) : null}
       </View>
     </SafeAreaView>
