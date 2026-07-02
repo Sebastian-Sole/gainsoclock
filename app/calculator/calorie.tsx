@@ -1,19 +1,23 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { View, ScrollView, TextInput, Pressable, Platform, Keyboard } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Icon } from '@/components/ui/icon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
-import { Activity, Heart } from 'lucide-react-native';
+import { Activity, Heart, Check } from 'lucide-react-native';
 
 import { Colors } from '@/constants/theme';
 import { cn } from '@/lib/utils';
 import { useHistoryStore } from '@/stores/history-store';
 import { useSettingsStore } from '@/stores/settings-store';
-import { isHealthKitAvailable } from '@/lib/healthkit';
+import { useNutritionGoalsStore } from '@/stores/nutrition-goals-store';
+import { isHealthKitAvailable, queryDailyMetrics } from '@/lib/healthkit';
+import { estimateWeeklyActiveEnergy } from '@/lib/activity-energy';
 import { parseLocaleNumber } from '@/lib/format';
+import { lightHaptic } from '@/lib/haptics';
 
 type Sex = 'male' | 'female';
 type ActivitySource = 'app_history' | 'manual' | 'apple_health';
@@ -99,6 +103,47 @@ export default function CalorieCalculator() {
     fat: number;
     activityMultiplier: number;
   } | null>(null);
+  const [applied, setApplied] = useState(false);
+  const appliedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Apple Health active-energy read, refreshed whenever the user selects the
+  // Apple Health activity source (fetched on selection, not during render).
+  const [appleHealthActivity, setAppleHealthActivity] = useState<{
+    weeklyCalsBurned: number;
+    hasData: boolean;
+  } | null>(null);
+  const [appleHealthLoading, setAppleHealthLoading] = useState(false);
+
+  useEffect(() => {
+    if (activitySource !== 'apple_health' || !healthKitEnabled || Platform.OS !== 'ios') {
+      return;
+    }
+    let cancelled = false;
+    setAppleHealthLoading(true);
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - 14);
+    queryDailyMetrics(from, to)
+      .then((metrics) => {
+        if (cancelled) return;
+        setAppleHealthActivity(estimateWeeklyActiveEnergy(metrics));
+      })
+      .catch(() => {
+        if (!cancelled) setAppleHealthActivity({ weeklyCalsBurned: 0, hasData: false });
+      })
+      .finally(() => {
+        if (!cancelled) setAppleHealthLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activitySource, healthKitEnabled]);
+
+  useEffect(() => {
+    return () => {
+      if (appliedTimeoutRef.current) clearTimeout(appliedTimeoutRef.current);
+    };
+  }, []);
 
   // Compute activity from app history (last 3 months)
   const appActivityStats = useMemo(() => {
@@ -144,8 +189,11 @@ export default function CalorieCalculator() {
     if (activitySource === 'app_history' && appActivityStats) {
       activityMultiplier = estimateActivityMultiplier(appActivityStats.weeklyCalsBurned);
     } else if (activitySource === 'apple_health') {
-      // Placeholder — use moderate as fallback
-      activityMultiplier = 1.55;
+      // Real Apple Health active-energy data when available; fall back to a
+      // moderate estimate when there's no data (or the read failed).
+      activityMultiplier = appleHealthActivity?.hasData
+        ? estimateActivityMultiplier(appleHealthActivity.weeklyCalsBurned)
+        : 1.55;
     } else {
       const intensity = INTENSITY_OPTIONS.find((i) => i.key === intensityKey);
       const weeklyCalsBurned = workoutsPerWeek * (intensity?.calPerSession ?? 350);
@@ -162,6 +210,21 @@ export default function CalorieCalculator() {
     const fat = Math.round((target * 0.3) / 9);
 
     setResult({ bmr: Math.round(bmr), tdee, target, protein, carbs, fat, activityMultiplier });
+    setApplied(false);
+  };
+
+  const handleApplyGoals = () => {
+    if (!result) return;
+    useNutritionGoalsStore.getState().setGoals({
+      calories: result.target,
+      protein: result.protein,
+      carbs: result.carbs,
+      fat: result.fat,
+    });
+    lightHaptic();
+    setApplied(true);
+    if (appliedTimeoutRef.current) clearTimeout(appliedTimeoutRef.current);
+    appliedTimeoutRef.current = setTimeout(() => setApplied(false), 2500);
   };
 
   const inputClass = 'rounded-lg border border-border bg-card px-4 py-3 text-[16px] text-foreground';
@@ -380,13 +443,17 @@ export default function CalorieCalculator() {
             </View>
           )}
 
-          {/* Apple Health placeholder */}
+          {/* Apple Health activity summary */}
           {activitySource === 'apple_health' && (
             <View className="rounded-lg bg-muted px-4 py-3">
               <Text className="text-sm text-muted-foreground">
-                {healthKitEnabled
-                  ? 'Apple Health integration will use your active energy data. Using moderate estimate for now.'
-                  : 'Enable Apple Health sync in Settings to use this option.'}
+                {!healthKitEnabled
+                  ? 'Enable Apple Health sync in Settings to use this option.'
+                  : appleHealthLoading
+                    ? 'Reading your Apple Health activity data…'
+                    : appleHealthActivity?.hasData
+                      ? `Est. weekly active energy: ${appleHealthActivity.weeklyCalsBurned} cal (last 14 days)`
+                      : 'No Apple Health energy data found — using a moderate estimate for now.'}
               </Text>
             </View>
           )}
@@ -500,6 +567,29 @@ export default function CalorieCalculator() {
                 </View>
               </View>
             </View>
+
+            {/* Apply to goals */}
+            <Pressable
+              onPress={handleApplyGoals}
+              accessibilityRole="button"
+              accessibilityLabel={
+                applied ? 'Nutrition goals updated' : 'Set as my nutrition goals'
+              }
+              className="min-h-[44px] flex-row items-center justify-center gap-2 rounded-xl bg-primary py-4"
+            >
+              {applied ? (
+                <>
+                  <Icon as={Check} size={18} className="text-primary-foreground" />
+                  <Text className="font-semibold text-primary-foreground">
+                    Goals updated
+                  </Text>
+                </>
+              ) : (
+                <Text className="font-semibold text-primary-foreground">
+                  Set as my nutrition goals
+                </Text>
+              )}
+            </Pressable>
           </View>
         )}
 
