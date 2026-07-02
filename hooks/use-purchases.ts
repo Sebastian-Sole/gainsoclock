@@ -2,6 +2,7 @@ import { api } from "@/convex/_generated/api";
 import type {
   CustomerInfo,
   LogLevelMap,
+  Offerings,
   PaywallResultMap,
   PurchasesShim,
   RevenueCatUIShim,
@@ -185,6 +186,35 @@ export async function purchasePackageRaw(
   }
 }
 
+// Ceiling for the pre-present offerings fetch. In the App Review sandbox (and
+// on first submissions before IAPs are approved) `getOfferings()` can stall;
+// without a bound the onboarding paywall spins forever. See Guideline 2.1(a).
+const OFFERINGS_TIMEOUT_MS = 8000;
+
+// Resolve `promise`, but fall back to `fallback` if it hasn't settled within
+// `ms`. Keeps a hung RevenueCat/StoreKit call from trapping the caller.
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
+// True when the RC offering carries at least one purchasable package. An
+// offering can exist in the dashboard yet resolve empty in review sandboxes
+// when its products aren't approved/available — presenting that offering
+// leaves RC's paywall stuck on a perpetual loading state.
+function offeringHasPackages(offering: unknown): boolean {
+  if (typeof offering !== "object" || offering === null) return false;
+  if (!("availablePackages" in offering)) return false;
+  const packages = offering.availablePackages;
+  return Array.isArray(packages) && packages.length > 0;
+}
+
 export function usePurchases() {
   const [isLoading, setIsLoading] = useState(false);
   const syncToServer = useAction(api.subscriptions.syncFromClient);
@@ -303,17 +333,38 @@ export function usePurchases() {
         // Resolve the requested offering, if specified.
         let presentArgs: Record<string, unknown> | undefined;
         if (offeringIdentifier) {
-          const offerings = await Purchases.getOfferings();
-          const offering = offerings?.all?.[offeringIdentifier];
+          // Guard against a hung StoreKit/RC config fetch: in the App Review
+          // sandbox (and on first submissions where IAPs aren't approved yet)
+          // this call can stall or return an offering with zero packages.
+          // Either case must NOT trap the caller on a spinner — the onboarding
+          // paywall is a hard dead-end otherwise. Bail to "error" so the (soft)
+          // caller proceeds instead of hanging.
+          const offerings = await withTimeout<Offerings | null>(
+            Purchases.getOfferings(),
+            OFFERINGS_TIMEOUT_MS,
+            null
+          );
+          if (!offerings) {
+            console.warn(
+              `[Purchases] getOfferings timed out after ${OFFERINGS_TIMEOUT_MS}ms — skipping paywall.`
+            );
+            return "error";
+          }
+          const offering = offerings.all?.[offeringIdentifier];
           if (!offering) {
             if (__DEV__) {
               console.warn(
                 `[Purchases] No offering with identifier "${offeringIdentifier}" — falling back to default.`,
                 {
-                  available: Object.keys(offerings?.all ?? {}),
+                  available: Object.keys(offerings.all ?? {}),
                 }
               );
             }
+          } else if (!offeringHasPackages(offering)) {
+            console.warn(
+              `[Purchases] Offering "${offeringIdentifier}" has no available packages — skipping paywall.`
+            );
+            return "error";
           } else {
             presentArgs = { offering };
           }
