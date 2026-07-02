@@ -4,6 +4,7 @@ import {
   buildAchievementGroups,
   computeMealDaySignals,
   computeWorkoutSignals,
+  countWeightPrs,
   migrateLegacyUnlocks,
   type AchievementFacts,
 } from './achievements';
@@ -298,6 +299,78 @@ describe('computeWorkoutSignals', () => {
     expect(s.doubleDay).toBe(0);
     expect(s.maxSessionExercises).toBe(0);
     expect(s.weekendWarrior).toBe(0);
+  });
+});
+
+// Characterization tests for the client's all-time PR count. These pin
+// CURRENT behavior — see the divergence note on countWeightPrs's doc
+// comment for why this differs from convex/weeklyReview.ts's bounded window.
+describe('countWeightPrs', () => {
+  it('returns 0 for no logs', () => {
+    expect(countWeightPrs([])).toBe(0);
+  });
+
+  it('does not count the first session for an exercise as a PR (baseline)', () => {
+    const logs = [mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)])])];
+    expect(countWeightPrs(logs)).toBe(0);
+  });
+
+  it('counts a strictly heavier session as a PR; an equal-weight session is not a PR', () => {
+    const logs = [
+      mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)])]), // baseline
+      mkLog('2026-01-08T10:00:00', [ex('bench', [rw(110, 5)])]), // PR
+      mkLog('2026-01-15T10:00:00', [ex('bench', [rw(110, 5)])]), // equal, not a PR (strict >)
+    ];
+    expect(countWeightPrs(logs)).toBe(1);
+  });
+
+  it('counts only one PR per session even with multiple improving sets', () => {
+    const logs = [
+      mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)])]), // baseline
+      mkLog('2026-01-08T10:00:00', [
+        ex('bench', [rw(110, 5), rw(120, 3)]), // both beat the baseline; session best is 120
+      ]),
+    ];
+    expect(countWeightPrs(logs)).toBe(1);
+  });
+
+  it('ignores uncompleted sets and non-reps_weight sets', () => {
+    const logs = [
+      mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)])]), // baseline
+      mkLog('2026-01-08T10:00:00', [
+        ex('bench', [
+          { id: 's', type: 'reps_weight', completed: false, weight: 200, reps: 5 }, // uncompleted, ignored
+          { id: 's', type: 'reps_only', completed: true, reps: 20 }, // wrong type, ignored
+        ]),
+      ]),
+    ];
+    expect(countWeightPrs(logs)).toBe(0);
+  });
+
+  it('tracks two exercises independently, one PR each', () => {
+    const logs = [
+      mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)]), ex('squat', [rw(150, 5)])]),
+      mkLog('2026-01-08T10:00:00', [ex('bench', [rw(110, 5)]), ex('squat', [rw(160, 5)])]),
+    ];
+    expect(countWeightPrs(logs)).toBe(2);
+  });
+
+  it('sorts logs by startedAt regardless of input order', () => {
+    const logs = [
+      mkLog('2026-01-08T10:00:00', [ex('bench', [rw(110, 5)])]), // later session, given first
+      mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)])]), // earlier session (baseline), given second
+    ];
+    expect(countWeightPrs(logs)).toBe(1);
+  });
+
+  it('does not reset the baseline on a lighter (regression) session', () => {
+    const logs = [
+      mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)])]), // baseline
+      mkLog('2026-01-08T10:00:00', [ex('bench', [rw(80, 5)])]), // regression, not a PR
+      mkLog('2026-01-15T10:00:00', [ex('bench', [rw(100, 5)])]), // ties original best, not a PR
+      mkLog('2026-01-22T10:00:00', [ex('bench', [rw(105, 5)])]), // PR vs 100
+    ];
+    expect(countWeightPrs(logs)).toBe(1);
   });
 });
 

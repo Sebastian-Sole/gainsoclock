@@ -172,6 +172,8 @@ async function buildWeekStats(
   // 2. PR detection + per-exercise progression highlights.
   // Prior history is bounded: the last MAX_PRIOR_LOGS workouts before the
   // week define the comparison window (a "PR" vs the recent past).
+  // NOTE: the client's all-time count lives in lib/achievements.ts
+  // countWeightPrs — different window BY DESIGN; see its doc comment.
   const priorLogs = await ctx.db
     .query("workoutLogs")
     .withIndex("by_user_completedAt", (q) =>
