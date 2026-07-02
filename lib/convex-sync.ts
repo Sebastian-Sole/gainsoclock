@@ -22,6 +22,16 @@ let memoryQueueLoaded = false;
 let mutexPromise: Promise<void> = Promise.resolve();
 
 /**
+ * ClientIds for mutations currently being replayed by flushSyncQueue. They
+ * are pulled out of memoryQueue (and thus invisible there) the moment the
+ * flush snapshot is taken, but their mutation may not have committed yet.
+ * getPendingClientIds() unions this with the live queue so a hydration
+ * merge running mid-flush doesn't see a false "empty" window and mistake an
+ * offline-created row for a server-side delete.
+ */
+let inFlightClientIds = new Set<string>();
+
+/**
  * Acquire a simple async mutex. Every caller awaits the previous lock's
  * release before proceeding, guaranteeing serial access to the queue.
  */
@@ -187,7 +197,7 @@ export async function clearDeadLetters(): Promise<void> {
  * snapshot of the in-memory queue.
  */
 export function getPendingClientIds(): Set<string> {
-  const ids = new Set<string>();
+  const ids = new Set<string>(inFlightClientIds);
   for (const item of memoryQueue) {
     const cid = (item.args as { clientId?: unknown })?.clientId;
     if (typeof cid === "string") ids.add(cid);
@@ -303,6 +313,18 @@ export async function flushSyncQueue(): Promise<void> {
       return items;
     });
 
+    // Everything in the snapshot is about to leave memoryQueue's visibility
+    // for the duration of the flush — mark it in-flight so
+    // getPendingClientIds() still reports it as pending mid-replay. This is
+    // deliberately coarse (kept for the whole flush, not removed per-item as
+    // each mutation commits): over-keeping a local copy is always safe, and
+    // under-keeping is the data loss this exists to prevent.
+    inFlightClientIds = new Set(
+      snapshot
+        .map((item) => (item.args as { clientId?: unknown })?.clientId)
+        .filter((cid): cid is string => typeof cid === "string"),
+    );
+
     if (snapshot.length === 0) return;
 
     if (__DEV__)
@@ -352,5 +374,6 @@ export async function flushSyncQueue(): Promise<void> {
     if (__DEV__) console.log("[ConvexSync] Queue flushed successfully");
   } finally {
     isFlushing = false;
+    inFlightClientIds = new Set();
   }
 }
