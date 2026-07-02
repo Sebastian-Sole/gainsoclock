@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useMutation } from 'convex/react';
 import { isYesterday } from 'date-fns';
 import { useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
@@ -10,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { api } from '@/convex/_generated/api';
+import { syncToConvex } from '@/lib/convex-sync';
 import { mediumHaptic } from '@/lib/haptics';
 import { getPlanDayDate } from '@/lib/plan-dates';
 import { useHistoryStore } from '@/stores/history-store';
@@ -38,7 +38,6 @@ export function MissedDayBanner() {
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
   const getLastLogForTemplate = useHistoryStore((s) => s.getLastLogForTemplate);
-  const updatePlanDayStatus = useMutation(api.plans.updatePlanDayStatus);
 
   // undefined = still reading AsyncStorage; null = nothing dismissed yet.
   const [dismissedId, setDismissedId] = useState<string | null | undefined>(
@@ -131,15 +130,11 @@ export function MissedDayBanner() {
     // `skipped` is a first-class planDay status (convex/validators.ts), so we
     // persist the skip server-side too. Dismissal above keeps the banner
     // hidden immediately and when offline.
-    updatePlanDayStatus({
+    syncToConvex(api.plans.updatePlanDayStatus, {
       planClientId: activePlan.id,
       week: missedDay.week,
       dayOfWeek: missedDay.dayOfWeek,
       status: 'skipped',
-    }).catch((error) => {
-      if (__DEV__) {
-        console.warn('[missed-day-banner] skip failed', error);
-      }
     });
   };
 
