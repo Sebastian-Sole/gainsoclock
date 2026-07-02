@@ -1,13 +1,11 @@
 import { useQuery } from 'convex/react';
 import { format, subDays } from 'date-fns';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { api } from '@/convex/_generated/api';
 import {
   assembleAchievementFacts,
   buildAchievementGroups,
-  evaluateAchievements,
-  type AchievementDef,
   type AchievementFacts,
   type AchievementGroup,
 } from '@/lib/achievements';
@@ -24,26 +22,25 @@ import { useSettingsStore } from '@/stores/settings-store';
 
 const ALL_TIME: DateRangeFilter = { preset: 'all', from: null, to: null };
 
-// Quiet period after the last backfill unlock before we lock in the baseline.
-// Facts hydrate asynchronously (stores + several Convex queries resolve at
-// different times), so the initial "unlock" burst trickles in across a few
-// evaluations. We keep absorbing silently until it stops for this long, then
-// treat everything after as genuine gameplay worth a toast.
-const BASELINE_SETTLE_MS = 4000;
-
 export interface UseAchievementsResult {
   /** One entry per leveled family + one-off, with current level & progress. */
   groups: AchievementGroup[];
   /** Achievement (flat) key → unlock timestamp (ISO 8601). */
   unlocked: Map<string, string>;
-  /** Flat per-level defs unlocked during this session (for toasts/celebrations). */
-  newlyUnlocked: AchievementDef[];
 }
 
 /**
- * Assembles {@link AchievementFacts} from existing stores/hooks, evaluates
- * the achievement definitions whenever the facts change, persists new
- * unlocks, and reports session-level "newly unlocked" defs for the UI.
+ * Assembles {@link AchievementFacts} from existing stores/hooks and builds
+ * the grouped view model consumed by the achievements screen and the stats
+ * records section.
+ *
+ * Unlock DETECTION — evaluating facts against thresholds, persisting new
+ * unlocks, and feeding the toast — no longer happens here. It runs in
+ * `lib/achievement-engine.ts`, initialized once from
+ * `providers/convex-sync-provider.tsx`, so it isn't re-run (and its Convex
+ * subscriptions aren't re-opened) every time a screen mounts this hook. This
+ * hook only reads the persisted `unlocked` map to render progress; see plan
+ * 038 for the split.
  *
  * Fact sourcing (and what is approximate):
  * - totalWorkouts / totalVolumeKg / streaks — `useStats` over the all-time
@@ -78,9 +75,6 @@ export function useAchievements(): UseAchievementsResult {
   const chatMealLogged = useAchievementEventsStore((s) => s.chatMealLogged);
   const aiMacrosGenerated = useAchievementEventsStore((s) => s.aiMacrosGenerated);
   const unlocked = useAchievementsStore((s) => s.unlocked);
-  const markUnlocked = useAchievementsStore((s) => s.markUnlocked);
-  const hasSeededBaseline = useAchievementsStore((s) => s.hasSeededBaseline);
-  const markBaselineSeeded = useAchievementsStore((s) => s.markBaselineSeeded);
 
   // Identical args to the subscription inside use-stats → Convex dedupes.
   const externalRange = useMemo(
@@ -148,46 +142,6 @@ export function useAchievements(): UseAchievementsResult {
     ]
   );
 
-  const [newlyUnlocked, setNewlyUnlocked] = useState<AchievementDef[]>([]);
-  const baselineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (baselineTimerRef.current) clearTimeout(baselineTimerRef.current);
-    },
-    []
-  );
-
-  // Evaluate on mount and whenever facts (or persisted unlocks) change.
-  // Loading states only yield zeroed facts → false negatives that resolve on
-  // the next evaluation; never false unlocks.
-  useEffect(() => {
-    const newly = evaluateAchievements(facts, new Set(Object.keys(unlocked)));
-
-    // First sync on this device: the batch that resolves as history hydrates is
-    // backfill of already-earned progress, not fresh gameplay. Persist it, but
-    // do NOT toast — otherwise signing in floods the user with dozens of banners.
-    // Re-arm a settle timer on each backfill batch; lock in the baseline once
-    // the burst goes quiet so genuine future unlocks surface normally.
-    if (!hasSeededBaseline) {
-      if (newly.length > 0) {
-        markUnlocked(newly.map((d) => d.key));
-      }
-      if (baselineTimerRef.current) clearTimeout(baselineTimerRef.current);
-      baselineTimerRef.current = setTimeout(markBaselineSeeded, BASELINE_SETTLE_MS);
-      return;
-    }
-
-    if (newly.length === 0) return;
-
-    markUnlocked(newly.map((d) => d.key));
-    setNewlyUnlocked((prev) => {
-      const seen = new Set(prev.map((d) => d.key));
-      const additions = newly.filter((d) => !seen.has(d.key));
-      return additions.length > 0 ? [...prev, ...additions] : prev;
-    });
-  }, [facts, unlocked, markUnlocked, hasSeededBaseline, markBaselineSeeded]);
-
   const unlockedMap = useMemo(() => new Map(Object.entries(unlocked)), [unlocked]);
 
   const groups = useMemo(
@@ -195,5 +149,5 @@ export function useAchievements(): UseAchievementsResult {
     [facts, unlockedMap]
   );
 
-  return { groups, unlocked: unlockedMap, newlyUnlocked };
+  return { groups, unlocked: unlockedMap };
 }
