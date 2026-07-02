@@ -56,7 +56,7 @@ Run `/verify` for the full chain and `/e2e` for Maestro flows.
 ## Critical Constraints
 
 - **Convex is excluded from the root tsconfig.** Changes in `convex/` are typechecked by the Convex CLI, not `tsc`. Keep imports in app code going through generated `convex/_generated/*`, not raw server modules.
-- **iOS-only APIs must be guarded.** HealthKit (`@kingstinct/react-native-healthkit`) and some RevenueCat UI surfaces are iOS-only. Gate with `Platform.OS === "ios"` or use `.ios.tsx` / `.web.tsx` file variants (see `hooks/use-color-scheme.web.ts`, `components/ui/icon-symbol.ios.tsx`).
+- **iOS-only APIs must be guarded.** HealthKit (`@kingstinct/react-native-healthkit`) and some RevenueCat UI surfaces are iOS-only. Gate with `Platform.OS === "ios"` or use `.ios.tsx` / `.web.tsx` file variants (see `hooks/use-color-scheme.web.ts`).
 - **New Architecture + React Compiler are on.** Don't disable them casually. Avoid patterns the compiler chokes on (mutating refs during render, conditional hooks).
 - **RevenueCat module has a known native-build workaround** documented in `docs/revenuecat-purchases-module-fix.md`. Read before touching `react-native-purchases` wiring or upgrading Expo.
 - **Accessibility target: WCAG 2.1 AA** equivalents on mobile — use `accessibilityLabel`, `accessibilityRole`, dynamic type, sufficient contrast against theme tokens. VoiceOver + TalkBack are in-scope.
