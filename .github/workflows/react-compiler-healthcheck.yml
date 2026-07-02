@@ -42,4 +42,6 @@ jobs:
             --src "components/onboarding/**/*.{ts,tsx}" \
             --src "components/paywall/**/*.{ts,tsx}" \
             --src "components/home/**/*.{ts,tsx}" \
+            --src "app/workout/**/*.{ts,tsx}" \
+            --src "components/workout/**/*.{ts,tsx}" \
             --verbose
