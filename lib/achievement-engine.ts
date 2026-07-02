@@ -186,15 +186,18 @@ async function evaluate(): Promise<void> {
 
     const achievements = useAchievementsStore.getState();
     const newly = evaluateAchievements(facts, new Set(Object.keys(achievements.unlocked)));
-    if (newly.length === 0) return;
 
     // Baseline-seeding rule, moved verbatim from `hooks/use-achievements.ts`
     // (introduced by hotfix 4c74c6a): the first sync's "unlocks" are backfill
     // of already-earned progress, not fresh gameplay — persist silently, re-arm
     // the settle timer per backfill batch, and only toast once the baseline
-    // is locked in.
+    // is locked in. The timer is armed even on empty unseeded evaluations so
+    // a zero-backfill fresh install still seeds its baseline (otherwise its
+    // first genuine unlock would be silently absorbed as backfill).
     if (!achievements.hasSeededBaseline) {
-      achievements.markUnlocked(newly.map((d) => d.key));
+      if (newly.length > 0) {
+        achievements.markUnlocked(newly.map((d) => d.key));
+      }
       if (baselineTimer) clearTimeout(baselineTimer);
       baselineTimer = setTimeout(() => {
         baselineTimer = null;
@@ -202,6 +205,8 @@ async function evaluate(): Promise<void> {
       }, BASELINE_SETTLE_MS);
       return;
     }
+
+    if (newly.length === 0) return;
 
     achievements.markUnlocked(newly.map((d) => d.key));
     useUnlockToastStore.getState().push(newly);
