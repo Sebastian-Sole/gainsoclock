@@ -71,7 +71,7 @@ All haptics go through `lib/haptics.ts` — never import `expo-haptics` directly
 - Use `textContentType` for autofill: `username`, `password`, `emailAddress`, `oneTimeCode` (SMS OTP — huge iOS win).
 - Comma-decimal support: route all numeric input through `lib/format.ts` parser. Commit `2629ff8` introduced this; don't regress.
 - `returnKeyType` and `onSubmitEditing` move focus through multi-field forms (use `ref.current?.focus()`).
-- Don't rely on placeholder as a label. Pair with `components/ui/label.tsx` and `accessibilityLabel`.
+- Don't rely on placeholder as a label. Pair a visible text label with `accessibilityLabel`.
 
 ## Loading, Empty, Error States
 
