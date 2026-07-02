@@ -252,6 +252,13 @@ export default defineSchema({
     notificationsReminderTime: v.optional(v.string()),
     notificationsMorningPlanEnabled: v.optional(v.boolean()),
     notificationsMorningPlanTime: v.optional(v.string()),
+    notificationsWeeklyReviewEnabled: v.optional(v.boolean()),
+    notificationsWeeklyReviewDay: v.optional(v.number()),
+    notificationsWeeklyReviewTime: v.optional(v.string()),
+    notificationsProteinNudgeEnabled: v.optional(v.boolean()),
+    notificationsProteinNudgeTime: v.optional(v.string()),
+    notificationsStreakRiskEnabled: v.optional(v.boolean()),
+    notificationsStreakRiskTime: v.optional(v.string()),
     rpeEnabled: v.optional(v.boolean()),
   }).index("by_user", ["userId"]),
 
