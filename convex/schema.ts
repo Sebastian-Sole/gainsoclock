@@ -153,6 +153,8 @@ export default defineSchema({
     notificationAnchorAt: v.optional(v.string()),
     dcsaNotifiedAt: v.optional(v.string()),
     reminder48hSentAt: v.optional(v.string()),
+    graceEmailSentAt: v.optional(v.string()),
+    winbackEmailSentAt: v.optional(v.string()),
     emailOptOut: v.optional(v.boolean()),
     storefrontCountry: v.optional(v.string()),
   })

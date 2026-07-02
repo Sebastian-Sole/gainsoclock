@@ -9,6 +9,12 @@ const DAY_MS = 24 * HOUR_MS;
 const REMINDER_WINDOW_LOWER_MS = 46 * HOUR_MS;
 const REMINDER_WINDOW_UPPER_MS = 50 * HOUR_MS;
 const DCSA_INTERVAL_MS = 183 * DAY_MS;
+// Grace nudge: wait one quiet day in-state before emailing so we don't race
+// RC's own payment retry.
+const GRACE_MIN_AGE_MS = 1 * DAY_MS;
+// Win-back window: before 3 days feels like surveillance, after 30 it's spam.
+const WINBACK_MIN_LAPSE_MS = 3 * DAY_MS;
+const WINBACK_MAX_LAPSE_MS = 30 * DAY_MS;
 
 function isoNow(): string {
   return new Date().toISOString();
@@ -120,6 +126,106 @@ export const sendDcsa6Month = internalMutation({
 
     if (sent > 0) {
       console.log(`[Cron] dcsa-6-monthly enqueued ${sent} emails`);
+    }
+  },
+});
+
+/**
+ * Daily cron handler — nudge rows stuck in `grace` (card declined, RC
+ * retrying) to update their payment method. Waits `GRACE_MIN_AGE_MS` in
+ * state before sending so we don't race RC's own retry cadence.
+ * Idempotent via `graceEmailSentAt`.
+ */
+export const sendGraceNudges = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const nowMs = Date.now();
+    const graceRows = await ctx.db
+      .query("userSubscriptions")
+      .withIndex("by_status", (q) => q.eq("status", "grace"))
+      .collect();
+
+    let sent = 0;
+    for (const row of graceRows) {
+      if (row.graceEmailSentAt) continue;
+      const updatedAtMs = Date.parse(row.updatedAt);
+      if (!Number.isFinite(updatedAtMs)) continue;
+      if (nowMs - updatedAtMs < GRACE_MIN_AGE_MS) continue;
+
+      const user = await ctx.db.get(row.userId);
+      const email = (user as { email?: string } | null)?.email;
+      if (!email) {
+        await ctx.db.patch(row._id, { graceEmailSentAt: isoNow() });
+        continue;
+      }
+      if (row.emailOptOut) {
+        await ctx.db.patch(row._id, { graceEmailSentAt: isoNow() });
+        continue;
+      }
+
+      await ctx.scheduler.runAfter(0, internal.email.sendGracePaymentNudge, {
+        userId: row.userId,
+        email,
+      });
+      await ctx.db.patch(row._id, { graceEmailSentAt: isoNow() });
+      sent++;
+    }
+
+    if (sent > 0) {
+      console.log(`[Cron] grace-payment-nudge enqueued ${sent} emails`);
+    }
+  },
+});
+
+/**
+ * Daily cron handler — win-back email for rows in `lapsed`. Sent once,
+ * 3-30 days after the lapse (before 3 days feels like surveillance, after
+ * 30 it's spam). Lapse time is `expiresAt` when present, else `updatedAt`.
+ * Idempotent via `winbackEmailSentAt` — NOT reset on re-lapse. A user who
+ * resubscribes and lapses again keeps the old marker and won't get a
+ * second win-back email; deferred v1 gap, see plan-055 maintenance notes.
+ */
+export const sendWinbacks = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const nowMs = Date.now();
+    const lapsedRows = await ctx.db
+      .query("userSubscriptions")
+      .withIndex("by_status", (q) => q.eq("status", "lapsed"))
+      .collect();
+
+    let sent = 0;
+    for (const row of lapsedRows) {
+      if (row.winbackEmailSentAt) continue;
+      const lapseAtIso = row.expiresAt ?? row.updatedAt;
+      const lapseAtMs = Date.parse(lapseAtIso);
+      if (!Number.isFinite(lapseAtMs)) continue;
+      const ageMs = nowMs - lapseAtMs;
+      if (ageMs < WINBACK_MIN_LAPSE_MS || ageMs > WINBACK_MAX_LAPSE_MS) {
+        continue;
+      }
+
+      const user = await ctx.db.get(row.userId);
+      const email = (user as { email?: string } | null)?.email;
+      if (!email) {
+        await ctx.db.patch(row._id, { winbackEmailSentAt: isoNow() });
+        continue;
+      }
+      if (row.emailOptOut) {
+        await ctx.db.patch(row._id, { winbackEmailSentAt: isoNow() });
+        continue;
+      }
+
+      await ctx.scheduler.runAfter(0, internal.email.sendWinback, {
+        userId: row.userId,
+        email,
+      });
+      await ctx.db.patch(row._id, { winbackEmailSentAt: isoNow() });
+      sent++;
+    }
+
+    if (sent > 0) {
+      console.log(`[Cron] winback enqueued ${sent} emails`);
     }
   },
 });
