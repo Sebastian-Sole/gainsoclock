@@ -609,7 +609,7 @@ function buildSystemPrompt(
 - Distance unit: ${context.settings.distanceUnit}
 - Default rest time: ${context.settings.defaultRestTime}s
 
-## Exercise Library (${context.exercises.length} exercises)
+## Exercise Library (${context.exercisesTotal} exercises)
 ${exerciseList}
 
 ## Workout Templates (${context.templates.length} templates)
