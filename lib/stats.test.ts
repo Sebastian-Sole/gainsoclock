@@ -5,7 +5,9 @@ import type { WorkoutLog, WorkoutLogExercise, WorkoutSet } from "@/lib/types";
 // Characterization tests: pin CURRENT computeAllStats behavior over a fixture
 // log set. Covers per-type accumulation for all six set types, PB extraction,
 // and totals. Oddities (notably the intervals zero-contribution) are pinned and
-// commented. `now` is fixed so streak/current-year math is deterministic.
+// commented. `now` is fixed so current-year math is deterministic. Streaks are
+// no longer computed by computeAllStats (see plan 043); that coverage lives in
+// lib/streaks.test.ts.
 
 const NOW = new Date("2026-06-10T12:00:00Z");
 
@@ -93,8 +95,6 @@ describe("computeAllStats — empty input", () => {
     expect(all.exerciseStats).toEqual([]);
     expect(all.totals.totalWorkouts).toBe(0);
     expect(all.totals.totalSets).toBe(0);
-    expect(all.streaks.currentStreak).toBe(0);
-    expect(all.streaks.longestStreak).toBe(0);
     expect(all.bestMonth).toBeNull();
     expect(all.bestYear).toBeNull();
   });
