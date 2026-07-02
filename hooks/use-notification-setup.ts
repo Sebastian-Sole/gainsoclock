@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { router, type Href } from 'expo-router';
+import { capture } from '@/lib/analytics';
 import { useSettingsStore } from '@/stores/settings-store';
 import { usePlanStore } from '@/stores/plan-store';
 import {
@@ -98,6 +99,8 @@ export function useNotificationSetup() {
   // /review). Handles both warm taps and the cold-start notification.
   useEffect(() => {
     const handleResponse = (response: Notifications.NotificationResponse) => {
+      capture({ name: 'notification_opened', props: { identifier: response.notification.request.identifier } });
+
       const url = response.notification.request.content.data?.url;
       if (typeof url === 'string' && url.startsWith('/')) {
         // Notification payloads are dynamic strings; Expo Router validates
