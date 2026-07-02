@@ -113,6 +113,52 @@ Settings → Subscription, or via your App Store account.</p>
   return { html, text };
 }
 
+function gracePaymentNudgeTemplate(args: { unsubscribe: string }): {
+  html: string;
+  text: string;
+} {
+  const text = [
+    "Your last Fitbull Pro payment didn't go through.",
+    "",
+    "Your access continues briefly while we retry, but you'll want to fix",
+    "this soon to avoid losing Pro. Update your payment method in",
+    "Settings → Subscription, or via your App Store account.",
+    "",
+    `Unsubscribe from these reminders: ${args.unsubscribe}`,
+  ].join("\n");
+  const html = `<!doctype html><html><body style="font-family:sans-serif;line-height:1.5">
+<p>Your last <strong>Fitbull Pro</strong> payment didn't go through.</p>
+<p>Your access continues briefly while we retry, but you'll want to fix
+this soon to avoid losing Pro. Update your payment method in
+Settings → Subscription, or via your App Store account.</p>
+<p style="font-size:12px;color:#666"><a href="${args.unsubscribe}">Unsubscribe from these reminders</a></p>
+</body></html>`;
+  return { html, text };
+}
+
+function winbackTemplate(args: { unsubscribe: string }): {
+  html: string;
+  text: string;
+} {
+  const text = [
+    "Your training history is still here.",
+    "",
+    "Your Fitbull Pro subscription ended, but your workouts, meals, and",
+    "progress are all intact. Resubscribe anytime with one tap in the app",
+    "to pick up right where you left off.",
+    "",
+    `Unsubscribe from these reminders: ${args.unsubscribe}`,
+  ].join("\n");
+  const html = `<!doctype html><html><body style="font-family:sans-serif;line-height:1.5">
+<p>Your training history is still here.</p>
+<p>Your <strong>Fitbull Pro</strong> subscription ended, but your workouts, meals, and
+progress are all intact. Resubscribe anytime with one tap in the app
+to pick up right where you left off.</p>
+<p style="font-size:12px;color:#666"><a href="${args.unsubscribe}">Unsubscribe from these reminders</a></p>
+</body></html>`;
+  return { html, text };
+}
+
 export const sendTrialReminder48h = internalAction({
   args: {
     userId: v.id("users"),
@@ -166,6 +212,60 @@ export const sendDcsa6Month = internalAction({
       to: [args.email],
       reply_to: REPLY_TO,
       subject: "Your Fitbull subscription — 6-month reminder",
+      html,
+      text,
+    });
+  },
+});
+
+export const sendGracePaymentNudge = internalAction({
+  args: {
+    userId: v.id("users"),
+    email: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const token = unsubscribeTokenNode(args.userId);
+    if (!token) {
+      console.error(
+        "[Email] UNSUBSCRIBE_TOKEN_SECRET not set — skipping send",
+      );
+      return;
+    }
+    const { html, text } = gracePaymentNudgeTemplate({
+      unsubscribe: unsubscribeUrl(args.userId, token),
+    });
+    await sendViaResend({
+      from: FROM_ADDRESS,
+      to: [args.email],
+      reply_to: REPLY_TO,
+      subject: "Action needed: your Fitbull Pro payment didn't go through",
+      html,
+      text,
+    });
+  },
+});
+
+export const sendWinback = internalAction({
+  args: {
+    userId: v.id("users"),
+    email: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const token = unsubscribeTokenNode(args.userId);
+    if (!token) {
+      console.error(
+        "[Email] UNSUBSCRIBE_TOKEN_SECRET not set — skipping send",
+      );
+      return;
+    }
+    const { html, text } = winbackTemplate({
+      unsubscribe: unsubscribeUrl(args.userId, token),
+    });
+    await sendViaResend({
+      from: FROM_ADDRESS,
+      to: [args.email],
+      reply_to: REPLY_TO,
+      subject: "Your training history is still here",
       html,
       text,
     });

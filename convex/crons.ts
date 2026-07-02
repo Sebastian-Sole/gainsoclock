@@ -15,6 +15,18 @@ crons.daily(
   internal.subscriptionCrons.sendDcsa6Month,
 );
 
+crons.daily(
+  "grace-payment-nudge",
+  { hourUTC: 10, minuteUTC: 0 },
+  internal.subscriptionCrons.sendGraceNudges,
+);
+
+crons.daily(
+  "winback-lapsed",
+  { hourUTC: 10, minuteUTC: 0 },
+  internal.subscriptionCrons.sendWinbacks,
+);
+
 crons.interval(
   "rc-temp-demote",
   { hours: 1 },
