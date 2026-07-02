@@ -39,4 +39,15 @@ crons.daily(
   internal.nutritionVision.sweepOrphanPhotos,
 );
 
+// Simplified to one weekly Monday-03:00-UTC slot for all users:
+// `userSettings` has no timezone field yet, so per-user local-time
+// alignment isn't possible server-side (see plan-052 maintenance notes).
+// 03:00 UTC Monday is before any reasonable local notification time for the
+// week that just completed.
+crons.weekly(
+  "weekly-review-pregeneration",
+  { dayOfWeek: "monday", hourUTC: 3, minuteUTC: 0 },
+  internal.weeklyReview.enqueueWeeklyReviews,
+);
+
 export default crons;
