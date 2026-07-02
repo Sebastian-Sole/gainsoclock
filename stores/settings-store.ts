@@ -300,13 +300,19 @@ export const useSettingsStore = create<SettingsState>()(
           notificationsReminderTime: serverSettings.notificationsReminderTime ?? '18:00',
           notificationsMorningPlanEnabled: serverSettings.notificationsMorningPlanEnabled ?? true,
           notificationsMorningPlanTime: serverSettings.notificationsMorningPlanTime ?? '07:00',
-          notificationsWeeklyReviewEnabled: serverSettings.notificationsWeeklyReviewEnabled ?? true,
-          notificationsWeeklyReviewDay: serverSettings.notificationsWeeklyReviewDay ?? 0,
-          notificationsWeeklyReviewTime: serverSettings.notificationsWeeklyReviewTime ?? '18:00',
-          notificationsProteinNudgeEnabled: serverSettings.notificationsProteinNudgeEnabled ?? false,
-          notificationsProteinNudgeTime: serverSettings.notificationsProteinNudgeTime ?? '19:30',
-          notificationsStreakRiskEnabled: serverSettings.notificationsStreakRiskEnabled ?? false,
-          notificationsStreakRiskTime: serverSettings.notificationsStreakRiskTime ?? '18:00',
+          // These seven fields were local-only before the server accepted
+          // them, so existing userSettings rows may predate them. When the
+          // server row lacks a field, keep the current local value instead of
+          // a hardcoded default — otherwise a preference customized while
+          // local-only would be silently reset on the first post-deploy
+          // hydrate. Server wins only when it has an opinion.
+          notificationsWeeklyReviewEnabled: serverSettings.notificationsWeeklyReviewEnabled ?? get().notificationsWeeklyReviewEnabled,
+          notificationsWeeklyReviewDay: serverSettings.notificationsWeeklyReviewDay ?? get().notificationsWeeklyReviewDay,
+          notificationsWeeklyReviewTime: serverSettings.notificationsWeeklyReviewTime ?? get().notificationsWeeklyReviewTime,
+          notificationsProteinNudgeEnabled: serverSettings.notificationsProteinNudgeEnabled ?? get().notificationsProteinNudgeEnabled,
+          notificationsProteinNudgeTime: serverSettings.notificationsProteinNudgeTime ?? get().notificationsProteinNudgeTime,
+          notificationsStreakRiskEnabled: serverSettings.notificationsStreakRiskEnabled ?? get().notificationsStreakRiskEnabled,
+          notificationsStreakRiskTime: serverSettings.notificationsStreakRiskTime ?? get().notificationsStreakRiskTime,
           rpeEnabled: serverSettings.rpeEnabled ?? false,
         });
       },
