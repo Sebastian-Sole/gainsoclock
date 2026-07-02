@@ -9,6 +9,7 @@ import {
   Beef,
   Bell,
   ChevronLeft,
+  Flame,
   MessageSquare,
   Sunrise,
 } from "lucide-react-native";
@@ -55,11 +56,16 @@ export default function NotificationSettingsScreen() {
   const setNotifProteinNudge = useSettingsStore((s) => s.setNotificationsProteinNudgeEnabled);
   const notifProteinNudgeTime = useSettingsStore((s) => s.notificationsProteinNudgeTime);
   const setNotifProteinNudgeTime = useSettingsStore((s) => s.setNotificationsProteinNudgeTime);
+  const notifStreakRisk = useSettingsStore((s) => s.notificationsStreakRiskEnabled);
+  const setNotifStreakRisk = useSettingsStore((s) => s.setNotificationsStreakRiskEnabled);
+  const notifStreakRiskTime = useSettingsStore((s) => s.notificationsStreakRiskTime);
+  const setNotifStreakRiskTime = useSettingsStore((s) => s.setNotificationsStreakRiskTime);
 
   const [showReminderPicker, setShowReminderPicker] = useState(false);
   const [showMorningPicker, setShowMorningPicker] = useState(false);
   const [showWeeklyReviewPicker, setShowWeeklyReviewPicker] = useState(false);
   const [showProteinNudgePicker, setShowProteinNudgePicker] = useState(false);
+  const [showStreakRiskPicker, setShowStreakRiskPicker] = useState(false);
 
   const handleNotificationToggle = useCallback(
     async (setter: (enabled: boolean) => void, enabled: boolean) => {
@@ -247,6 +253,59 @@ export default function NotificationSettingsScreen() {
                     const h = String(date.getHours()).padStart(2, "0");
                     const m = String(date.getMinutes()).padStart(2, "0");
                     setNotifMorningPlanTime(`${h}:${m}`);
+                  }
+                }}
+              />
+            )}
+          </View>
+
+          <Separator />
+
+          {/* Streak Risk Reminder */}
+          <View className="px-4 py-4">
+            <View className="flex-row items-center gap-3">
+              <Icon as={Flame} size={20} className="text-primary" />
+              <View className="flex-1">
+                <Text className="font-medium">Streak Reminder</Text>
+                <Text className="text-sm text-muted-foreground">
+                  Warn when your streak is about to break
+                </Text>
+              </View>
+              <Switch
+                checked={notifStreakRisk}
+                onCheckedChange={(v) => handleNotificationToggle(setNotifStreakRisk, v)}
+                testID="notifications-streak-risk-toggle"
+                accessibilityRole="switch"
+                accessibilityLabel="Streak risk notification"
+                accessibilityState={{ checked: notifStreakRisk }}
+              />
+            </View>
+            {notifStreakRisk && (
+              <Pressable
+                onPress={() => setShowStreakRiskPicker(true)}
+                testID="notifications-streak-risk-time"
+                accessibilityRole="button"
+                accessibilityLabel={`Streak reminder time, ${formatTimeDisplay(notifStreakRiskTime)}`}
+                accessibilityHint="Opens a time picker"
+                className="mt-3 ml-8 flex-row items-center gap-2"
+              >
+                <Text className="text-sm text-muted-foreground">Time:</Text>
+                <Text className="text-sm font-medium text-primary">
+                  {formatTimeDisplay(notifStreakRiskTime)}
+                </Text>
+              </Pressable>
+            )}
+            {notifStreakRisk && showStreakRiskPicker && (
+              <DateTimePicker
+                value={timeToDate(notifStreakRiskTime)}
+                mode="time"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(_, date) => {
+                  setShowStreakRiskPicker(Platform.OS === "ios");
+                  if (date) {
+                    const h = String(date.getHours()).padStart(2, "0");
+                    const m = String(date.getMinutes()).padStart(2, "0");
+                    setNotifStreakRiskTime(`${h}:${m}`);
                   }
                 }}
               />

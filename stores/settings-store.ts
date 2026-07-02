@@ -37,6 +37,8 @@ interface SettingsState {
   notificationsWeeklyReviewTime: string; // "HH:mm"
   notificationsProteinNudgeEnabled: boolean;
   notificationsProteinNudgeTime: string; // "HH:mm"
+  notificationsStreakRiskEnabled: boolean;
+  notificationsStreakRiskTime: string; // "HH:mm"
 
   // Exercise tracking
   rpeEnabled: boolean;
@@ -70,6 +72,8 @@ interface SettingsState {
   setNotificationsWeeklyReviewTime: (time: string) => void;
   setNotificationsProteinNudgeEnabled: (enabled: boolean) => void;
   setNotificationsProteinNudgeTime: (time: string) => void;
+  setNotificationsStreakRiskEnabled: (enabled: boolean) => void;
+  setNotificationsStreakRiskTime: (time: string) => void;
   setRpeEnabled: (enabled: boolean) => void;
   setLastWorkoutLoggedDate: (date: string) => void;
   hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string; prefillFromLastWorkout?: boolean; defaultSetsCount?: number; defaultRepsCount?: number; notificationsRestTimerEnabled?: boolean; notificationsPostWorkoutEnabled?: boolean; notificationsPostWorkoutDelay?: number; notificationsReminderEnabled?: boolean; notificationsReminderTime?: string; notificationsMorningPlanEnabled?: boolean; notificationsMorningPlanTime?: string; rpeEnabled?: boolean }) => void;
@@ -124,6 +128,8 @@ export const useSettingsStore = create<SettingsState>()(
       notificationsWeeklyReviewTime: '18:00',
       notificationsProteinNudgeEnabled: false,
       notificationsProteinNudgeTime: '19:30',
+      notificationsStreakRiskEnabled: false,
+      notificationsStreakRiskTime: '18:00',
       rpeEnabled: false,
       lastWorkoutLoggedDate: null,
 
@@ -232,6 +238,19 @@ export const useSettingsStore = create<SettingsState>()(
 
       setNotificationsWeeklyReviewTime: (time) => {
         set({ notificationsWeeklyReviewTime: time });
+      },
+
+      // Streak-risk settings are persisted locally only for now — same
+      // situation as weekly review above: api.settings.upsert does not
+      // accept these fields yet, and sending unknown args would fail Convex
+      // validation and break all settings sync. Add them to syncSettings +
+      // hydrateFromServer once the backend validator includes them.
+      setNotificationsStreakRiskEnabled: (enabled) => {
+        set({ notificationsStreakRiskEnabled: enabled });
+      },
+
+      setNotificationsStreakRiskTime: (time) => {
+        set({ notificationsStreakRiskTime: time });
       },
 
       // Protein nudge settings are persisted locally only — same situation as
