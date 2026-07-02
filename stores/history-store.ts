@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
 import { syncToConvex, getPendingClientIds, isQueueLoaded } from '@/lib/convex-sync';
+import { mergeQueueAware } from '@/lib/hydration-merge';
 import { api } from '@/convex/_generated/api';
 import type { WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
 import { format, startOfMonth, subMonths } from 'date-fns';
@@ -197,11 +198,7 @@ export const useHistoryStore = create<HistoryState>()(
 
       hydrateFromServer: (serverLogs) => {
         const localLogs = get().logs;
-        const localById = new Map(localLogs.map((l) => [l.id, l]));
         const { fetchedRangeFrom, loadedRange } = get();
-
-        const pending = getPendingClientIds();
-        const queueKnown = isQueueLoaded();
 
         // Map a server payload into the local WorkoutLog shape. `exercises` is
         // absent on metadata-only (listMeta) payloads, present on full seeds.
@@ -237,44 +234,28 @@ export const useHistoryStore = create<HistoryState>()(
           durationSeconds: sl.durationSeconds,
         });
 
-        const merged: WorkoutLog[] = [];
-        const seenIds = new Set<string>();
-
         // Queue-aware server-wins: keep local only while it has writes in
         // flight (or the queue isn't loaded yet); a metadata-only payload
         // must not replace a full local copy with content; otherwise the
-        // server copy wins (so cross-device edits propagate).
-        for (const sl of serverLogs) {
-          seenIds.add(sl.clientId);
-          const local = localById.get(sl.clientId);
-          if (local && (pending.has(local.id) || !queueKnown)) {
-            merged.push(local);
-          } else if (
-            local &&
-            !(sl.exercises && sl.exercises.length > 0) &&
-            local.exercises.length > 0
-          ) {
-            // Metadata-only payload can't replace full local content.
-            merged.push(local);
-          } else {
-            merged.push(toLocal(sl));
-          }
-        }
-
-        // Local-only logs: keep an unsynced create, otherwise drop it if the
-        // server authoritatively covered its range (delete propagation); keep
-        // logs outside the fetched range (just not fetched, not deleted).
-        for (const l of localLogs) {
-          if (seenIds.has(l.id)) continue;
-          if (pending.has(l.id) || !queueKnown) {
-            merged.push(l);
-          } else if (l.completedAt >= fetchedRangeFrom && l.completedAt <= loadedRange.to) {
-            // Server covered this range and didn't return it → deleted.
-            continue;
-          } else {
-            merged.push(l);
-          }
-        }
+        // server copy wins (so cross-device edits propagate). Local-only
+        // logs: keep an unsynced create, otherwise drop it if the server
+        // authoritatively covered its range (delete propagation); keep logs
+        // outside the fetched range (just not fetched, not deleted).
+        const merged = mergeQueueAware<WorkoutLog, (typeof serverLogs)[number]>({
+          local: localLogs,
+          server: serverLogs,
+          localId: (l) => l.id,
+          serverId: (sl) => sl.clientId,
+          toLocal,
+          pending: getPendingClientIds(),
+          queueKnown: isQueueLoaded(),
+          resolveConflict: (local, sl) =>
+            !(sl.exercises && sl.exercises.length > 0) && local.exercises.length > 0
+              ? local
+              : toLocal(sl),
+          dropLocalOnly: (l) =>
+            l.completedAt >= fetchedRangeFrom && l.completedAt <= loadedRange.to,
+        });
 
         merged.sort(
           (a, b) =>
