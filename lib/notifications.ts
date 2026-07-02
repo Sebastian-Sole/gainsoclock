@@ -1,4 +1,5 @@
 import { formatDuration } from "@/lib/format";
+import { decideStreakRisk } from "@/lib/notification-rules";
 import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import * as Notifications from "expo-notifications";
@@ -13,6 +14,7 @@ export const IDENTIFIERS = {
   MORNING_PLAN: "morning-plan",
   WEEKLY_REVIEW: "weekly-review",
   PROTEIN_NUDGE: "protein-nudge",
+  STREAK_RISK: "streak-risk",
 } as const;
 
 // --- Permissions ---
@@ -427,6 +429,70 @@ export async function recomputeProteinNudge(
 export async function cancelProteinNudgeNotification(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(
     IDENTIFIERS.PROTEIN_NUDGE,
+  ).catch(() => {});
+}
+
+// --- Streak Risk (Type 8) ---
+
+/**
+ * Schedule (or cancel) tonight's one-shot streak-risk reminder based on the
+ * user's current streak. Callers pass the streak values computed elsewhere
+ * (`hooks/use-stats.ts` during render, or a lightweight local computation
+ * outside render — see `hooks/use-notification-setup.ts`) — this module
+ * deliberately does not import the history/plan stores to stay consistent
+ * with the other recompute-style schedulers (`recomputeProteinNudge`).
+ *
+ * Follows the `scheduleWeeklyReviewNotification` structure: cancel own
+ * identifier first (so the scheduled state always reflects current
+ * settings/streak), then read the enable flag + time, decide via the pure
+ * `decideStreakRisk`, request permission, and schedule a TIME_INTERVAL
+ * one-shot.
+ */
+export async function recomputeStreakRiskNotification(streaks: {
+  currentStreak: number;
+  todayCovered: boolean;
+}): Promise<void> {
+  await cancelStreakRiskNotification();
+
+  const { notificationsStreakRiskEnabled, notificationsStreakRiskTime } =
+    useSettingsStore.getState();
+
+  const [fireHour, fireMinute] = notificationsStreakRiskTime.split(":").map(Number);
+  if (!Number.isFinite(fireHour) || !Number.isFinite(fireMinute)) return;
+
+  const decision = decideStreakRisk({
+    enabled: notificationsStreakRiskEnabled,
+    currentStreak: streaks.currentStreak,
+    todayCovered: streaks.todayCovered,
+    now: new Date(),
+    fireHour,
+    fireMinute,
+  });
+
+  if (!decision.schedule) return;
+
+  if (!(await ensureGranted())) return;
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: IDENTIFIERS.STREAK_RISK,
+    content: {
+      title: "Your streak is on the line 🔥",
+      body: `Train today to keep your ${decision.streakLength}-day streak alive.`,
+      sound: "default",
+      // Tapping routes to the Workouts tab — handled by the notification
+      // response listener in hooks/use-notification-setup.ts.
+      data: { url: "/(tabs)" },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: decision.secondsFromNow,
+    },
+  });
+}
+
+export async function cancelStreakRiskNotification(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(
+    IDENTIFIERS.STREAK_RISK,
   ).catch(() => {});
 }
 

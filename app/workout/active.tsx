@@ -23,7 +23,7 @@ import { syncToConvex } from '@/lib/convex-sync';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Exercise, IntervalSet, WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
-import { schedulePostWorkoutNotification, rescheduleReminderAfterWorkout, setActiveWorkoutVisible } from '@/lib/notifications';
+import { schedulePostWorkoutNotification, rescheduleReminderAfterWorkout, cancelStreakRiskNotification, setActiveWorkoutVisible } from '@/lib/notifications';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useTemplateStore } from '@/stores/template-store';
 
@@ -281,6 +281,9 @@ export default function ActiveWorkoutScreen() {
 
             // Cancel today's workout reminder (workout done)
             rescheduleReminderAfterWorkout();
+            // Logging a workout defuses tonight's streak-risk warning; the
+            // next foreground/arm pass reschedules it if still needed.
+            cancelStreakRiskNotification();
 
             capture({ name: 'workout_logged', props: {
               exerciseCount: log.exercises.length,
