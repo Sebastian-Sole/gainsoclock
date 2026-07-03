@@ -11,6 +11,7 @@ import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useSubscriptionStore } from "@/stores/subscription-store";
 import { usePlanStore } from "@/stores/plan-store";
 import { setConvexClient, syncToConvex } from "@/lib/convex-sync";
+import { initAchievementEngine } from "@/lib/achievement-engine";
 import { setAnalyticsConsent } from "@/lib/analytics";
 import type { ExerciseType } from "@/lib/types";
 import { useDataMigration } from "@/hooks/use-data-migration";
@@ -37,9 +38,15 @@ export function ConvexSyncProvider({
   const { isAuthenticated } = useConvexAuth();
   const convex = useConvex();
 
-  // Register the Convex client so stores can fire mutations
+  // Register the Convex client so stores can fire mutations, and start the
+  // event-driven achievement-unlock engine (replaces per-screen detection
+  // that used to run inside `useAchievements()` — see plan 038).
   useEffect(() => {
     setConvexClient(convex);
+    const disposeAchievementEngine = initAchievementEngine(convex);
+    return () => {
+      disposeAchievementEngine();
+    };
   }, [convex]);
 
   return (

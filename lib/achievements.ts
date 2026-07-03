@@ -1,6 +1,6 @@
 import { addDays, differenceInCalendarDays, getDay, startOfDay } from 'date-fns';
 
-import type { WorkoutLog } from './types';
+import type { NutritionGoals, PlanDay, WorkoutLog, WorkoutPlan } from './types';
 
 /** 1 lb in kg — weights are logged in the user's current unit. */
 const KG_PER_LB = 0.45359237;
@@ -664,4 +664,136 @@ export function computeMealDaySignals(
   }
 
   return { maxMealsInDay, macroGoalDays };
+}
+
+/**
+ * Max run of consecutive fully-adherent weeks in the active plan.
+ *
+ * A week is fully adherent when it has at least one day, every day is either
+ * 'completed' or 'rest', and at least one day is 'completed' (an all-rest
+ * week can't earn adherence). Weeks with any 'pending' or 'skipped' day —
+ * including the current in-progress week — break the run.
+ *
+ * Limitation: only the ACTIVE plan's days are available client-side, so
+ * adherence earned in past (completed) plans is not counted. Good enough for
+ * the "Locked In" unlock, which only needs a 4-week run within one plan.
+ */
+export function computeWeeksFullPlanAdherence(
+  plan: { durationWeeks: number; days: PlanDay[] } | null
+): number {
+  if (!plan || plan.days.length === 0) return 0;
+
+  const daysByWeek = new Map<number, PlanDay[]>();
+  for (const day of plan.days) {
+    const list = daysByWeek.get(day.week);
+    if (list) list.push(day);
+    else daysByWeek.set(day.week, [day]);
+  }
+
+  let maxRun = 0;
+  let run = 0;
+  for (let week = 1; week <= plan.durationWeeks; week++) {
+    const days = daysByWeek.get(week) ?? [];
+    const adherent =
+      days.length > 0 &&
+      days.every((d) => d.status === 'completed' || d.status === 'rest') &&
+      days.some((d) => d.status === 'completed');
+
+    run = adherent ? run + 1 : 0;
+    if (run > maxRun) maxRun = run;
+  }
+  return maxRun;
+}
+
+/** A single meal-log row's fields consumed by fact assembly (superset OK). */
+export interface MealLogFact {
+  date: string;
+  macros: { calories: number; protein: number; carbs: number; fat: number };
+}
+
+/** A single `getHealthSummary` daily-metric row's fields consumed by fact assembly. */
+export interface HealthDailyMetricFact {
+  date: string;
+  asleepSeconds?: number;
+  steps?: number;
+  bodyMassKg?: number;
+}
+
+/** The active plan, with its days, as needed for adherence tracking. */
+export interface ActivePlanFact extends Pick<WorkoutPlan, 'status' | 'durationWeeks'> {
+  days: PlanDay[];
+}
+
+/**
+ * Everything {@link assembleAchievementFacts} needs, pre-resolved by the
+ * caller (a hook or the standalone engine). Loading/missing data is
+ * represented as `[]`/`0`/`false` — never `undefined` — so the function
+ * itself never has to special-case "not loaded yet".
+ */
+export interface FactSources {
+  logs: WorkoutLog[];
+  totals: { totalWorkouts: number; totalWeightLifted: number };
+  streaks: { currentStreak: number; longestStreak: number };
+  weightUnit: 'kg' | 'lbs';
+  externalWorkoutCount: number;
+  meals: MealLogFact[];
+  nutritionGoals: NutritionGoals;
+  activePlan: ActivePlanFact | null;
+  allPlans: WorkoutPlan[];
+  recipesCount: number;
+  groceryItemsCount: number;
+  events: { chatMessageSent: boolean; chatMealLogged: boolean; aiMacrosGenerated: boolean };
+  healthDailyMetrics: HealthDailyMetricFact[];
+}
+
+/**
+ * Assembles {@link AchievementFacts} from pre-resolved fact sources. Pure —
+ * callers (currently `hooks/use-achievements.ts` and `lib/achievement-engine.ts`)
+ * are responsible for sourcing `FactSources` from stores/Convex and passing
+ * `[]`/`0` for anything still loading (false negatives only, never false
+ * unlocks — see field docs on `FactSources`).
+ */
+export function assembleAchievementFacts(src: FactSources): AchievementFacts {
+  const workout = computeWorkoutSignals(src.logs, src.weightUnit === 'lbs');
+  const mealDays = computeMealDaySignals(src.meals, src.nutritionGoals);
+
+  return {
+    totalWorkouts: src.totals.totalWorkouts,
+    totalVolumeKg:
+      src.weightUnit === 'lbs'
+        ? src.totals.totalWeightLifted * KG_PER_LB
+        : src.totals.totalWeightLifted,
+    totalPrCount: countWeightPrs(src.logs),
+    currentStreak: src.streaks.currentStreak,
+    longestStreak: src.streaks.longestStreak,
+    externalWorkoutCount: src.externalWorkoutCount,
+    mealsLoggedCount: src.meals.length,
+    weeksFullPlanAdherence: computeWeeksFullPlanAdherence(
+      src.activePlan && src.activePlan.status === 'active' ? src.activePlan : null
+    ),
+
+    // Plans
+    plansCreated: src.allPlans.length,
+    plansCompleted: src.allPlans.filter((p) => p.status === 'completed').length,
+    plansFromChat: src.allPlans.filter((p) => p.sourceConversationClientId).length,
+
+    // Nutrition
+    recipesCreated: src.recipesCount,
+    maxMealsInDay: mealDays.maxMealsInDay,
+    macroGoalDays: mealDays.macroGoalDays,
+    groceryItems: src.groceryItemsCount,
+
+    // AI coach / engagement
+    chatMessages: src.events.chatMessageSent ? 1 : 0,
+    chatMealsLogged: src.events.chatMealLogged ? 1 : 0,
+    aiMacrosGenerated: src.events.aiMacrosGenerated ? 1 : 0,
+
+    // Health import presence
+    sleepImported: src.healthDailyMetrics.some((d) => d.asleepSeconds !== undefined) ? 1 : 0,
+    stepsImported: src.healthDailyMetrics.some((d) => d.steps !== undefined) ? 1 : 0,
+    bodyweightLogged: src.healthDailyMetrics.some((d) => d.bodyMassKg !== undefined) ? 1 : 0,
+
+    // Quirky / single-session (from workout logs)
+    ...workout,
+  };
 }
