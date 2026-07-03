@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  assembleAchievementFacts,
   buildAchievementGroups,
   computeMealDaySignals,
+  computeWeeksFullPlanAdherence,
   computeWorkoutSignals,
+  countWeightPrs,
   migrateLegacyUnlocks,
   type AchievementFacts,
+  type FactSources,
 } from './achievements';
-import type { WorkoutLog, WorkoutLogExercise, WorkoutSet } from './types';
+import type { PlanDay, WorkoutLog, WorkoutLogExercise, WorkoutPlan, WorkoutSet } from './types';
 
 // --- workout fixtures (local-time ISO strings, no `Z`, so getHours() is stable) ---
 function rw(weight: number, reps: number): WorkoutSet {
@@ -79,6 +83,43 @@ function group(groups: ReturnType<typeof buildAchievementGroups>, key: string) {
   const g = groups.find((x) => x.key === key);
   if (!g) throw new Error(`no group ${key}`);
   return g;
+}
+
+function mkPlan(overrides: Partial<WorkoutPlan> = {}): WorkoutPlan {
+  return {
+    id: 'plan-1',
+    name: 'Plan',
+    description: '',
+    durationWeeks: 4,
+    startDate: '2026-01-01',
+    status: 'active',
+    createdAt: TS,
+    updatedAt: TS,
+    ...overrides,
+  };
+}
+
+function mkDay(week: number, dayOfWeek: number, status: PlanDay['status']): PlanDay {
+  return { planClientId: 'plan-1', week, dayOfWeek, status };
+}
+
+/** All-zeroed FactSources — every array/count field empty or 0. */
+function zeroedSources(): FactSources {
+  return {
+    logs: [],
+    totals: { totalWorkouts: 0, totalWeightLifted: 0 },
+    streaks: { currentStreak: 0, longestStreak: 0 },
+    weightUnit: 'kg',
+    externalWorkoutCount: 0,
+    meals: [],
+    nutritionGoals: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    activePlan: null,
+    allPlans: [],
+    recipesCount: 0,
+    groceryItemsCount: 0,
+    events: { chatMessageSent: false, chatMealLogged: false, aiMacrosGenerated: false },
+    healthDailyMetrics: [],
+  };
 }
 
 describe('migrateLegacyUnlocks', () => {
@@ -301,6 +342,78 @@ describe('computeWorkoutSignals', () => {
   });
 });
 
+// Characterization tests for the client's all-time PR count. These pin
+// CURRENT behavior — see the divergence note on countWeightPrs's doc
+// comment for why this differs from convex/weeklyReview.ts's bounded window.
+describe('countWeightPrs', () => {
+  it('returns 0 for no logs', () => {
+    expect(countWeightPrs([])).toBe(0);
+  });
+
+  it('does not count the first session for an exercise as a PR (baseline)', () => {
+    const logs = [mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)])])];
+    expect(countWeightPrs(logs)).toBe(0);
+  });
+
+  it('counts a strictly heavier session as a PR; an equal-weight session is not a PR', () => {
+    const logs = [
+      mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)])]), // baseline
+      mkLog('2026-01-08T10:00:00', [ex('bench', [rw(110, 5)])]), // PR
+      mkLog('2026-01-15T10:00:00', [ex('bench', [rw(110, 5)])]), // equal, not a PR (strict >)
+    ];
+    expect(countWeightPrs(logs)).toBe(1);
+  });
+
+  it('counts only one PR per session even with multiple improving sets', () => {
+    const logs = [
+      mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)])]), // baseline
+      mkLog('2026-01-08T10:00:00', [
+        ex('bench', [rw(110, 5), rw(120, 3)]), // both beat the baseline; session best is 120
+      ]),
+    ];
+    expect(countWeightPrs(logs)).toBe(1);
+  });
+
+  it('ignores uncompleted sets and non-reps_weight sets', () => {
+    const logs = [
+      mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)])]), // baseline
+      mkLog('2026-01-08T10:00:00', [
+        ex('bench', [
+          { id: 's', type: 'reps_weight', completed: false, weight: 200, reps: 5 }, // uncompleted, ignored
+          { id: 's', type: 'reps_only', completed: true, reps: 20 }, // wrong type, ignored
+        ]),
+      ]),
+    ];
+    expect(countWeightPrs(logs)).toBe(0);
+  });
+
+  it('tracks two exercises independently, one PR each', () => {
+    const logs = [
+      mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)]), ex('squat', [rw(150, 5)])]),
+      mkLog('2026-01-08T10:00:00', [ex('bench', [rw(110, 5)]), ex('squat', [rw(160, 5)])]),
+    ];
+    expect(countWeightPrs(logs)).toBe(2);
+  });
+
+  it('sorts logs by startedAt regardless of input order', () => {
+    const logs = [
+      mkLog('2026-01-08T10:00:00', [ex('bench', [rw(110, 5)])]), // later session, given first
+      mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)])]), // earlier session (baseline), given second
+    ];
+    expect(countWeightPrs(logs)).toBe(1);
+  });
+
+  it('does not reset the baseline on a lighter (regression) session', () => {
+    const logs = [
+      mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)])]), // baseline
+      mkLog('2026-01-08T10:00:00', [ex('bench', [rw(80, 5)])]), // regression, not a PR
+      mkLog('2026-01-15T10:00:00', [ex('bench', [rw(100, 5)])]), // ties original best, not a PR
+      mkLog('2026-01-22T10:00:00', [ex('bench', [rw(105, 5)])]), // PR vs 100
+    ];
+    expect(countWeightPrs(logs)).toBe(1);
+  });
+});
+
 describe('computeMealDaySignals', () => {
   const goals = { calories: 2000, protein: 150, carbs: 200, fat: 60 };
 
@@ -323,5 +436,137 @@ describe('computeMealDaySignals', () => {
     );
     expect(r.macroGoalDays).toBe(0);
     expect(r.maxMealsInDay).toBe(1);
+  });
+});
+
+describe('computeWeeksFullPlanAdherence', () => {
+  it('counts a fully-adherent run across every week', () => {
+    const plan = {
+      durationWeeks: 4,
+      days: [
+        mkDay(1, 1, 'completed'),
+        mkDay(1, 3, 'rest'),
+        mkDay(2, 1, 'completed'),
+        mkDay(2, 3, 'completed'),
+        mkDay(3, 1, 'rest'),
+        mkDay(3, 3, 'completed'),
+        mkDay(4, 1, 'completed'),
+        mkDay(4, 3, 'rest'),
+      ],
+    };
+    expect(computeWeeksFullPlanAdherence(plan)).toBe(4);
+  });
+
+  it('breaks the run at a week with a pending or skipped day', () => {
+    const plan = {
+      durationWeeks: 4,
+      days: [
+        mkDay(1, 1, 'completed'),
+        mkDay(2, 1, 'completed'),
+        mkDay(3, 1, 'pending'), // breaks the run
+        mkDay(4, 1, 'completed'),
+      ],
+    };
+    // Weeks 1-2 form a 2-week adherent run; week 3 (pending) resets it, and
+    // week 4 alone only reaches a run of 1 — so the max run is 2.
+    expect(computeWeeksFullPlanAdherence(plan)).toBe(2);
+  });
+
+  it('does not count an all-rest week as adherent', () => {
+    const plan = {
+      durationWeeks: 2,
+      days: [mkDay(1, 1, 'rest'), mkDay(1, 3, 'rest'), mkDay(2, 1, 'completed')],
+    };
+    // Week 1 has no completed day → not adherent → run resets before week 2.
+    expect(computeWeeksFullPlanAdherence(plan)).toBe(1);
+  });
+
+  it('returns 0 for a null plan or a plan with no days', () => {
+    expect(computeWeeksFullPlanAdherence(null)).toBe(0);
+    expect(computeWeeksFullPlanAdherence({ durationWeeks: 4, days: [] })).toBe(0);
+  });
+});
+
+describe('assembleAchievementFacts', () => {
+  it('zeroed sources produce zeroed facts (loading contract)', () => {
+    expect(assembleAchievementFacts(zeroedSources())).toEqual(facts());
+  });
+
+  it('spot-checks totalPrCount, mealsLoggedCount, plansCompleted, and kg conversion', () => {
+    const logs: WorkoutLog[] = [
+      mkLog('2026-01-01T10:00:00', [ex('bench', [rw(100, 5)])]),
+      mkLog('2026-01-08T10:00:00', [ex('bench', [rw(120, 5)])]), // PR: 120 > 100
+    ];
+    const meals = [
+      { date: '2026-03-10', macros: { calories: 800, protein: 60, carbs: 80, fat: 25 } },
+      { date: '2026-03-11', macros: { calories: 800, protein: 60, carbs: 80, fat: 25 } },
+      { date: '2026-03-12', macros: { calories: 800, protein: 60, carbs: 80, fat: 25 } },
+    ];
+    const allPlans = [
+      mkPlan({ id: 'p1', status: 'completed' }),
+      mkPlan({ id: 'p2', status: 'active' }),
+      mkPlan({ id: 'p3', status: 'completed', sourceConversationClientId: 'c1' }),
+    ];
+
+    const result = assembleAchievementFacts({
+      ...zeroedSources(),
+      logs,
+      totals: { totalWorkouts: 2, totalWeightLifted: 1000 },
+      weightUnit: 'lbs',
+      meals,
+      allPlans,
+    });
+
+    expect(result.totalPrCount).toBe(1);
+    expect(result.mealsLoggedCount).toBe(3);
+    expect(result.plansCompleted).toBe(2);
+    expect(result.plansFromChat).toBe(1);
+    // 1000 lbs → kg conversion (1 lb = 0.45359237 kg).
+    expect(result.totalVolumeKg).toBeCloseTo(453.59237, 4);
+  });
+
+  it('does not convert totalVolumeKg when the unit is already kg', () => {
+    const result = assembleAchievementFacts({
+      ...zeroedSources(),
+      totals: { totalWorkouts: 1, totalWeightLifted: 1000 },
+      weightUnit: 'kg',
+    });
+    expect(result.totalVolumeKg).toBe(1000);
+  });
+
+  it('feeds an active plan into weeksFullPlanAdherence but ignores a paused/completed one', () => {
+    const days: PlanDay[] = [mkDay(1, 1, 'completed'), mkDay(2, 1, 'completed')];
+
+    const active = assembleAchievementFacts({
+      ...zeroedSources(),
+      activePlan: { status: 'active', durationWeeks: 2, days },
+    });
+    expect(active.weeksFullPlanAdherence).toBe(2);
+
+    const paused = assembleAchievementFacts({
+      ...zeroedSources(),
+      activePlan: { status: 'paused', durationWeeks: 2, days },
+    });
+    expect(paused.weeksFullPlanAdherence).toBe(0);
+  });
+
+  it('derives health-import flags from healthDailyMetrics presence', () => {
+    const result = assembleAchievementFacts({
+      ...zeroedSources(),
+      healthDailyMetrics: [{ date: '2026-01-01', asleepSeconds: 1000, steps: 500 }],
+    });
+    expect(result.sleepImported).toBe(1);
+    expect(result.stepsImported).toBe(1);
+    expect(result.bodyweightLogged).toBe(0);
+  });
+
+  it('maps engagement events to 0/1 flags', () => {
+    const result = assembleAchievementFacts({
+      ...zeroedSources(),
+      events: { chatMessageSent: true, chatMealLogged: false, aiMacrosGenerated: true },
+    });
+    expect(result.chatMessages).toBe(1);
+    expect(result.chatMealsLogged).toBe(0);
+    expect(result.aiMacrosGenerated).toBe(1);
   });
 });

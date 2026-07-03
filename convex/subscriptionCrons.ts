@@ -30,10 +30,17 @@ export const sendTrialReminders = internalMutation({
     const nowMs = Date.now();
     const lowerMs = nowMs + REMINDER_WINDOW_LOWER_MS;
     const upperMs = nowMs + REMINDER_WINDOW_UPPER_MS;
+    const lowerIso = new Date(lowerMs).toISOString();
+    const upperIso = new Date(upperMs).toISOString();
 
     const trials = await ctx.db
       .query("userSubscriptions")
-      .withIndex("by_status", (q) => q.eq("status", "trial"))
+      .withIndex("by_status_trialExpiresAt", (q) =>
+        q
+          .eq("status", "trial")
+          .gte("trialExpiresAt", lowerIso)
+          .lte("trialExpiresAt", upperIso)
+      )
       .collect();
 
     let sent = 0;
@@ -87,9 +94,15 @@ export const sendDcsa6Month = internalMutation({
   args: {},
   handler: async (ctx) => {
     const nowMs = Date.now();
+    const cutoffIso = new Date(nowMs - DCSA_INTERVAL_MS).toISOString();
     const proRows = await ctx.db
       .query("userSubscriptions")
-      .withIndex("by_status", (q) => q.eq("status", "pro"))
+      .withIndex("by_status_notificationAnchorAt", (q) =>
+        q
+          .eq("status", "pro")
+          .gt("notificationAnchorAt", "")
+          .lte("notificationAnchorAt", cutoffIso)
+      )
       .collect();
 
     let sent = 0;
@@ -242,12 +255,13 @@ export const demoteExpiredTempGrants = internalMutation({
     const nowIso = isoNow();
     const proRows = await ctx.db
       .query("userSubscriptions")
-      .withIndex("by_status", (q) => q.eq("status", "pro"))
+      .withIndex("by_status_source", (q) =>
+        q.eq("status", "pro").eq("source", "rc_temp")
+      )
       .collect();
 
     let demoted = 0;
     for (const row of proRows) {
-      if (row.source !== "rc_temp") continue;
       if (!row.expiresAt) continue;
       const expMs = Date.parse(row.expiresAt);
       if (!Number.isFinite(expMs) || expMs > nowMs) continue;

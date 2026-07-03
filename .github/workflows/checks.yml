@@ -39,3 +39,9 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Maestro flow-id tripwire
+        run: node scripts/check-maestro-ids.mjs

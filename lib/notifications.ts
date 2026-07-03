@@ -1,5 +1,10 @@
 import { formatDuration } from "@/lib/format";
-import { decideStreakRisk } from "@/lib/notification-rules";
+import {
+  clampReviewWeekday,
+  decideProteinNudge,
+  decideStreakRisk,
+  planDailyReminder,
+} from "@/lib/notification-rules";
 import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import * as Notifications from "expo-notifications";
@@ -186,13 +191,8 @@ export async function scheduleDailyWorkoutReminder(
   // trigger. The next app launch (or settings change) re-arms DAILY.
   const { lastWorkoutLoggedDate } = useSettingsStore.getState();
   const now = new Date();
-  const todayStr = format(now, "yyyy-MM-dd");
-  const reminderToday = new Date(now);
-  reminderToday.setHours(hour, minute, 0, 0);
-  if (lastWorkoutLoggedDate === todayStr && now < reminderToday) {
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(hour, minute, 0, 0);
+  const plan = planDailyReminder({ now, hour, minute, lastWorkoutLoggedDate });
+  if (plan.kind === "one-shot-tomorrow") {
     await Notifications.scheduleNotificationAsync({
       identifier: IDENTIFIERS.DAILY_REMINDER,
       content: {
@@ -202,7 +202,7 @@ export async function scheduleDailyWorkoutReminder(
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: Math.max(1, Math.floor((tomorrow.getTime() - now.getTime()) / 1000)),
+        seconds: plan.seconds,
       },
     });
     return;
@@ -327,9 +327,7 @@ export async function scheduleWeeklyReviewNotification(
   if (!notificationsWeeklyReviewEnabled) return;
 
   // Guard persisted state drift: expo-notifications requires weekday 1-7.
-  const day = Number.isInteger(params.day)
-    ? Math.min(6, Math.max(0, params.day))
-    : 0;
+  const day = clampReviewWeekday(params.day);
 
   if (!(await ensureGranted())) return;
 
@@ -388,40 +386,35 @@ export async function recomputeProteinNudge(
     target.setHours(hour, minute, 0, 0);
   }
 
-  const remaining = Math.round(proteinGoal - proteinConsumedToday);
-
-  const shouldSkip =
-    !notificationsProteinNudgeEnabled ||
-    !Number.isFinite(hour) ||
-    !Number.isFinite(minute) ||
-    proteinGoal <= 0 ||
-    remaining <= 0 ||
-    target.getTime() <= now.getTime();
+  const decision = decideProteinNudge({
+    now,
+    target,
+    enabled: notificationsProteinNudgeEnabled,
+    hour,
+    minute,
+    proteinGoal,
+    proteinConsumedToday,
+  });
 
   // Cancel first, before the skip/permission checks, so a previously
   // scheduled nudge never outlives the conditions that scheduled it
   // (stale copy/time after permission revocation or setting changes).
   await cancelProteinNudgeNotification();
 
-  if (shouldSkip) return;
+  if (decision.kind === "skip") return;
 
   if (!(await ensureGranted())) return;
-
-  const secondsUntil = Math.max(
-    1,
-    Math.floor((target.getTime() - now.getTime()) / 1000),
-  );
 
   await Notifications.scheduleNotificationAsync({
     identifier: IDENTIFIERS.PROTEIN_NUDGE,
     content: {
       title: "Protein check-in 🥛",
-      body: `You're ${remaining}g short of your protein goal — a shake or Greek yogurt closes the gap.`,
+      body: `You're ${decision.remaining}g short of your protein goal — a shake or Greek yogurt closes the gap.`,
       sound: "default",
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: secondsUntil,
+      seconds: decision.secondsUntil,
     },
   });
 }

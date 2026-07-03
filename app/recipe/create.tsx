@@ -53,6 +53,13 @@ export default function CreateRecipeScreen() {
   const [cookTime, setCookTime] = useState('');
   const [tags, setTags] = useState('');
 
+  // Raw text for macro fields while they're being edited, keyed by
+  // `${ingredientKey}:${field}`. Macros are stored as numbers, which can't
+  // represent "empty", so without this a cleared field snaps back to "0" and
+  // can't be cleared. While editing we show this text (which may be empty); on
+  // blur we drop it and fall back to the stored number.
+  const [macroText, setMacroText] = useState<Record<string, string>>({});
+
   // Pre-populate when editing
   useEffect(() => {
     if (existingRecipe) {
@@ -158,7 +165,11 @@ export default function CreateRecipeScreen() {
     );
   };
 
-  const updateIngredientMacros = (index: number, field: keyof Macros, value: string) => {
+  const macroFieldKey = (ingKey: string, field: keyof Macros) => `${ingKey}:${field}`;
+
+  const handleMacroChange = (index: number, field: keyof Macros, value: string) => {
+    const key = macroFieldKey(ingredients[index].key, field);
+    setMacroText((prev) => ({ ...prev, [key]: value }));
     setIngredients((prev) =>
       prev.map((ing, i) => {
         if (i !== index) return ing;
@@ -170,6 +181,21 @@ export default function CreateRecipeScreen() {
       })
     );
   };
+
+  // On blur, drop the raw text so the field falls back to the stored number
+  // (an empty field shows "0" — the value it was coerced to while editing).
+  const handleMacroBlur = (index: number, field: keyof Macros) => {
+    const key = macroFieldKey(ingredients[index].key, field);
+    setMacroText((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const macroFieldValue = (ing: IngredientDraft, field: keyof Macros) =>
+    macroText[macroFieldKey(ing.key, field)] ?? (ing.macros?.[field]?.toString() ?? '');
 
   const removeIngredient = (index: number) => {
     lightHaptic();
@@ -351,8 +377,9 @@ export default function CreateRecipeScreen() {
                       <View className="flex-1">
                         <Text className="text-[10px] text-muted-foreground mb-1">Cal</Text>
                         <TextInput
-                          value={ing.macros?.calories?.toString() ?? ''}
-                          onChangeText={(v) => updateIngredientMacros(index, 'calories', v)}
+                          value={macroFieldValue(ing, 'calories')}
+                          onChangeText={(v) => handleMacroChange(index, 'calories', v)}
+                          onBlur={() => handleMacroBlur(index, 'calories')}
                           placeholder="0"
                           placeholderTextColor="#9ca3af"
                           keyboardType="numeric"
@@ -362,8 +389,9 @@ export default function CreateRecipeScreen() {
                       <View className="flex-1">
                         <Text className="text-[10px] text-muted-foreground mb-1">Protein</Text>
                         <TextInput
-                          value={ing.macros?.protein?.toString() ?? ''}
-                          onChangeText={(v) => updateIngredientMacros(index, 'protein', v)}
+                          value={macroFieldValue(ing, 'protein')}
+                          onChangeText={(v) => handleMacroChange(index, 'protein', v)}
+                          onBlur={() => handleMacroBlur(index, 'protein')}
                           placeholder="0"
                           placeholderTextColor="#9ca3af"
                           keyboardType="numeric"
@@ -373,8 +401,9 @@ export default function CreateRecipeScreen() {
                       <View className="flex-1">
                         <Text className="text-[10px] text-muted-foreground mb-1">Carbs</Text>
                         <TextInput
-                          value={ing.macros?.carbs?.toString() ?? ''}
-                          onChangeText={(v) => updateIngredientMacros(index, 'carbs', v)}
+                          value={macroFieldValue(ing, 'carbs')}
+                          onChangeText={(v) => handleMacroChange(index, 'carbs', v)}
+                          onBlur={() => handleMacroBlur(index, 'carbs')}
                           placeholder="0"
                           placeholderTextColor="#9ca3af"
                           keyboardType="numeric"
@@ -384,8 +413,9 @@ export default function CreateRecipeScreen() {
                       <View className="flex-1">
                         <Text className="text-[10px] text-muted-foreground mb-1">Fat</Text>
                         <TextInput
-                          value={ing.macros?.fat?.toString() ?? ''}
-                          onChangeText={(v) => updateIngredientMacros(index, 'fat', v)}
+                          value={macroFieldValue(ing, 'fat')}
+                          onChangeText={(v) => handleMacroChange(index, 'fat', v)}
+                          onBlur={() => handleMacroBlur(index, 'fat')}
                           placeholder="0"
                           placeholderTextColor="#9ca3af"
                           keyboardType="numeric"

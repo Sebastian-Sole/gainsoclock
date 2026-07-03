@@ -7,9 +7,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { useAchievements } from '@/hooks/use-achievements';
 import { useReduceMotion } from '@/hooks/use-reduce-motion';
 import { successHaptic, warningHaptic } from '@/lib/haptics';
+import { useUnlockToastStore } from '@/stores/unlock-toast-store';
 
 const TOAST_DURATION_MS = 3500;
 
@@ -43,16 +43,18 @@ export function showToast(message: string) {
 }
 
 /**
- * Global, non-blocking toast banner. Watches `useAchievements().newlyUnlocked`
- * and shows a "🏆 Achievement unlocked" banner for each new unlock, ~3.5s
- * apiece, queued sequentially. Also drains the imperative {@link showToast}
- * queue. Mounted once at the root so it overlays the tab navigator.
+ * Global, non-blocking toast banner. Watches the session-scoped unlock feed
+ * in `stores/unlock-toast-store.ts` (populated by the standalone
+ * `lib/achievement-engine.ts`, not by a hook mounted here) and shows a
+ * "🏆 Achievement unlocked" banner for each new unlock, ~3.5s apiece, queued
+ * sequentially. Also drains the imperative {@link showToast} queue. Mounted
+ * once at the root so it overlays the tab navigator.
  *
  * Known limitation: like everything in the root JS hierarchy (including the
  * PortalHost), it cannot overlay natively-presented modals on iOS.
  */
 export function UnlockToastHost() {
-  const { newlyUnlocked } = useAchievements();
+  const feed = useUnlockToastStore((s) => s.feed);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
@@ -61,7 +63,7 @@ export function UnlockToastHost() {
 
   // Enqueue achievement unlocks once per key per session.
   useEffect(() => {
-    const fresh = newlyUnlocked.filter((def) => !enqueuedKeysRef.current.has(def.key));
+    const fresh = feed.filter((def) => !enqueuedKeysRef.current.has(def.key));
     if (fresh.length === 0) return;
     for (const def of fresh) enqueuedKeysRef.current.add(def.key);
     setQueue((q) => [
@@ -75,7 +77,7 @@ export function UnlockToastHost() {
         })
       ),
     ]);
-  }, [newlyUnlocked]);
+  }, [feed]);
 
   // Drain the imperative showToast() channel.
   useEffect(() => {

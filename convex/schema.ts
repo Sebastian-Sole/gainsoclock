@@ -163,7 +163,8 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_status_trialExpiresAt", ["status", "trialExpiresAt"])
     .index("by_status_lastVerifiedAt", ["status", "lastVerifiedAt"])
-    .index("by_status_notificationAnchorAt", ["status", "notificationAnchorAt"]),
+    .index("by_status_notificationAnchorAt", ["status", "notificationAnchorAt"])
+    .index("by_status_source", ["status", "source"]),
 
   // Onboarding V2: structured user profile
   userProfile: defineTable({

@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Keyboard,
   Pressable,
   TextInput,
@@ -80,6 +81,13 @@ export function LinkAppleSheet({
     }
     setError("");
     setIsLoading(true);
+    // Tracks which of the two awaited steps we're past — the password
+    // sign-in flips the app's auth state, which typically triggers the
+    // auth-group redirect (see hooks/use-auth-guard.ts) and unmounts this
+    // sheet before `linkApple` settles. If `linkApple` then fails, `setError`
+    // silently no-ops on the unmounted sheet, so a failure here needs an
+    // imperative surface that survives that unmount.
+    let passwordSignInSucceeded = false;
     try {
       // 1. Prove ownership of the existing account.
       await signIn("password", {
@@ -87,12 +95,27 @@ export function LinkAppleSheet({
         password,
         flow: "signIn",
       });
+      passwordSignInSucceeded = true;
       // 2. Attach the verified Apple identity to it (server re-verifies the
       //    token and enforces the anti-hijack rule).
       await linkApple({ idToken: identityToken });
       onLinked();
     } catch (err) {
-      setError(getLinkErrorMessage(err));
+      const message = getLinkErrorMessage(err);
+      setError(message); // no-op if unmounted; correct if still mounted
+      if (passwordSignInSucceeded) {
+        // The failure happened AFTER the password sign-in succeeded: the
+        // user IS signed in, but Apple was NOT linked, and this sheet may
+        // already be gone. Log for operators and alert imperatively — Alert
+        // is presented at the OS level and survives the navigator swap.
+        console.warn(
+          `[link-apple] linking failed after password sign-in: ${message}`
+        );
+        Alert.alert(
+          "Apple ID not linked",
+          `${message}\n\nYou are signed in, but Apple Sign-In was not connected. You can link it later from Settings → Connect Apple.`
+        );
+      }
     } finally {
       setIsLoading(false);
     }

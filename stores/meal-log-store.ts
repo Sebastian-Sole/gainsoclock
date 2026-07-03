@@ -4,6 +4,7 @@ import { zustandStorage } from '@/lib/storage';
 import { generateId } from '@/lib/id';
 import { capture } from '@/lib/analytics';
 import { syncToConvex, getPendingClientIds, isQueueLoaded } from '@/lib/convex-sync';
+import { mergeQueueAware } from '@/lib/hydration-merge';
 import { recomputeProteinNudge } from '@/lib/notifications';
 import { api } from '@/convex/_generated/api';
 import { format } from 'date-fns';
@@ -107,47 +108,38 @@ export const useMealLogStore = create<MealLogState>()(
       },
 
       hydrateFromServer: (meals, date) => {
-        const localMeals = get().todayMeals;
-        const localById = new Map(localMeals.map((m) => [m.id, m]));
-
-        const pending = getPendingClientIds();
-        const queueKnown = isQueueLoaded();
-
-        const merged: MealLog[] = [];
-        const seenIds = new Set<string>();
+        // Same-day guard runs BEFORE the merge (not inside `dropLocalOnly`):
+        // other-day meals are stale leftovers that must be dropped even while
+        // pending (e.g. a midnight rollover with an unflushed create), and
+        // `dropLocalOnly` can't override the merge's "pending → keep" rule.
+        // Meal dates are immutable (no updateMeal action), so a local id can
+        // only ever match a same-date server item — pre-filtering is safe.
+        const sameDayLocal = get().todayMeals.filter((m) => m.date === date);
 
         // Queue-aware server-wins for the queried date: keep local only while
         // it has writes in flight (or the queue isn't loaded); otherwise the
-        // server copy wins so cross-device edits land.
-        for (const sm of meals) {
-          seenIds.add(sm.clientId);
-          const local = localById.get(sm.clientId);
-          if (local && (pending.has(local.id) || !queueKnown)) {
-            merged.push(local);
-          } else {
-            // Server-only or server-wins: map to local shape.
-            merged.push({
-              id: sm.clientId,
-              date: sm.date,
-              recipeClientId: sm.recipeClientId,
-              title: sm.title,
-              portionMultiplier: sm.portionMultiplier,
-              macros: sm.macros,
-              notes: sm.notes,
-              loggedAt: sm.loggedAt,
-            });
-          }
-        }
-
-        // Local-only meals for the SAME day: keep an unsynced create, otherwise
-        // drop it (the server authoritatively covered this date → deletion).
-        // Other-day meals are stale leftovers — drop them via the date guard.
-        for (const m of localMeals) {
-          if (seenIds.has(m.id) || m.date !== date) continue;
-          if (pending.has(m.id) || !queueKnown) {
-            merged.push(m);
-          }
-        }
+        // server copy wins so cross-device edits land. Local-only meals: keep
+        // an unsynced create, otherwise drop it (the server authoritatively
+        // covered this date → deletion).
+        const merged = mergeQueueAware<MealLog, (typeof meals)[number]>({
+          local: sameDayLocal,
+          server: meals,
+          localId: (m) => m.id,
+          serverId: (sm) => sm.clientId,
+          toLocal: (sm) => ({
+            id: sm.clientId,
+            date: sm.date,
+            recipeClientId: sm.recipeClientId,
+            title: sm.title,
+            portionMultiplier: sm.portionMultiplier,
+            macros: sm.macros,
+            notes: sm.notes,
+            loggedAt: sm.loggedAt,
+          }),
+          pending: getPendingClientIds(),
+          queueKnown: isQueueLoaded(),
+          dropLocalOnly: () => true,
+        });
 
         set({ todayMeals: merged, mealsDate: date });
         recomputeProteinNudgeFromStore();

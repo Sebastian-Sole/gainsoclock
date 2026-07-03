@@ -7,6 +7,8 @@ on:
       - "components/onboarding/**"
       - "components/paywall/**"
       - "components/home/**"
+      - "app/workout/**"
+      - "components/workout/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/react-compiler-healthcheck.yml"
@@ -42,4 +44,6 @@ jobs:
             --src "components/onboarding/**/*.{ts,tsx}" \
             --src "components/paywall/**/*.{ts,tsx}" \
             --src "components/home/**/*.{ts,tsx}" \
+            --src "app/workout/**/*.{ts,tsx}" \
+            --src "components/workout/**/*.{ts,tsx}" \
             --verbose
