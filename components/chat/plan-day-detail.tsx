@@ -5,7 +5,6 @@ import { X, Play, Dumbbell, Check, Pencil, ChevronRight, Moon, ArrowRightLeft, T
 import { Icon } from '@/components/ui/icon';
 import { useColorScheme } from 'nativewind';
 import { useRouter } from 'expo-router';
-import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Colors } from '@/constants/theme';
 import { useTemplateStore } from '@/stores/template-store';
@@ -13,6 +12,7 @@ import { TemplatePicker } from '@/components/plan/template-picker';
 import { cn } from '@/lib/utils';
 import { isPast } from '@/lib/plan-dates';
 import { lightHaptic } from '@/lib/haptics';
+import { syncToConvex } from '@/lib/convex-sync';
 
 interface PlanDayDetailProps {
   visible: boolean;
@@ -54,8 +54,6 @@ export function PlanDayDetail({
     templateClientId ? s.getTemplate(templateClientId) : undefined
   );
 
-  const updatePlanDay = useMutation(api.plans.updatePlanDay);
-
   const [isEditing, setIsEditing] = useState(false);
   const [editLabel, setEditLabel] = useState(label ?? '');
   const [editNotes, setEditNotes] = useState(notes ?? '');
@@ -90,7 +88,7 @@ export function PlanDayDetail({
     }
   }, [visible]);
 
-  const handleSaveDay = async () => {
+  const handleSaveDay = () => {
     const args: {
       planClientId: string;
       week: number;
@@ -133,7 +131,7 @@ export function PlanDayDetail({
       args.notes = trimmedNotes;
     }
 
-    await updatePlanDay(args);
+    syncToConvex(api.plans.updatePlanDay, args);
     lightHaptic();
     setIsEditing(false);
   };
@@ -165,8 +163,8 @@ export function PlanDayDetail({
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: async () => {
-            await updatePlanDay({
+          onPress: () => {
+            syncToConvex(api.plans.updatePlanDay, {
               planClientId,
               week,
               dayOfWeek,

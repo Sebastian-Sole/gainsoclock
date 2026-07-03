@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Icon } from '@/components/ui/icon';
 import { ChevronLeft, Trash2, Pause, Play, Pencil, Plus, Minus, ArrowRightLeft, Check } from 'lucide-react-native';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useWorkoutStore } from '@/stores/workout-store';
 import { useTemplateStore } from '@/stores/template-store';
@@ -16,17 +16,12 @@ import { PlanDayDetail } from '@/components/chat/plan-day-detail';
 import { cn } from '@/lib/utils';
 import { getPlanDayDate, isToday, formatPlanDate } from '@/lib/plan-dates';
 import { lightHaptic, mediumHaptic, heavyHaptic } from '@/lib/haptics';
+import { syncToConvex } from '@/lib/convex-sync';
 
 export default function PlanDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const planData = useQuery(api.plans.getPlanWithDays, { clientId: id });
-  const deletePlan = useMutation(api.plans.deletePlan);
-  const updatePlanStatus = useMutation(api.plans.updatePlanStatus);
-  const updatePlanName = useMutation(api.plans.updatePlanName);
-  const swapPlanDaysMut = useMutation(api.plans.swapPlanDays);
-  const addPlanWeek = useMutation(api.plans.addPlanWeek);
-  const removePlanWeek = useMutation(api.plans.removePlanWeek);
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
   const getTemplate = useTemplateStore((s) => s.getTemplate);
   const deleteTemplateLocal = useTemplateStore((s) => s.deleteTemplate);
@@ -58,11 +53,11 @@ export default function PlanDetailScreen() {
   const handleSaveName = useCallback(() => {
     const trimmed = editName.trim();
     if (trimmed && trimmed !== planData?.name) {
-      updatePlanName({ clientId: id, name: trimmed });
+      syncToConvex(api.plans.updatePlanName, { clientId: id, name: trimmed });
       lightHaptic();
     }
     setIsEditingName(false);
-  }, [editName, planData?.name, id, updatePlanName]);
+  }, [editName, planData?.name, id]);
 
   const handleDayPress = useCallback((week: number, dayOfWeek: number) => {
     if (swapMode && !swapSource) {
@@ -75,7 +70,7 @@ export default function PlanDetailScreen() {
         setSwapSource(null);
         return;
       }
-      swapPlanDaysMut({
+      syncToConvex(api.plans.swapPlanDays, {
         planClientId: id,
         dayA: swapSource,
         dayB: { week, dayOfWeek },
@@ -85,7 +80,7 @@ export default function PlanDetailScreen() {
     } else {
       setSelectedDay({ week, dayOfWeek });
     }
-  }, [swapMode, swapSource, id, swapPlanDaysMut]);
+  }, [swapMode, swapSource, id]);
 
   const handleDayLongPress = useCallback((week: number, dayOfWeek: number) => {
     heavyHaptic();
@@ -149,9 +144,9 @@ export default function PlanDetailScreen() {
 
     const hasTemplates = templateNames.length > 0;
 
-    const doDelete = async (alsoDeleteTemplates: boolean) => {
+    const doDelete = (alsoDeleteTemplates: boolean) => {
       removePlanLocal(id);
-      await deletePlan({ clientId: id });
+      syncToConvex(api.plans.deletePlan, { clientId: id });
       if (alsoDeleteTemplates) {
         for (const tid of templateIds) {
           deleteTemplateLocal(tid);
@@ -198,11 +193,11 @@ export default function PlanDetailScreen() {
   const handleToggleStatus = () => {
     if (!planData) return;
     const newStatus = planData.status === 'active' ? 'paused' : 'active';
-    updatePlanStatus({ clientId: id, status: newStatus });
+    syncToConvex(api.plans.updatePlanStatus, { clientId: id, status: newStatus });
   };
 
   const handleAddWeek = () => {
-    addPlanWeek({ clientId: id });
+    syncToConvex(api.plans.addPlanWeek, { clientId: id });
     lightHaptic();
   };
 
@@ -223,14 +218,14 @@ export default function PlanDetailScreen() {
           text: hasCompleted ? 'Remove Anyway' : 'Remove',
           style: 'destructive',
           onPress: () => {
-            removePlanWeek({ clientId: id, week: targetWeek });
+            syncToConvex(api.plans.removePlanWeek, { clientId: id, week: targetWeek });
             setDeleteWeekMode(false);
             lightHaptic();
           },
         },
       ]
     );
-  }, [planData, id, removePlanWeek]);
+  }, [planData, id]);
 
   if (!planData) {
     return (

@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
 import { generateId } from '@/lib/id';
 import { syncToConvex, getPendingClientIds, isQueueLoaded } from '@/lib/convex-sync';
+import { mergeQueueAware } from '@/lib/hydration-merge';
 import { api } from '@/convex/_generated/api';
 import type { WorkoutTemplate, TemplateExercise } from '@/lib/types';
 
@@ -143,10 +144,6 @@ export const useTemplateStore = create<TemplateState>()(
 
       hydrateFromServer: (serverTemplates) => {
         const localTemplates = get().templates;
-        const localById = new Map(localTemplates.map((t) => [t.id, t]));
-
-        const pending = getPendingClientIds();
-        const queueKnown = isQueueLoaded();
 
         const toLocal = (st: (typeof serverTemplates)[number]): WorkoutTemplate => ({
           id: st.clientId,
@@ -169,32 +166,22 @@ export const useTemplateStore = create<TemplateState>()(
           updatedAt: st.updatedAt,
         });
 
-        const merged: WorkoutTemplate[] = [];
-        const seenIds = new Set<string>();
-
         // Queue-aware last-write-wins: keep local only while it has writes in
         // flight (or the queue isn't loaded); otherwise take whichever side has
         // the newer `updatedAt` (tie → server), so cross-device edits land.
-        for (const st of serverTemplates) {
-          seenIds.add(st.clientId);
-          const local = localById.get(st.clientId);
-          if (local && (pending.has(local.id) || !queueKnown)) {
-            merged.push(local);
-          } else if (local && local.updatedAt > st.updatedAt) {
-            merged.push(local);
-          } else {
-            merged.push(toLocal(st));
-          }
-        }
-
         // Local-only templates: keep an unsynced create, otherwise drop it —
         // the templates query is unscoped, so server absence IS deletion.
-        for (const t of localTemplates) {
-          if (seenIds.has(t.id)) continue;
-          if (pending.has(t.id) || !queueKnown) {
-            merged.push(t);
-          }
-        }
+        const merged = mergeQueueAware<WorkoutTemplate, (typeof serverTemplates)[number]>({
+          local: localTemplates,
+          server: serverTemplates,
+          localId: (t) => t.id,
+          serverId: (st) => st.clientId,
+          toLocal,
+          pending: getPendingClientIds(),
+          queueKnown: isQueueLoaded(),
+          resolveConflict: (local, st) => (local.updatedAt > st.updatedAt ? local : toLocal(st)),
+          dropLocalOnly: () => true,
+        });
 
         set({ templates: merged });
       },
