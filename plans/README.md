@@ -1,8 +1,160 @@
 # Implementation Plans
 
-Advisor plan index. **Cycle 2** (current, actionable) is first; the closed
-Cycle 1 record follows. Each executor: read your plan fully before starting,
-honor its STOP conditions, and update your row when done.
+Advisor plan index. **Cycle 2b (direction plans)** is first and current;
+the Cycle-2 fix-plan record follows, then the closed Cycle 1 record. Each
+executor: read your plan fully before starting, honor its STOP conditions,
+and update your row when done.
+
+---
+
+## Cycle 2b — direction plans, generated 2026-07-02 at commit `4c29928`
+
+Product-direction audit (`/improve next`): four parallel auditors over
+unfinished intent, surface asymmetries, monetization, and retention; every
+finding vetted against the code before planning. The operator selected all
+seven direction areas; they became eight plans (049–056). These are
+feature/spike plans, not bug fixes — several end in an operator decision
+memo rather than shipped behavior.
+
+**Environment note (inherited from Cycle 2)**: run `pnpm install` first;
+the local checkout may predate the vitest addition. **Merge-state note**:
+these plans were written at `4c29928`, BEFORE the approved Cycle-2 PRs
+(#81–#91) merged. Every plan's drift check covers this; three plans (050,
+051, 055) carry explicit instructions for the post-merge state.
+
+### Execution order & status
+
+| Plan | Title | Priority | Effort | Depends on | Status |
+|------|-------|----------|--------|------------|--------|
+| 049 | Instrument the core retention loop in PostHog | P2 | S | — (merge first: 050/051/056 extend the same event union) | DONE — reviewed+approved 2026-07-02; branch `advisor/049-core-loop-analytics`; 6 new tests; meal_logged method is fixed "manual" until callers thread a discriminator; achievement events suppressed during baseline backfill (mirrors 4c74c6a) |
+| 050 | Ship the paywall interstitial + aha decision memo | P1 | M | 049 (soft); **conflicts with PR #88** — see notes | DONE — reviewed+approved 2026-07-02; branch `advisor/050-paywall-interstitial`; 2 approved deviations (PaywallFallback left unwired — plan amended; paywall_presented moved to CTA time per maintenance notes); interstitial+founder-letter+pledge now LIVE imports → **PR #88 must drop those deletions**; operator simulator QA required pre-merge; aha memo at docs/design/aha-onboarding-decision.md |
+| 051 | Streak-risk notification + landing status strip | P1 | M | 049 (soft); merge after PRs #86/#91 | DONE — reviewed+approved 2026-07-02; branch `advisor/051-daily-retention-loop` (contains 049 via fast-forward — merging 051 delivers both); 7 new tests; created lib/notification-rules.ts ahead of PR #91 honoring its contract; streak snapshot omits HealthKit-only workouts (documented, self-healing) |
+| 052 | Proactive weekly review (settings sync + cron) | P2 | S-M | 051 (soft — shares settings-store edits; sequential) | DONE — reviewed+approved 2026-07-03; branch `advisor/052-weekly-review-proactive` (contains 049+051+055 via merges); needs Convex deploy; 1 revision: hydrate was clobbering pre-sync local prefs for the 7 new fields — now preserves local when server row predates them; Monday-03:00-UTC single cron (documented simplification); 5 new tests |
+| 053 | Macro-targets loop (calculator apply, AI set-goals, real active energy) | P2 | M | — | DONE — reviewed+approved 2026-07-02; branch `advisor/053-nutrition-goals-loop`; needs Convex deploy; 1 approved deviation: `convex/validators.ts` approval-type literal (plan amended); 6 new tests; live goals hydration confirmed |
+| 054 | Health-data visibility: body-weight card + trends memo | P3 | S | — | DONE — reviewed+approved 2026-07-02; branch `advisor/054-health-data-visibility`; needs Convex deploy; 15 new tests; memo at docs/design/health-trends.md (write-back is operator-gated); executor self-corrected an interval-stats claim against lib/stats.test.ts |
+| 055 | Grace/lapsed lifecycle emails + AI-metering memo | P2 | M | rebase on PR #87 | DONE — reviewed+approved 2026-07-02; branch `advisor/055-subscription-lifecycle`; needs Convex deploy; win-back marker not reset on re-lapse (v1); metering memo at docs/design/ai-usage-metering.md |
+| 056 | Data export Phase 1 — FitNotes-compatible CSV | P2 | S | 049 (soft) | TODO |
+
+Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
+
+### Dependency & conflict notes (Cycle 2b)
+
+- **049 first** — 050, 051, and 056 all add events to the
+  `lib/analytics.ts` union; merging 049 first avoids three-way conflicts.
+- **050 vs PR #88 (plan 044)**: #88 deletes
+  `components/paywall/paywall-interstitial.tsx` + `paywall-fallback.tsx`
+  as dead code. Plan 050 revives them. Operator: either drop those two
+  deletions from #88, or merge #88 and let 050 restore from history (its
+  Step 1 handles both). `components/explore/meals-section.tsx` (also
+  deleted by #88) stays deleted — see rejected notes below.
+- **051 after #86 and #91** — it builds on plan 038's stable
+  `useAchievements()` API and plan 048's `lib/notification-rules.ts`.
+- **051 → 052 sequential** — both edit `stores/settings-store.ts`
+  (051 adds local streak-risk fields; 052 makes all notification prefs
+  sync). 052's validator already includes 051's fields either way.
+- **Convex deploys**: 052, 053, 054, 055, 056 change `convex/` and need a
+  deploy (operator) after merge; each plan's report must say so.
+- **Operator decision memos produced**: 050
+  (`docs/design/aha-onboarding-decision.md`), 054
+  (`docs/design/health-trends.md`), 055
+  (`docs/design/ai-usage-metering.md`). Follow-up implementation plans are
+  gated on those decisions.
+
+### Execution outcome (2026-07-03) — branches & merge map
+
+All plans 049–055 executed by worktree executors and reviewed+approved
+(each diff read in full; done criteria re-run; 2 revision rounds total
+across 7 plans). Nothing pushed or merged — operator's call. 056 remains
+TODO (not selected).
+
+Local branches (all based on `e10a727`):
+- `advisor/052-weekly-review-proactive` — **contains 049 + 051 + 055** via
+  clean merges. Merging this one branch delivers four plans.
+- `advisor/050-paywall-interstitial`, `advisor/053-nutrition-goals-loop`,
+  `advisor/054-health-data-visibility` — independent; no file overlap with
+  each other or with the 052 branch. Any order.
+- (`advisor/049-core-loop-analytics`, `advisor/051-daily-retention-loop`,
+  `advisor/055-subscription-lifecycle` are subsumed by the 052 branch.)
+
+Known collisions with the still-unmerged Cycle-2 PRs (#81–#91) — resolve
+whichever side merges second:
+- **PR #88 (plan 044)** deletes `paywall-interstitial.tsx` +
+  `paywall-fallback.tsx`; 050 makes the interstitial a live import. Drop
+  those two deletions from #88 (keep `meals-section.tsx` + the rest).
+- **PR #91 (plan 048)** creates `lib/notification-rules.ts(+test)`; 051
+  created the same files with only `decideStreakRisk`. Union the contents.
+- **PR #86 (plan 038)** moves unlock detection to `lib/achievement-engine.ts`;
+  049's `achievement_unlocked` capture (currently in
+  `hooks/use-achievements.ts`) must move with it, staying behind the
+  baseline-backfill gate.
+- **PR #87 (plan 039)** and 055 both edit `convex/subscriptionCrons.ts`
+  (039 rescopes existing scans; 055 adds new ones) — textual merge.
+- **PR #82 (plan 040)** and 053 both edit `convex/chatActions.ts` — textual
+  merge.
+- **PR #85 chain (plans 035–037)** and 049 both touch
+  `stores/meal-log-store.ts` / `app/workout/active.tsx` — small textual
+  merges.
+
+Operator actions before/at merge: one Convex deploy after merging (covers
+052/053/054/055 server changes: new validator fields, crons, queries,
+schema fields); simulator QA on the 050 onboarding flow (fresh onboarding →
+interstitial with real price → CTA opens RC sheet → skip lands on tabs, no
+loop); read the three decision memos; run `enqueueWeeklyReviews` once from
+the Convex dashboard to smoke-test pre-generation.
+
+### Direction findings — disposition after Cycle 2b planning
+
+- **DIR-01 data export** → planned: **056** (Phase 1 CSV). Full JSON/Phase 2
+  still gated on `docs/design/data-export.md` §8 Q1.
+- **DIR-03 proactive weekly review** → planned: **052**. Real blocker found
+  during vetting: weekly-review prefs deliberately don't sync
+  (`stores/settings-store.ts:220-235`), not just a missing cron.
+- **DIR-04 live plan adherence on the plan screen** → still unplanned; not
+  selected this round. `weeklyReview.computeWeekStats` exposes
+  `planAdherencePct` for any future plan-screen surface.
+- **DIR-05 Android honesty** → still unplanned. Delta recorded: 6
+  `Platform.OS === "android"` branches now exist, still 0 `.android.tsx`
+  variants; `app.json` declares a full Android package + web favicon.
+- **DIR-02 AI meal-plan generation** → still unplanned (L). Related smaller
+  wire shipped instead: 053's `set_nutrition_goals` AI tool.
+- **New (Cycle 2b) — benched conversion layer** (unused paywall
+  interstitial; orphaned aha pipeline incl. `rekickAha` server caller with
+  zero client call sites) → planned: **050**.
+- **New (Cycle 2b) — retention loop gaps** (no streak/achievement
+  notification; landing tab has zero streak/achievement/review presence;
+  ~40-achievement catalog local-only and buried) → planned: **051**.
+- **New (Cycle 2b) — dead-end computed data** (calculator targets not
+  savable; hardcoded "moderate" Apple-Health placeholder; health metrics +
+  RPE/interval data charted nowhere; nutrition never written back to Apple
+  Health) → planned: **053** (goals loop) + **054** (visibility + memo).
+- **New (Cycle 2b) — silent churn + unmetered AI** (no grace/lapsed
+  emails despite status machine + email infra; Pro is one boolean, no
+  usage records) → planned: **055**.
+
+### Findings considered and rejected (Cycle 2b)
+
+- **Subagent finding "add data export" (DIR-A-05)**: duplicate of DIR-01 —
+  folded into 056, not double-counted.
+- **Achievement-unlock push notification**: rejected for now — there is no
+  server push infrastructure; a local notification can only be scheduled
+  while the app runs, where the unlock toast already covers the moment.
+  Revisit if push infra is ever built (052 records the push decision).
+- **Explore recipe-discovery section (`meals-section.tsx`)**: orphaned
+  component, deleted by approved PR #88; its Discover content was 4
+  hardcoded sample recipes. Wiring it is a content-strategy decision, not a
+  wire — restore from history if the operator wants Explore to be a
+  discovery surface.
+- **Strong/Hevy CSV importers**: deferred — real activation lever for
+  switchers and the FitNotes parser is a ready template, but demand is
+  category-inferred (MED confidence). Natural follow-up once 056 ships.
+- **Streak freeze/repair mechanic**: deferred as an open design question
+  (recorded in 051's maintenance notes) — changes what "streak" means and
+  interacts with Streaker achievement thresholds.
+- **Contextual mid-funnel paywall re-prompt**: deferred until 050 ships and
+  baseline interstitial conversion data exists (recorded in 050).
+- **Server-side AI-gate hardening**: NOT a finding — all four OpenAI
+  surfaces verify Pro server-side via `checkSubscription` (vetted during
+  the monetization audit).
 
 ---
 
@@ -118,8 +270,10 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 
 ### Direction findings (Cycle 2, unplanned — maintainer options)
 
-Presented 2026-07-02; the operator chose fix-plans only this cycle. Recorded
-so they aren't re-derived:
+> **Superseded 2026-07-02 (later the same day) by Cycle 2b** — the operator
+> ran a dedicated direction audit; see "Direction findings — disposition
+> after Cycle 2b planning" above for where each item landed. Kept verbatim
+> below for the record:
 
 - **DIR-01 build data export** — spike complete and build-ready at
   `docs/design/data-export.md`; blocked only on its §8 transport decisions.
