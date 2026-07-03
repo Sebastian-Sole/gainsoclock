@@ -30,13 +30,16 @@ const PRIVACY_URL = "https://www.fitbull.app/privacy";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const ACCOUNT_EXISTS_COPY =
+  "An account with this email already exists. Please sign in instead.";
+
 function getSignUpErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (
     message.includes("AccountAlreadyExists") ||
     message.includes("already exists")
   ) {
-    return "An account with this email already exists. Please sign in instead.";
+    return ACCOUNT_EXISTS_COPY;
   }
   return "Could not create account. Please try again.";
 }
@@ -45,12 +48,16 @@ export default function SignUpScreen() {
   const router = useRouter();
   const { signIn } = useAuthActions();
   const checkAppleSignIn = useAction(api.accountLinking.checkAppleSignIn);
+  const checkEmailExists = useAction(api.accountLinking.checkEmailExists);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  // True when the signup pre-flight found the email already registered; drives
+  // an inline "Sign in instead" affordance in the error banner.
+  const [emailTaken, setEmailTaken] = useState(false);
   // Set when a SIWA attempt collides with an existing password account; drives
   // the password→link sheet. Holds the verified Apple token + colliding email.
   const [linkPrompt, setLinkPrompt] = useState<{
@@ -88,7 +95,10 @@ export default function SignUpScreen() {
   };
 
   const clearError = () => {
-    if (error) setError("");
+    if (error) {
+      setError("");
+      setEmailTaken(false);
+    }
   };
 
   const handleEmailSignUp = async () => {
@@ -103,8 +113,18 @@ export default function SignUpScreen() {
       props: { method: "email" },
     });
     setError("");
+    setEmailTaken(false);
     setIsLoading(true);
     try {
+      // Pre-flight: detect an existing account WITHOUT throwing, so the
+      // collision survives Convex's production error redaction (a plain Error
+      // is scrubbed to "Server Error", defeating the message match below).
+      // Mirrors the Apple checkAppleSignIn pre-flight.
+      if (await checkEmailExists({ email: email.trim() })) {
+        setEmailTaken(true);
+        setError(ACCOUNT_EXISTS_COPY);
+        return;
+      }
       await signIn("password", {
         email: email.trim(),
         password,
@@ -113,6 +133,8 @@ export default function SignUpScreen() {
       capture({ name: "auth_succeeded", props: { method: "email" } });
       focusHeading();
     } catch (err) {
+      // Belt-and-braces: still map the thrown error (dev builds aren't
+      // redacted, and a rare create-race can still collide after the pre-flight).
       setError(getSignUpErrorMessage(err));
     } finally {
       setIsLoading(false);
@@ -237,6 +259,19 @@ export default function SignUpScreen() {
           {error !== "" && (
             <View className="mb-4 rounded-xl bg-destructive/10 px-4 py-3">
               <Text className="text-sm text-destructive">{error}</Text>
+              {emailTaken && (
+                <Pressable
+                  onPress={() => router.push("/(auth)/sign-in" as never)}
+                  accessibilityRole="link"
+                  accessibilityLabel="Sign in to your existing account"
+                  hitSlop={8}
+                  className="mt-2 min-h-[44px] justify-center"
+                >
+                  <Text className="text-sm font-semibold text-primary">
+                    Sign in instead
+                  </Text>
+                </Pressable>
+              )}
             </View>
           )}
 

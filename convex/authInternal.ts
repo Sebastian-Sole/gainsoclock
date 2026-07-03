@@ -28,6 +28,31 @@ export const findAppleAccountUserId = internalQuery({
 });
 
 /**
+ * Does a password (email) account already exist for this email?
+ *
+ * Mirrors the lookup `@convex-dev/auth`'s `createAccount` runs before it
+ * inserts — provider `"password"`, `providerAccountId` = the email verbatim
+ * (the Password provider's `defaultProfile` does not normalize/lowercase). Used
+ * by the `checkEmailExists` pre-flight so a duplicate-email signup is caught as
+ * control flow instead of a thrown `Error`: plain Error messages are scrubbed
+ * to "Server Error" in production, which defeats the client's substring match.
+ * Same rationale as `checkSiwaEmailCollision` for the Apple path.
+ */
+export const passwordAccountExists = internalQuery({
+  args: { email: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { email }) => {
+    const account = await ctx.db
+      .query("authAccounts")
+      .withIndex("providerAndAccountId", (q) =>
+        q.eq("provider", "password").eq("providerAccountId", email)
+      )
+      .unique();
+    return account !== null;
+  },
+});
+
+/**
  * SIWA collision check (Security CR5).
  *
  * Called from the `apple-native` ConvexCredentials provider in `auth.ts`

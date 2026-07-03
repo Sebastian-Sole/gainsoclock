@@ -374,7 +374,9 @@ export default function DemoChatScreen() {
   const handleSkip = () => {
     capture({ name: 'demo_chat_skipped', props: {} });
     lightHaptic();
-    router.replace('/onboarding/demo-meals');
+    // Skip jumps past the remaining demos + founder note to the health
+    // integration step (the first real setup screen), not one screen forward.
+    router.replace('/onboarding/healthkit');
   };
 
   return (
