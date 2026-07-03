@@ -37,6 +37,8 @@ interface SettingsState {
   notificationsWeeklyReviewTime: string; // "HH:mm"
   notificationsProteinNudgeEnabled: boolean;
   notificationsProteinNudgeTime: string; // "HH:mm"
+  notificationsStreakRiskEnabled: boolean;
+  notificationsStreakRiskTime: string; // "HH:mm"
 
   // Exercise tracking
   rpeEnabled: boolean;
@@ -70,9 +72,11 @@ interface SettingsState {
   setNotificationsWeeklyReviewTime: (time: string) => void;
   setNotificationsProteinNudgeEnabled: (enabled: boolean) => void;
   setNotificationsProteinNudgeTime: (time: string) => void;
+  setNotificationsStreakRiskEnabled: (enabled: boolean) => void;
+  setNotificationsStreakRiskTime: (time: string) => void;
   setRpeEnabled: (enabled: boolean) => void;
   setLastWorkoutLoggedDate: (date: string) => void;
-  hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string; prefillFromLastWorkout?: boolean; defaultSetsCount?: number; defaultRepsCount?: number; notificationsRestTimerEnabled?: boolean; notificationsPostWorkoutEnabled?: boolean; notificationsPostWorkoutDelay?: number; notificationsReminderEnabled?: boolean; notificationsReminderTime?: string; notificationsMorningPlanEnabled?: boolean; notificationsMorningPlanTime?: string; rpeEnabled?: boolean }) => void;
+  hydrateFromServer: (serverSettings: { weightUnit: string; distanceUnit: string; defaultRestTime: number; hapticsEnabled: boolean; weekStartDay?: string; prefillFromLastWorkout?: boolean; defaultSetsCount?: number; defaultRepsCount?: number; notificationsRestTimerEnabled?: boolean; notificationsPostWorkoutEnabled?: boolean; notificationsPostWorkoutDelay?: number; notificationsReminderEnabled?: boolean; notificationsReminderTime?: string; notificationsMorningPlanEnabled?: boolean; notificationsMorningPlanTime?: string; notificationsWeeklyReviewEnabled?: boolean; notificationsWeeklyReviewDay?: number; notificationsWeeklyReviewTime?: string; notificationsProteinNudgeEnabled?: boolean; notificationsProteinNudgeTime?: string; notificationsStreakRiskEnabled?: boolean; notificationsStreakRiskTime?: string; rpeEnabled?: boolean }) => void;
 }
 
 function syncSettings(state: SettingsState) {
@@ -92,6 +96,13 @@ function syncSettings(state: SettingsState) {
     notificationsReminderTime: state.notificationsReminderTime,
     notificationsMorningPlanEnabled: state.notificationsMorningPlanEnabled,
     notificationsMorningPlanTime: state.notificationsMorningPlanTime,
+    notificationsWeeklyReviewEnabled: state.notificationsWeeklyReviewEnabled,
+    notificationsWeeklyReviewDay: state.notificationsWeeklyReviewDay,
+    notificationsWeeklyReviewTime: state.notificationsWeeklyReviewTime,
+    notificationsProteinNudgeEnabled: state.notificationsProteinNudgeEnabled,
+    notificationsProteinNudgeTime: state.notificationsProteinNudgeTime,
+    notificationsStreakRiskEnabled: state.notificationsStreakRiskEnabled,
+    notificationsStreakRiskTime: state.notificationsStreakRiskTime,
     rpeEnabled: state.rpeEnabled,
   });
 }
@@ -124,6 +135,8 @@ export const useSettingsStore = create<SettingsState>()(
       notificationsWeeklyReviewTime: '18:00',
       notificationsProteinNudgeEnabled: false,
       notificationsProteinNudgeTime: '19:30',
+      notificationsStreakRiskEnabled: false,
+      notificationsStreakRiskTime: '18:00',
       rpeEnabled: false,
       lastWorkoutLoggedDate: null,
 
@@ -217,34 +230,39 @@ export const useSettingsStore = create<SettingsState>()(
         syncSettings(get());
       },
 
-      // Weekly review settings are persisted locally only for now —
-      // api.settings.upsert does not accept these fields yet, and sending
-      // unknown args would fail Convex validation and break all settings
-      // sync. Add them to syncSettings + hydrateFromServer once the backend
-      // validator includes them (Phase 2 integration).
       setNotificationsWeeklyReviewEnabled: (enabled) => {
         set({ notificationsWeeklyReviewEnabled: enabled });
+        syncSettings(get());
       },
 
       setNotificationsWeeklyReviewDay: (day) => {
         set({ notificationsWeeklyReviewDay: day });
+        syncSettings(get());
       },
 
       setNotificationsWeeklyReviewTime: (time) => {
         set({ notificationsWeeklyReviewTime: time });
+        syncSettings(get());
       },
 
-      // Protein nudge settings are persisted locally only — same situation as
-      // the weekly review settings above: api.settings.upsert does not accept
-      // these fields yet, and sending unknown args would fail Convex
-      // validation and break all settings sync. Add to syncSettings +
-      // hydrateFromServer once the backend validator includes them.
+      setNotificationsStreakRiskEnabled: (enabled) => {
+        set({ notificationsStreakRiskEnabled: enabled });
+        syncSettings(get());
+      },
+
+      setNotificationsStreakRiskTime: (time) => {
+        set({ notificationsStreakRiskTime: time });
+        syncSettings(get());
+      },
+
       setNotificationsProteinNudgeEnabled: (enabled) => {
         set({ notificationsProteinNudgeEnabled: enabled });
+        syncSettings(get());
       },
 
       setNotificationsProteinNudgeTime: (time) => {
         set({ notificationsProteinNudgeTime: time });
+        syncSettings(get());
       },
 
       setRpeEnabled: (enabled) => {
@@ -282,6 +300,19 @@ export const useSettingsStore = create<SettingsState>()(
           notificationsReminderTime: serverSettings.notificationsReminderTime ?? '18:00',
           notificationsMorningPlanEnabled: serverSettings.notificationsMorningPlanEnabled ?? true,
           notificationsMorningPlanTime: serverSettings.notificationsMorningPlanTime ?? '07:00',
+          // These seven fields were local-only before the server accepted
+          // them, so existing userSettings rows may predate them. When the
+          // server row lacks a field, keep the current local value instead of
+          // a hardcoded default — otherwise a preference customized while
+          // local-only would be silently reset on the first post-deploy
+          // hydrate. Server wins only when it has an opinion.
+          notificationsWeeklyReviewEnabled: serverSettings.notificationsWeeklyReviewEnabled ?? get().notificationsWeeklyReviewEnabled,
+          notificationsWeeklyReviewDay: serverSettings.notificationsWeeklyReviewDay ?? get().notificationsWeeklyReviewDay,
+          notificationsWeeklyReviewTime: serverSettings.notificationsWeeklyReviewTime ?? get().notificationsWeeklyReviewTime,
+          notificationsProteinNudgeEnabled: serverSettings.notificationsProteinNudgeEnabled ?? get().notificationsProteinNudgeEnabled,
+          notificationsProteinNudgeTime: serverSettings.notificationsProteinNudgeTime ?? get().notificationsProteinNudgeTime,
+          notificationsStreakRiskEnabled: serverSettings.notificationsStreakRiskEnabled ?? get().notificationsStreakRiskEnabled,
+          notificationsStreakRiskTime: serverSettings.notificationsStreakRiskTime ?? get().notificationsStreakRiskTime,
           rpeEnabled: serverSettings.rpeEnabled ?? false,
         });
       },

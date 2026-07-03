@@ -13,6 +13,7 @@ import {
   type AchievementFacts,
   type AchievementGroup,
 } from '@/lib/achievements';
+import { capture } from '@/lib/analytics';
 import type { DateRangeFilter } from '@/lib/stats';
 import type { PlanDay } from '@/lib/types';
 import { useStats } from '@/hooks/use-stats';
@@ -244,6 +245,13 @@ export function useAchievements(): UseAchievementsResult {
     if (newly.length === 0) return;
 
     markUnlocked(newly.map((d) => d.key));
+    // Fired here (unlock detection), not where the toast renders — the
+    // baseline-backfill branch above returns before this point, so backfill
+    // unlocks on a fresh sign-in never flood analytics (mirrors the toast
+    // anti-flood fix).
+    for (const def of newly) {
+      capture({ name: 'achievement_unlocked', props: { achievementId: def.key } });
+    }
     setNewlyUnlocked((prev) => {
       const seen = new Set(prev.map((d) => d.key));
       const additions = newly.filter((d) => !seen.has(d.key));

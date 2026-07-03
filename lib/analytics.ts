@@ -99,6 +99,17 @@ export type AnalyticsEvent =
       name: "onboarding_setup_analytics_toggled";
       props: { granted: boolean };
     }
+  | {
+      name: "workout_logged";
+      props: { exerciseCount: number; setCount: number; fromTemplate: boolean };
+    }
+  | {
+      name: "meal_logged";
+      props: { method: "manual" | "ai_chat" | "photo" | "barcode" | "recipe" };
+    }
+  | { name: "achievement_unlocked"; props: { achievementId: string } }
+  | { name: "notification_opened"; props: { identifier: string } }
+  | { name: "review_opened"; props: { hadExistingReview: boolean } }
   | { name: `activation_gate_${string}`; props: Record<string, never> };
 
 // --- HealthKit firewall -----------------------------------------------------

@@ -31,6 +31,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { api } from '@/convex/_generated/api';
 import { usePurchases } from '@/hooks/use-purchases';
+import { capture } from '@/lib/analytics';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useSubscriptionStore } from '@/stores/subscription-store';
 
@@ -58,6 +59,17 @@ export default function WeeklyReviewScreen() {
   const [generatingWeek, setGeneratingWeek] = useState<string | null>(null);
   const [generateFailed, setGenerateFailed] = useState(false);
   const attemptedWeeksRef = useRef<Set<string>>(new Set());
+  const reviewOpenedFiredRef = useRef(false);
+
+  // Fire once per mount, as soon as the initial query resolves (not while
+  // `review` is still `undefined`/loading). Subsequent week navigation
+  // re-queries `review` but must not re-fire the event.
+  useEffect(() => {
+    if (reviewOpenedFiredRef.current) return;
+    if (review === undefined) return;
+    reviewOpenedFiredRef.current = true;
+    capture({ name: 'review_opened', props: { hadExistingReview: review !== null } });
+  }, [review]);
 
   const runGenerate = useCallback(
     async (target: string) => {

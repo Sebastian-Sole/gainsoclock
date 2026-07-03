@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlansList } from '@/components/chat/plans-list';
 import { MissedDayBanner } from '@/components/plan/missed-day-banner';
 import { HealthKitReaskCard } from '@/components/home/healthkit-reask-card';
+import { StatusStrip } from '@/components/home/status-strip';
 import { TrialConfirmationBanner } from '@/components/home/trial-confirmation-banner';
 import { Fab } from '@/components/shared/fab';
 import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
@@ -248,6 +249,8 @@ export default function WorkoutsScreen() {
             <Icon as={Play} size={18} className="text-primary-foreground fill-primary-foreground" />
             <Text className="font-semibold text-primary-foreground">Start Empty Workout</Text>
           </Pressable>
+
+          <StatusStrip />
 
           {templates.length === 0 ? (
             <EmptyState

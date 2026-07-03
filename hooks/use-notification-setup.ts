@@ -1,8 +1,12 @@
 import { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { router, type Href } from 'expo-router';
+import { format } from 'date-fns';
+import { capture } from '@/lib/analytics';
 import { useSettingsStore } from '@/stores/settings-store';
 import { usePlanStore } from '@/stores/plan-store';
+import { useHistoryStore } from '@/stores/history-store';
 import {
   IDENTIFIERS,
   scheduleDailyWorkoutReminder,
@@ -11,9 +15,50 @@ import {
   cancelMorningPlanNotification,
   scheduleWeeklyReviewNotification,
   cancelWeeklyReviewNotification,
+  recomputeStreakRiskNotification,
+  cancelStreakRiskNotification,
   isActiveWorkoutVisible,
 } from '@/lib/notifications';
 import { getPlanDayDate, isToday, isTomorrow } from '@/lib/plan-dates';
+import { collectPlanRestDates, computeStreak } from '@/lib/streaks';
+
+/**
+ * Cheap, render-free snapshot of the current streak, computed from the
+ * history + plan stores (outside render, so this can run from an AppState
+ * listener). Deliberately mirrors `hooks/use-stats.ts`'s streak computation
+ * but omits external (Apple Health) workouts — that data comes from a Convex
+ * query, which isn't available outside a React render. This can under-count
+ * a streak kept alive only by synced workouts; the next render-scoped
+ * evaluation (e.g. opening Stats) doesn't correct this notification
+ * retroactively, but the notification itself just re-arms on the next
+ * foreground/settings change, so the gap is self-healing and never causes a
+ * false "streak broken" ping (the notification only ever tells the user to
+ * train, never that they failed).
+ */
+function computeCurrentStreakSnapshot(): { currentStreak: number; todayCovered: boolean } {
+  const { logs } = useHistoryStore.getState();
+  const { activePlanWithDays } = usePlanStore.getState();
+  const { weekStartDay } = useSettingsStore.getState();
+
+  const workoutDates = new Set<string>();
+  for (const log of logs) {
+    workoutDates.add(format(new Date(log.startedAt), 'yyyy-MM-dd'));
+  }
+
+  const restDates =
+    activePlanWithDays && activePlanWithDays.status === 'active'
+      ? collectPlanRestDates(activePlanWithDays, weekStartDay)
+      : new Set<string>();
+
+  const streak = computeStreak({
+    workoutDates,
+    externalWorkoutDates: new Set(),
+    restDates,
+    today: format(new Date(), 'yyyy-MM-dd'),
+  });
+
+  return { currentStreak: streak.current, todayCovered: streak.todayCovered };
+}
 
 // Configure foreground notification behavior
 Notifications.setNotificationHandler({
@@ -94,10 +139,47 @@ export function useNotificationSetup() {
     return unsub;
   }, []);
 
+  // Arm/disarm the streak-risk notification: on mount, on every app
+  // foreground (a new day may have started, or a workout may have been
+  // logged elsewhere), and whenever its settings change.
+  useEffect(() => {
+    const recomputeStreakRisk = () => {
+      const { notificationsStreakRiskEnabled } = useSettingsStore.getState();
+      if (!notificationsStreakRiskEnabled) {
+        cancelStreakRiskNotification();
+        return;
+      }
+      recomputeStreakRiskNotification(computeCurrentStreakSnapshot());
+    };
+
+    recomputeStreakRisk();
+
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') recomputeStreakRisk();
+    });
+
+    let prevEnabled = useSettingsStore.getState().notificationsStreakRiskEnabled;
+    let prevTime = useSettingsStore.getState().notificationsStreakRiskTime;
+    const unsubSettings = useSettingsStore.subscribe((state) => {
+      const { notificationsStreakRiskEnabled: enabled, notificationsStreakRiskTime: time } = state;
+      if (enabled === prevEnabled && time === prevTime) return;
+      prevEnabled = enabled;
+      prevTime = time;
+      recomputeStreakRisk();
+    });
+
+    return () => {
+      subscription.remove();
+      unsubSettings();
+    };
+  }, []);
+
   // Route notification taps that carry a deep link (e.g. weekly review →
   // /review). Handles both warm taps and the cold-start notification.
   useEffect(() => {
     const handleResponse = (response: Notifications.NotificationResponse) => {
+      capture({ name: 'notification_opened', props: { identifier: response.notification.request.identifier } });
+
       const url = response.notification.request.content.data?.url;
       if (typeof url === 'string' && url.startsWith('/')) {
         // Notification payloads are dynamic strings; Expo Router validates
