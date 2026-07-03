@@ -153,6 +153,57 @@ export const listExternalWorkouts = query({
   },
 });
 
+// Bounds the payload of listDailyMetrics regardless of the requested range.
+const MAX_METRICS_RANGE_DAYS = 400;
+
+// Daily-metric history (body weight, sleep, RHR, HRV, steps, active energy)
+// for the signed-in user, `from`..`to` half-open ("YYYY-MM-DD" local, both
+// bounds copy the weeklyReview.ts `by_user_date` range pattern). `from` is
+// clamped server-side so the range never exceeds MAX_METRICS_RANGE_DAYS,
+// keeping the payload bounded even if the client asks for more.
+//
+// Not gated on health_data_personalization: that consent covers feeding
+// imported health data into AI inference (see the comment on
+// hasHealthPersonalizationConsent below). Showing the user their own
+// imported data in-app is core functionality of the import toggle and is
+// deliberately not gated there either — this query follows the same rule.
+export const listDailyMetrics = query({
+  args: { from: v.string(), to: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const toMs = Date.parse(`${args.to}T00:00:00Z`);
+    const fromMs = Date.parse(`${args.from}T00:00:00Z`);
+    const minFromMs = toMs - MAX_METRICS_RANGE_DAYS * 24 * 60 * 60 * 1000;
+    const clampedFrom =
+      Number.isFinite(toMs) && Number.isFinite(fromMs) && fromMs < minFromMs
+        ? new Date(minFromMs).toISOString().slice(0, 10)
+        : args.from;
+
+    const rows = await ctx.db
+      .query("healthDailyMetrics")
+      .withIndex("by_user_date", (q) =>
+        q.eq("userId", userId).gte("date", clampedFrom).lt("date", args.to)
+      )
+      .collect();
+
+    return rows.map((d) => ({
+      date: d.date,
+      ...(d.asleepSeconds !== undefined && { asleepSeconds: d.asleepSeconds }),
+      ...(d.restingHeartRateBpm !== undefined && {
+        restingHeartRateBpm: d.restingHeartRateBpm,
+      }),
+      ...(d.hrvMs !== undefined && { hrvMs: d.hrvMs }),
+      ...(d.steps !== undefined && { steps: d.steps }),
+      ...(d.bodyMassKg !== undefined && { bodyMassKg: d.bodyMassKg }),
+      ...(d.activeEnergyKcal !== undefined && {
+        activeEnergyKcal: d.activeEnergyKcal,
+      }),
+    }));
+  },
+});
+
 // Shared last-7-days aggregate used by both the client-facing summary
 // query and the internal chat-context query.
 async function buildHealthSummary(ctx: QueryCtx, userId: Id<"users">) {
