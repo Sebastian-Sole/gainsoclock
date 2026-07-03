@@ -382,7 +382,9 @@ export default function DemoMealsScreen() {
   const handleSkip = () => {
     capture({ name: 'demo_meals_skipped', props: {} });
     lightHaptic();
-    router.replace('/onboarding/demo-workouts');
+    // Skip jumps past the remaining demos + founder note to the health
+    // integration step (the first real setup screen), not one screen forward.
+    router.replace('/onboarding/healthkit');
   };
 
   return (

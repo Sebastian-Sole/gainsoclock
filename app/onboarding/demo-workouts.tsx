@@ -380,7 +380,9 @@ export default function DemoWorkoutsScreen() {
   const handleSkip = () => {
     capture({ name: 'demo_workouts_skipped', props: {} });
     lightHaptic();
-    router.replace('/onboarding/founder-note');
+    // Skip jumps past the founder note to the health integration step
+    // (the first real setup screen), not one screen forward.
+    router.replace('/onboarding/healthkit');
   };
 
   return (

@@ -83,6 +83,32 @@ export const checkAppleSignIn = action({
 });
 
 /**
+ * Pre-flight the client runs BEFORE `signIn("password", { flow: "signUp" })`,
+ * so a duplicate-email signup is handled as normal control flow instead of a
+ * thrown error. The email/password analog of `checkAppleSignIn` above.
+ *
+ * Why this exists: `@convex-dev/auth`'s `createAccount` throws a plain
+ * `Error("Account <email> already exists")` on a duplicate, and Convex scrubs
+ * non-`ConvexError` messages to "Server Error" in production — so the sign-up
+ * screen's substring match ("already exists") silently fails in release builds
+ * and every collision falls back to the generic "Could not create account"
+ * copy. Returning a boolean here is redaction-immune. The `createAccount` throw
+ * stays as a server-side safety net for clients that skip this pre-flight.
+ *
+ * Note: like the sign-in "no account found with this email" message, this is an
+ * email-existence oracle. That exposure already exists in this app and is
+ * accepted as a deliberate tradeoff for usable auth errors.
+ */
+export const checkEmailExists = action({
+  args: { email: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { email }): Promise<boolean> =>
+    ctx.runQuery(internal.authInternal.passwordAccountExists, {
+      email: email.trim(),
+    }),
+});
+
+/**
  * Link the calling (already-authenticated) user to an Apple identity.
  *
  * Returns `"linked"` on a fresh attach, or `"already_linked"` if this exact
