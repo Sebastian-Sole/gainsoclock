@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
 import { generateId } from '@/lib/id';
+import { capture } from '@/lib/analytics';
 import { syncToConvex, getPendingClientIds, isQueueLoaded } from '@/lib/convex-sync';
 import { mergeQueueAware } from '@/lib/hydration-merge';
 import { recomputeProteinNudge } from '@/lib/notifications';
@@ -86,6 +87,12 @@ export const useMealLogStore = create<MealLogState>()(
           notes: meal.notes,
           loggedAt: meal.loggedAt,
         });
+
+        // Method is not threaded through from callers (scan/index.tsx,
+        // log-meal-modal.tsx, photo-meal-sheet.tsx all funnel through this
+        // single action) — recorded as "manual" until a discriminator is
+        // added to the addMeal payload. See plan 049 report.
+        capture({ name: 'meal_logged', props: { method: 'manual' } });
 
         recomputeProteinNudgeFromStore();
 

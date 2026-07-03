@@ -1,5 +1,3 @@
-import { format } from 'date-fns';
-
 /**
  * Pure scheduling decisions for `lib/notifications.ts`.
  *
@@ -10,6 +8,7 @@ import { format } from 'date-fns';
  * passed in as a plain argument, including `now` (and `target`, where
  * relevant), so tests never need fake timers.
  */
+import { format } from 'date-fns';
 
 // --- Daily workout reminder (today vs. tomorrow) ---
 
@@ -101,4 +100,48 @@ export function decideProteinNudge(args: {
  */
 export function clampReviewWeekday(day: number): number {
   return Number.isInteger(day) ? Math.min(6, Math.max(0, day)) : 0;
+}
+
+// --- Streak-risk reminder (schedule tonight?) ---
+
+export type StreakRiskDecision =
+  | { schedule: false }
+  | { schedule: true; secondsFromNow: number; streakLength: number };
+
+/**
+ * Decides whether tonight's streak-risk reminder should fire.
+ *
+ * Rules (in order):
+ * - disabled → never schedule
+ * - no active streak (`currentStreak <= 0`) → nothing to protect
+ * - today already covered → the streak isn't at risk
+ * - the configured fire time has already passed for today → never fire after
+ *   the fact; the streak is either already broken or already safe, and a
+ *   late-night ping teaches nothing. The next foreground/settings-change pass
+ *   re-evaluates fresh against the new day.
+ */
+export function decideStreakRisk(args: {
+  enabled: boolean;
+  currentStreak: number;
+  todayCovered: boolean;
+  now: Date; // local time
+  fireHour: number; // from settings, default 18
+  fireMinute: number;
+}): StreakRiskDecision {
+  const { enabled, currentStreak, todayCovered, now, fireHour, fireMinute } = args;
+
+  if (!enabled || currentStreak <= 0 || todayCovered) {
+    return { schedule: false };
+  }
+
+  const target = new Date(now);
+  target.setHours(fireHour, fireMinute, 0, 0);
+
+  if (target.getTime() <= now.getTime()) {
+    return { schedule: false };
+  }
+
+  const secondsFromNow = Math.max(1, Math.floor((target.getTime() - now.getTime()) / 1000));
+
+  return { schedule: true, secondsFromNow, streakLength: currentStreak };
 }

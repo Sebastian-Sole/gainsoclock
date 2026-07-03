@@ -12,11 +12,12 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   action,
+  internalAction,
   internalMutation,
   internalQuery,
   query,
 } from "./_generated/server";
-import type { QueryCtx } from "./_generated/server";
+import type { ActionCtx, QueryCtx } from "./_generated/server";
 import { toKg } from "./fitnessMetrics";
 import { OPENAI_CHAT_MODEL } from "./openaiConfig";
 import {
@@ -80,6 +81,26 @@ function addDays(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().split("T")[0];
+}
+
+// Server twin of `components/review/review-dates.ts`'s `completedWeekStart()`.
+// That client helper computes the local Monday of the most recently
+// COMPLETED week as: (Monday of the week containing `now`) minus 7 days.
+// This reproduces the identical Monday-anchored arithmetic in UTC, since the
+// cron has no per-user timezone to work with (userSettings has no timezone
+// field yet — see plan-052 maintenance notes). The two must keep agreeing on
+// the "YYYY-MM-DD" string or the client's `getReview` query will miss the
+// row this cron pre-generates.
+export function completedWeekStartUTC(now = new Date()): string {
+  const dayOfWeek = now.getUTCDay(); // 0=Sun..6=Sat
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
+  const currentMondayMs = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() - daysSinceMonday
+  );
+  const priorMondayMs = currentMondayMs - 7 * 24 * 60 * 60 * 1000;
+  return new Date(priorMondayMs).toISOString().split("T")[0];
 }
 
 function round1(n: number): number {
@@ -666,84 +687,165 @@ function parseReviewJson(raw: string): ParsedReview | null {
 
 // ── Action: generate (or refresh) the weekly review ────────────
 
+// Shared by the on-demand action (auth'd user) and the cron-callable
+// internal action (userId from args) — the only difference between the two
+// call sites is how userId is obtained.
+async function generateReviewCore(
+  ctx: ActionCtx,
+  userId: Id<"users">,
+  weekStart: string
+): Promise<Doc<"weeklyReviews">> {
+  // Idempotency: a review generated in the last 24h is returned as-is.
+  const existing: Doc<"weeklyReviews"> | null = await ctx.runQuery(
+    internal.weeklyReview.getReviewForUser,
+    { userId, weekStart }
+  );
+  if (existing && Date.now() - existing.generatedAt < REGENERATE_AFTER_MS) {
+    return existing;
+  }
+
+  const { stats, highlights }: WeekStatsResult = await ctx.runQuery(
+    internal.weeklyReview.getWeekStatsForUser,
+    { userId, weekStart }
+  );
+
+  const isPro: boolean = await ctx.runQuery(
+    internal.subscriptions.checkSubscription,
+    { userId }
+  );
+
+  let narrative: string | undefined;
+  let recommendation: Recommendation | undefined;
+  let llmUsed = false;
+
+  if (isPro) {
+    try {
+      const health: HealthContext | null = await ctx.runQuery(
+        internal.healthData.getHealthContextForUser,
+        { userId }
+      );
+
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const response = await openai.chat.completions.create({
+        model: OPENAI_CHAT_MODEL,
+        messages: [
+          { role: "system", content: REVIEW_SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: buildReviewUserPrompt(
+              weekStart,
+              stats,
+              highlights,
+              health
+            ),
+          },
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 700,
+      });
+
+      const raw = response.choices[0]?.message?.content;
+      const parsed = raw ? parseReviewJson(raw) : null;
+      if (parsed) {
+        narrative = parsed.narrative;
+        recommendation = parsed.recommendation;
+        llmUsed = true;
+      }
+    } catch {
+      // Fall through to the rule-based recommendation below.
+    }
+  }
+
+  if (!recommendation) {
+    recommendation = ruleBasedRecommendation(stats, highlights);
+  }
+
+  return await ctx.runMutation(internal.weeklyReview.upsertReview, {
+    userId,
+    weekStart,
+    stats,
+    ...(narrative !== undefined && { narrative }),
+    recommendation,
+    llmUsed,
+  });
+}
+
 export const generateReview = action({
   args: { weekStart: v.string() },
   handler: async (ctx, args): Promise<Doc<"weeklyReviews">> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    // Idempotency: a review generated in the last 24h is returned as-is.
-    const existing: Doc<"weeklyReviews"> | null = await ctx.runQuery(
-      internal.weeklyReview.getReviewForUser,
-      { userId, weekStart: args.weekStart }
+    return await generateReviewCore(ctx, userId, args.weekStart);
+  },
+});
+
+// Cron-callable twin of `generateReview` — same idempotency + Pro/free
+// branch, but takes `userId` from args instead of reading it from an
+// authenticated session (crons have no session). Free users never reach the
+// OpenAI call (see `generateReviewCore`'s `isPro` branch above) — the
+// weekly cron therefore adds at most one LLM call per Pro user per
+// pre-generated week.
+export const generateReviewForUser = internalAction({
+  args: { userId: v.id("users"), weekStart: v.string() },
+  handler: async (ctx, args): Promise<Doc<"weeklyReviews">> => {
+    return await generateReviewCore(ctx, args.userId, args.weekStart);
+  },
+});
+
+// ── Cron: weekly pre-generation scan ────────────────────────────
+
+/**
+ * Weekly cron entry point (see convex/crons.ts,
+ * "weekly-review-pregeneration"). Scans `userSettings` for users opted into
+ * the weekly review notification, skips users with zero workouts in the
+ * just-completed week (no content, no review), and fans out
+ * `generateReviewForUser` per qualifying user via `ctx.scheduler.runAfter`
+ * — mirrors the scan → guard → schedule shape in
+ * `convex/subscriptionCrons.ts`. Third-party (OpenAI) work never runs
+ * inline in this mutation; it happens in the scheduled action.
+ *
+ * `userSettings` has no index on `notificationsWeeklyReviewEnabled`, so this
+ * is a full-table scan filtered in memory. Acceptable at current scale (one
+ * row per user); revisit with an index or pagination if the user base grows
+ * large enough to risk Convex read limits.
+ */
+export const enqueueWeeklyReviews = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const weekStart = completedWeekStartUTC();
+    const weekEnd = addDays(weekStart, 7);
+
+    const allSettings = await ctx.db.query("userSettings").collect();
+    const optedIn = allSettings.filter(
+      (s) => s.notificationsWeeklyReviewEnabled === true
     );
-    if (existing && Date.now() - existing.generatedAt < REGENERATE_AFTER_MS) {
-      return existing;
+
+    let enqueued = 0;
+    for (const settings of optedIn) {
+      const hasWorkout = await ctx.db
+        .query("workoutLogs")
+        .withIndex("by_user_completedAt", (q) =>
+          q
+            .eq("userId", settings.userId)
+            .gte("completedAt", weekStart)
+            .lt("completedAt", weekEnd)
+        )
+        .first();
+      if (!hasWorkout) continue; // no content this week — skip
+
+      await ctx.scheduler.runAfter(
+        0,
+        internal.weeklyReview.generateReviewForUser,
+        { userId: settings.userId, weekStart }
+      );
+      enqueued++;
     }
 
-    const { stats, highlights }: WeekStatsResult = await ctx.runQuery(
-      internal.weeklyReview.getWeekStatsForUser,
-      { userId, weekStart: args.weekStart }
-    );
-
-    const isPro: boolean = await ctx.runQuery(
-      internal.subscriptions.checkSubscription,
-      { userId }
-    );
-
-    let narrative: string | undefined;
-    let recommendation: Recommendation | undefined;
-    let llmUsed = false;
-
-    if (isPro) {
-      try {
-        const health: HealthContext | null = await ctx.runQuery(
-          internal.healthData.getHealthContextForUser,
-          { userId }
-        );
-
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const response = await openai.chat.completions.create({
-          model: OPENAI_CHAT_MODEL,
-          messages: [
-            { role: "system", content: REVIEW_SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: buildReviewUserPrompt(
-                args.weekStart,
-                stats,
-                highlights,
-                health
-              ),
-            },
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 700,
-        });
-
-        const raw = response.choices[0]?.message?.content;
-        const parsed = raw ? parseReviewJson(raw) : null;
-        if (parsed) {
-          narrative = parsed.narrative;
-          recommendation = parsed.recommendation;
-          llmUsed = true;
-        }
-      } catch {
-        // Fall through to the rule-based recommendation below.
-      }
+    if (enqueued > 0) {
+      console.log(
+        `[Cron] weekly-review-pregeneration enqueued ${enqueued} reviews for week ${weekStart}`
+      );
     }
-
-    if (!recommendation) {
-      recommendation = ruleBasedRecommendation(stats, highlights);
-    }
-
-    return await ctx.runMutation(internal.weeklyReview.upsertReview, {
-      userId,
-      weekStart: args.weekStart,
-      stats,
-      ...(narrative !== undefined && { narrative }),
-      recommendation,
-      llmUsed,
-    });
   },
 });

@@ -383,6 +383,24 @@ const TOOLS: ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "set_nutrition_goals",
+      description:
+        "Set the user's daily nutrition goals (calories and macro grams). Use when the user asks you to set/update their targets (e.g. 'set my protein goal to 180g', 'my daily target is 2200 calories'). Returns the new goals for user approval before saving.",
+      parameters: {
+        type: "object",
+        properties: {
+          calories: { type: "number", description: "Daily calorie target in kcal." },
+          protein: { type: "number", description: "Daily protein target in grams." },
+          carbs: { type: "number", description: "Daily carbohydrate target in grams." },
+          fat: { type: "number", description: "Daily fat target in grams." },
+        },
+        required: ["calories", "protein", "carbs", "fat"],
+      },
+    },
+  },
 ];
 
 // ── System Prompt Builder ──────────────────────────────────────
@@ -637,6 +655,7 @@ ${planSection}
 - When creating templates, plans, or recipes, ALWAYS use the tool functions. Do NOT just describe them in text.
 - When the user describes food they ALREADY ATE ("I had...", "I ate...", "just finished a..."), use the log_meal tool — not suggest_recipe. suggest_recipe is only for proposing meals the user might cook/eat in the future.
 - For log_meal: estimate macros conservatively from typical portion sizes and state your portion assumption in portionDescription. Make exactly ONE log_meal call per distinct meal (combine items eaten together, e.g. a burrito and a coke at lunch, into one call; separate meals like "breakfast and lunch" get one call each). Only ask about portion size when it genuinely changes the estimate AND the description is truly ambiguous — otherwise assume a standard portion and log it.
+- When the user asks you to set or update their daily nutrition/macro targets (e.g. "set my protein to 180g", "aim for 2200 calories a day"), use the set_nutrition_goals tool with all four fields (calories, protein, carbs, fat). If they only mention one or two values, infer the rest using a reasonable split (e.g. keep their implied ratio, or default to ~30/40/30 protein/carbs/fat) rather than asking — state your assumption in your text response before the tool call.
 - IMPORTANT: Before calling any tool function, you MUST first write a brief explanation in your text response. Explain what you're creating and why — e.g. the reasoning behind exercise selection, set/rep schemes, plan structure, or recipe choices. This gives the user context before they see the approval card. Keep it concise (2-4 sentences).
 - When creating templates, ALWAYS include suggestedReps and suggestedWeight (or suggestedTime/suggestedDistance for time/distance exercises) for each exercise. Base these on the user's exercise performance history above. If no history exists for an exercise, use sensible defaults for the exercise type and apparent experience level.
 - When creating a workout plan, use create_workout_plan and include ALL necessary templates in the templates array.
@@ -825,6 +844,7 @@ export const sendMessage = action({
           if (name === "create_workout_plan") return "create_plan";
           if (name === "update_workout_plan") return "update_plan";
           if (name === "log_meal") return "log_meal";
+          if (name === "set_nutrition_goals") return "set_nutrition_goals";
           return "create_recipe";
         }
 

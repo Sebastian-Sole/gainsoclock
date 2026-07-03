@@ -138,7 +138,8 @@ export const approvalTypeValidator = v.union(
   v.literal("create_plan"),
   v.literal("update_plan"),
   v.literal("create_recipe"),
-  v.literal("log_meal")
+  v.literal("log_meal"),
+  v.literal("set_nutrition_goals")
 );
 
 export const approvalStatusValidator = v.union(

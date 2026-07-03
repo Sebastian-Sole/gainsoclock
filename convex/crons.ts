@@ -15,6 +15,18 @@ crons.daily(
   internal.subscriptionCrons.sendDcsa6Month,
 );
 
+crons.daily(
+  "grace-payment-nudge",
+  { hourUTC: 10, minuteUTC: 0 },
+  internal.subscriptionCrons.sendGraceNudges,
+);
+
+crons.daily(
+  "winback-lapsed",
+  { hourUTC: 10, minuteUTC: 0 },
+  internal.subscriptionCrons.sendWinbacks,
+);
+
 crons.interval(
   "rc-temp-demote",
   { hours: 1 },
@@ -25,6 +37,17 @@ crons.daily(
   "sweep-orphan-meal-photos",
   { hourUTC: 4, minuteUTC: 0 },
   internal.nutritionVision.sweepOrphanPhotos,
+);
+
+// Simplified to one weekly Monday-03:00-UTC slot for all users:
+// `userSettings` has no timezone field yet, so per-user local-time
+// alignment isn't possible server-side (see plan-052 maintenance notes).
+// 03:00 UTC Monday is before any reasonable local notification time for the
+// week that just completed.
+crons.weekly(
+  "weekly-review-pregeneration",
+  { dayOfWeek: "monday", hourUTC: 3, minuteUTC: 0 },
+  internal.weeklyReview.enqueueWeeklyReviews,
 );
 
 export default crons;

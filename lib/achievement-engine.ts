@@ -12,6 +12,7 @@ import { usePlanStore } from '@/stores/plan-store';
 import { useRecipeStore } from '@/stores/recipe-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useUnlockToastStore } from '@/stores/unlock-toast-store';
+import { capture } from './analytics';
 import { assembleAchievementFacts, evaluateAchievements } from './achievements';
 import { computeAllStats } from './stats';
 import { collectPlanRestDates, computeStreak } from './streaks';
@@ -209,6 +210,13 @@ async function evaluate(): Promise<void> {
     if (newly.length === 0) return;
 
     achievements.markUnlocked(newly.map((d) => d.key));
+    // Fired only past the baseline gate above, so first-sync backfill unlocks
+    // never flood analytics (mirrors the toast anti-flood rule). Instrumentation
+    // moved here from `hooks/use-achievements.ts` when detection left React (plan
+    // 049 event, plan 038 architecture).
+    for (const def of newly) {
+      capture({ name: 'achievement_unlocked', props: { achievementId: def.key } });
+    }
     useUnlockToastStore.getState().push(newly);
   } finally {
     isEvaluating = false;
