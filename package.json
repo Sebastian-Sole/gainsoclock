@@ -4,14 +4,19 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
-"android": "expo run:android",
+    "android": "expo run:android",
     "ios": "expo run:ios",
     "ios:build": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
     "convex:dev": "convex dev",
     "clean:build": "npx expo prebuild --clean --platform ios",
-    "test": "vitest run"
+    "test": "vitest run",
+    "version:check": "node scripts/check-app-version.mjs",
+    "release:build": "node scripts/bump-version.mjs build",
+    "release:patch": "node scripts/bump-version.mjs patch",
+    "release:minor": "node scripts/bump-version.mjs minor",
+    "release:major": "node scripts/bump-version.mjs major"
   },
   "dependencies": {
     "@auth/core": "^0.37.4",
@@ -37,6 +42,7 @@
     "@rn-primitives/switch": "^1.2.0",
     "@rn-primitives/tabs": "^1.2.0",
     "@rn-primitives/toggle": "^1.2.0",
+    "@sentry/node": "^10.63.0",
     "@sentry/react-native": "~7.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

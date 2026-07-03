@@ -121,6 +121,15 @@ http.route({
       });
     } catch (error) {
       console.error("[RevenueCat] updateFromWebhook failed:", error);
+      // A dropped subscription-state update. We return 500 (RC will retry)
+      // rather than throw, so the native Sentry integration never sees it —
+      // report it explicitly so paywall/entitlement breakage is visible.
+      await ctx.scheduler.runAfter(0, internal.errorReporting.reportHandledError, {
+        where: "revenuecat.webhook",
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        extra: { eventType: payload.event.type },
+      });
       return new Response("Internal error", { status: 500 });
     }
 

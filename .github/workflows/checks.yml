@@ -45,3 +45,6 @@ jobs:
 
       - name: Maestro flow-id tripwire
         run: node scripts/check-maestro-ids.mjs
+
+      - name: App version consistency
+        run: node scripts/check-app-version.mjs

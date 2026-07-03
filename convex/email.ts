@@ -3,6 +3,8 @@
 import { createHmac } from "node:crypto";
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
+import type { ActionCtx } from "./_generated/server";
+import { reportServerError } from "./errorBoundary";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const FROM_ADDRESS = "Fitbull <noreply@fitbull.app>";
@@ -18,7 +20,10 @@ interface ResendPayload {
   headers?: Record<string, string>;
 }
 
-async function sendViaResend(payload: ResendPayload): Promise<void> {
+async function sendViaResend(
+  ctx: ActionCtx,
+  payload: ResendPayload,
+): Promise<void> {
   const apiKey = process.env.EMAIL_SERVICE_API_KEY;
   if (!apiKey) {
     console.warn(
@@ -27,19 +32,29 @@ async function sendViaResend(payload: ResendPayload): Promise<void> {
     );
     return;
   }
-  const response = await fetch(RESEND_ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  let response: Response;
+  try {
+    response = await fetch(RESEND_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    // Network-level failure reaching Resend — scheduled from a cron with no
+    // client watching, so report it before it disappears into the logs.
+    await reportServerError(ctx, "email.send", e);
+    throw e;
+  }
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(
-      `[Email] Resend rejected (${response.status}): ${body.slice(0, 256)}`,
+    const err = new Error(
+      `[Email] Resend rejected (${response.status}) for "${payload.subject}": ${body.slice(0, 256)}`,
     );
+    await reportServerError(ctx, "email.send", err);
+    throw err;
   }
 }
 
@@ -166,7 +181,7 @@ export const sendTrialReminder48h = internalAction({
     trialExpiresAt: v.string(),
     storefrontCountry: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
     const token = unsubscribeTokenNode(args.userId);
     if (!token) {
       console.error(
@@ -180,7 +195,7 @@ export const sendTrialReminder48h = internalAction({
     });
     // storefrontCountry is the V1.1 localisation hook — English V1.
     void args.storefrontCountry;
-    await sendViaResend({
+    await sendViaResend(ctx, {
       from: FROM_ADDRESS,
       to: [args.email],
       reply_to: REPLY_TO,
@@ -196,7 +211,7 @@ export const sendDcsa6Month = internalAction({
     userId: v.id("users"),
     email: v.string(),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
     const token = unsubscribeTokenNode(args.userId);
     if (!token) {
       console.error(
@@ -207,7 +222,7 @@ export const sendDcsa6Month = internalAction({
     const { html, text } = dcsa6MonthTemplate({
       unsubscribe: unsubscribeUrl(args.userId, token),
     });
-    await sendViaResend({
+    await sendViaResend(ctx, {
       from: FROM_ADDRESS,
       to: [args.email],
       reply_to: REPLY_TO,
@@ -223,7 +238,7 @@ export const sendGracePaymentNudge = internalAction({
     userId: v.id("users"),
     email: v.string(),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
     const token = unsubscribeTokenNode(args.userId);
     if (!token) {
       console.error(
@@ -234,7 +249,7 @@ export const sendGracePaymentNudge = internalAction({
     const { html, text } = gracePaymentNudgeTemplate({
       unsubscribe: unsubscribeUrl(args.userId, token),
     });
-    await sendViaResend({
+    await sendViaResend(ctx, {
       from: FROM_ADDRESS,
       to: [args.email],
       reply_to: REPLY_TO,
@@ -250,7 +265,7 @@ export const sendWinback = internalAction({
     userId: v.id("users"),
     email: v.string(),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
     const token = unsubscribeTokenNode(args.userId);
     if (!token) {
       console.error(
@@ -261,7 +276,7 @@ export const sendWinback = internalAction({
     const { html, text } = winbackTemplate({
       unsubscribe: unsubscribeUrl(args.userId, token),
     });
-    await sendViaResend({
+    await sendViaResend(ctx, {
       from: FROM_ADDRESS,
       to: [args.email],
       reply_to: REPLY_TO,
@@ -277,9 +292,9 @@ export const sendUnsubscribe = internalAction({
     userId: v.id("users"),
     email: v.string(),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
     void args.userId;
-    await sendViaResend({
+    await sendViaResend(ctx, {
       from: FROM_ADDRESS,
       to: [args.email],
       reply_to: REPLY_TO,

@@ -545,6 +545,24 @@ export const runAhaGeneration = internalAction({
           detail: String(err).slice(0, 2000),
         }
       );
+      // Report genuine primary-model failures as a degradation warning: the
+      // user still gets a plan via the fallback below, so the native (uncaught)
+      // Sentry integration never sees this. Refusals are expected safety
+      // behaviour, not faults, so they're excluded.
+      if (!(err instanceof RefusalError)) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.errorReporting.reportHandledError,
+          {
+            where: "onboarding.ahaMoment.primaryModel",
+            message: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+            level: "warning",
+            userId,
+            extra: { model: OPENAI_AHA_MODEL },
+          },
+        );
+      }
       try {
         modelUsed = OPENAI_AHA_FALLBACK_MODEL;
         final = await runWithModel(OPENAI_AHA_FALLBACK_MODEL);

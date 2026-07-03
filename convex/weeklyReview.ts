@@ -9,6 +9,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import OpenAI from "openai";
 import { internal } from "./_generated/api";
+import { reportServerError } from "./errorBoundary";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   action,
@@ -789,7 +790,14 @@ export const generateReview = action({
 export const generateReviewForUser = internalAction({
   args: { userId: v.id("users"), weekStart: v.string() },
   handler: async (ctx, args): Promise<Doc<"weeklyReviews">> => {
-    return await generateReviewCore(ctx, args.userId, args.weekStart);
+    // Scheduled per-user by the weekly cron with no client watching, so an
+    // OpenAI/generation failure would otherwise vanish into the logs.
+    try {
+      return await generateReviewCore(ctx, args.userId, args.weekStart);
+    } catch (e) {
+      await reportServerError(ctx, "weeklyReview.generateReviewForUser", e);
+      throw e;
+    }
   },
 });
 

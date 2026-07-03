@@ -1,0 +1,28 @@
+name: Release guard
+
+# Fires when a release tag is pushed (the bump script creates `v<version>+<build>`).
+# Verifies the tagged commit's app version is internally consistent AND strictly
+# ahead of the previous release, so a forgotten bump fails here instead of getting
+# rejected by App Store Connect / TestFlight.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release-guard:
+    name: version bumped + consistent
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need all tags to compare against the previous release
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify version bump
+        run: node scripts/check-app-version.mjs --release

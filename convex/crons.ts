@@ -3,40 +3,51 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
+// Every job runs through `cronRunner.run`, which wraps the underlying
+// internalMutation in a reporting boundary (a mutation can't report its own
+// fatal error — see convex/cronRunner.ts). Keep the `job` keys in sync with
+// the switch there.
+
 crons.daily(
   "trial-reminder-48h",
   { hourUTC: 8, minuteUTC: 0 },
-  internal.subscriptionCrons.sendTrialReminders,
+  internal.cronRunner.run,
+  { job: "sendTrialReminders" },
 );
 
 crons.daily(
   "dcsa-6-monthly",
   { hourUTC: 9, minuteUTC: 0 },
-  internal.subscriptionCrons.sendDcsa6Month,
+  internal.cronRunner.run,
+  { job: "sendDcsa6Month" },
 );
 
 crons.daily(
   "grace-payment-nudge",
   { hourUTC: 10, minuteUTC: 0 },
-  internal.subscriptionCrons.sendGraceNudges,
+  internal.cronRunner.run,
+  { job: "sendGraceNudges" },
 );
 
 crons.daily(
   "winback-lapsed",
   { hourUTC: 10, minuteUTC: 0 },
-  internal.subscriptionCrons.sendWinbacks,
+  internal.cronRunner.run,
+  { job: "sendWinbacks" },
 );
 
 crons.interval(
   "rc-temp-demote",
   { hours: 1 },
-  internal.subscriptionCrons.demoteExpiredTempGrants,
+  internal.cronRunner.run,
+  { job: "demoteExpiredTempGrants" },
 );
 
 crons.daily(
   "sweep-orphan-meal-photos",
   { hourUTC: 4, minuteUTC: 0 },
-  internal.nutritionVision.sweepOrphanPhotos,
+  internal.cronRunner.run,
+  { job: "sweepOrphanPhotos" },
 );
 
 // Simplified to one weekly Monday-03:00-UTC slot for all users:
@@ -47,7 +58,8 @@ crons.daily(
 crons.weekly(
   "weekly-review-pregeneration",
   { dayOfWeek: "monday", hourUTC: 3, minuteUTC: 0 },
-  internal.weeklyReview.enqueueWeeklyReviews,
+  internal.cronRunner.run,
+  { job: "enqueueWeeklyReviews" },
 );
 
 export default crons;
