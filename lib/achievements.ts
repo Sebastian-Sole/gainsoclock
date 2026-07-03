@@ -456,11 +456,15 @@ export function migrateLegacyUnlocks(
 }
 
 /**
- * Counts weight PRs across workout logs, mirroring the server-side semantics
- * in `convex/weeklyReview.ts`: a PR is a session whose best completed
- * `reps_weight` set for an exercise strictly exceeds that exercise's best
- * across all PRIOR sessions. The first session for an exercise establishes
- * the baseline and is not a PR.
+ * Counts weight PRs across ALL provided workout logs: a PR is a session
+ * whose best completed `reps_weight` set for an exercise strictly exceeds
+ * that exercise's best across all PRIOR sessions (all-time running best).
+ * The first session for an exercise establishes the baseline and is not a PR.
+ *
+ * DELIBERATELY DIFFERENT from the server: `convex/weeklyReview.ts` counts a
+ * week's PRs against only the last MAX_PRIOR_LOGS(=60) workouts ("PR vs the
+ * recent past" for the digest), so the two counts can legitimately disagree.
+ * Do not "reconcile" one to the other without a product decision.
  *
  * Weights are compared in the unit they were logged in, which is consistent
  * within an exercise unless the user switches units mid-history (accepted
