@@ -953,6 +953,16 @@ export const sendMessage = action({
       const reason = error instanceof Error ? error.message : String(error);
       console.error(`[chat] sendMessage failed: ${reason}`);
 
+      // Handled failure: the user gets a fallback message below, so Convex's
+      // native (uncaught) Sentry integration never sees this. Report it.
+      await ctx.scheduler.runAfter(0, internal.errorReporting.reportHandledError, {
+        where: "chat.sendMessage",
+        message: reason,
+        stack: error instanceof Error ? error.stack : undefined,
+        userId,
+        extra: { conversationClientId: args.conversationClientId },
+      });
+
       // Mark message as error
       await ctx.runMutation(internal.chat.updateMessageContent, {
         messageId: assistantMessageId,

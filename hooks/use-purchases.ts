@@ -8,6 +8,7 @@ import type {
   RevenueCatUIShim,
 } from "@/lib/purchases-types";
 import { ENTITLEMENT_ID } from "@/lib/subscription-constants";
+import { reportError, reportStall } from "@/lib/report-error";
 import { useSubscriptionStore } from "@/stores/subscription-store";
 import { useAction } from "convex/react";
 import { useCallback, useState } from "react";
@@ -142,6 +143,7 @@ export async function getOfferings(): Promise<unknown | null> {
     return cachedOfferings;
   } catch (error) {
     console.warn("[Purchases] getOfferings failed:", error);
+    reportError("purchases.getOfferings", error);
     return null;
   }
 }
@@ -157,6 +159,7 @@ export async function checkTrialOrIntroDiscountEligibility(
       "[Purchases] checkTrialOrIntroductoryPriceEligibility failed:",
       error,
     );
+    reportError("purchases.checkTrialEligibility", error);
     return null;
   }
 }
@@ -182,6 +185,7 @@ export async function purchasePackageRaw(
     const err = error as { userCancelled?: boolean } | undefined;
     if (err?.userCancelled) return "cancelled";
     console.warn("[Purchases] purchasePackage failed:", error);
+    reportError("purchases.purchasePackage", error);
     return "error";
   }
 }
@@ -190,6 +194,14 @@ export async function purchasePackageRaw(
 // on first submissions before IAPs are approved) `getOfferings()` can stall;
 // without a bound the onboarding paywall spins forever. See Guideline 2.1(a).
 const OFFERINGS_TIMEOUT_MS = 8000;
+
+// Loose "is the native paywall stuck?" tripwire. `RevenueCatUI.presentPaywall()`
+// has no internal bound — if it presents but never resolves (or never presents
+// at all), the await hangs forever with nothing thrown, so it's invisible to
+// Sentry. Generous on purpose: a working paywall resolves in well under a
+// second, so 30s means stuck, not slow. On trip we abandon to "error" (the
+// onboarding paywall is soft — the caller proceeds) and emit a Sentry stall.
+const PRESENT_TIMEOUT_MS = 30000;
 
 // Resolve `promise`, but fall back to `fallback` if it hasn't settled within
 // `ms`. Keeps a hung RevenueCat/StoreKit call from trapping the caller.
@@ -348,6 +360,10 @@ export function usePurchases() {
             console.warn(
               `[Purchases] getOfferings timed out after ${OFFERINGS_TIMEOUT_MS}ms — skipping paywall.`
             );
+            reportStall("paywall.offerings_timeout", {
+              timeoutMs: OFFERINGS_TIMEOUT_MS,
+              offeringIdentifier,
+            });
             return "error";
           }
           const offering = offerings.all?.[offeringIdentifier];
@@ -364,15 +380,35 @@ export function usePurchases() {
             console.warn(
               `[Purchases] Offering "${offeringIdentifier}" has no available packages — skipping paywall.`
             );
+            reportStall("paywall.offering_empty", { offeringIdentifier });
             return "error";
           } else {
             presentArgs = { offering };
           }
         }
 
-        const result = presentArgs
-          ? await RevenueCatUI.presentPaywall(presentArgs)
-          : await RevenueCatUI.presentPaywall();
+        const presented = presentArgs
+          ? RevenueCatUI.presentPaywall(presentArgs)
+          : RevenueCatUI.presentPaywall();
+        // Race the (unbounded) native present against a loose stuck-tripwire.
+        // The timeout resolves `undefined`, which a real PaywallResult never is.
+        const raced = await Promise.race([
+          presented,
+          new Promise<undefined>((resolve) =>
+            setTimeout(() => resolve(undefined), PRESENT_TIMEOUT_MS)
+          ),
+        ]);
+        if (raced === undefined) {
+          console.warn(
+            `[Purchases] presentPaywall stalled past ${PRESENT_TIMEOUT_MS}ms — abandoning.`
+          );
+          reportStall("paywall.present_timeout", {
+            timeoutMs: PRESENT_TIMEOUT_MS,
+            offeringIdentifier: offeringIdentifier ?? null,
+          });
+          return "error";
+        }
+        const result = raced;
         if (__DEV__) {
           console.log("[Purchases] presentPaywall result:", result);
         }
@@ -396,6 +432,7 @@ export function usePurchases() {
         }
       } catch (error) {
         console.error("[Purchases] Paywall presentation failed:", error);
+        reportError("purchases.presentPaywall", error);
         return "error";
       }
     },
