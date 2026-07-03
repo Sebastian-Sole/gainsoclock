@@ -25,7 +25,7 @@ These rules are enforceable. If a rule can be enforced by ESLint/TypeScript, pre
 ## Expo / React Native
 
 - Router is Expo Router 6 with `typedRoutes`. Use the `Href<T>` type from `expo-router` for typed links; don't cast paths to `any`.
-- iOS-only modules must be guarded: `Platform.OS === "ios"` branch, or split into `.ios.tsx` / `.web.tsx` / `.android.tsx` siblings (see `hooks/use-color-scheme.web.ts`, `components/ui/icon-symbol.ios.tsx`).
+- iOS-only modules must be guarded: `Platform.OS === "ios"` branch, or split into `.ios.tsx` / `.web.tsx` / `.android.tsx` siblings (see `hooks/use-color-scheme.web.ts`).
 - Never import `react-native-purchases` directly from components. Go through `hooks/use-purchases.ts` and `stores/subscription-store.ts`.
 - Never import `@kingstinct/react-native-healthkit` outside `lib/healthkit.ts` and `hooks/use-healthkit.ts`.
 - Never call `expo-haptics` directly. Use `lib/haptics.ts` (handles web no-op).
@@ -61,7 +61,7 @@ These rules are enforceable. If a rule can be enforced by ESLint/TypeScript, pre
 - Every interactive element has `accessibilityLabel` **and** `accessibilityRole`.
 - Text contrast uses theme tokens (which are calibrated) — do not introduce ad-hoc colors without checking contrast in both light and dark.
 - Minimum touch target: 44×44 pt (iOS HIG). Icon-only buttons use `size="icon"` on the `Button`.
-- Form inputs: associate a visible label (`Label` from `components/ui/label.tsx`) with the input. Placeholder text is not a label.
+- Form inputs: give the input a visible text label (a styled `<Text>` associated via `accessibilityLabel`/`nativeID`); placeholder text is not a label.
 - Screen-reader-only helper text uses `accessibilityHint`, not hidden `<Text>`.
 - Locale: numeric input must accept both `.` and `,` as decimal separator (see commit `2629ff8`). Route through the shared parser in `lib/format.ts`.
 
