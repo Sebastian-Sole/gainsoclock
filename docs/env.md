@@ -42,7 +42,7 @@ for each deployment. They are never stored in the repo.
 | `EMAIL_SERVICE_API_KEY` | API key for the transactional email service | `convex/email.ts` | — |
 | `UNSUBSCRIBE_TOKEN_SECRET` | Secret used to sign one-click unsubscribe tokens | `convex/subscriptionCrons.ts` | Required; see plan 015 for semantics |
 | `POSTHOG_API_KEY` | PostHog project API key (server-side analytics) | `convex/analytics.ts` | — |
-| `POSTHOG_HOST` | PostHog ingest host | `convex/analytics.ts` | Defaults to `https://app.posthog.com` if unset |
+| `POSTHOG_HOST` | PostHog ingest host | `convex/analytics.ts` | Defaults to `https://eu.i.posthog.com` if unset |
 | `POSTHOG_PERSONAL_API_KEY` | PostHog personal API key (server management calls) | `convex/posthogServer.ts` | — |
 | `POSTHOG_PROJECT_ID` | PostHog project ID | `convex/posthogServer.ts` | — |
 | `DEV_BYPASS_SUBSCRIPTION` | Dev-only flag to bypass subscription checks | `convex/subscriptions.ts` | Dev deployments only; semantics change once plan 016 lands — check that plan before enabling |
