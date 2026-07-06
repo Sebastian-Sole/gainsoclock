@@ -1,15 +1,54 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { flatSetValidator } from "./validators";
+import { flatSetValidator, metricIdValidator } from "./validators";
 
 const exercisePayload = v.object({
   clientId: v.string(),
   exerciseClientId: v.string(),
+  metrics: v.optional(v.array(metricIdValidator)),
   order: v.number(),
   restTimeSeconds: v.number(),
   sets: v.array(flatSetValidator),
 });
+
+// Optional metric/interval fields of a set, present only when set. Shared by the
+// insert mutations and the listFull read so the column list lives in one place.
+type SetValues = {
+  reps?: number;
+  weight?: number;
+  time?: number;
+  distance?: number;
+  powerAvg?: number;
+  heartRateAvg?: number;
+  cadence?: number;
+  calories?: number;
+  rpe?: number;
+  variant?: "work" | "rest";
+  metric?: "pace" | "distance" | "speed";
+  paceSeconds?: number;
+  speed?: number;
+  distanceUnit?: "km" | "mi";
+};
+
+function setValueFields(s: SetValues) {
+  return {
+    ...(s.reps !== undefined && { reps: s.reps }),
+    ...(s.weight !== undefined && { weight: s.weight }),
+    ...(s.time !== undefined && { time: s.time }),
+    ...(s.distance !== undefined && { distance: s.distance }),
+    ...(s.powerAvg !== undefined && { powerAvg: s.powerAvg }),
+    ...(s.heartRateAvg !== undefined && { heartRateAvg: s.heartRateAvg }),
+    ...(s.cadence !== undefined && { cadence: s.cadence }),
+    ...(s.calories !== undefined && { calories: s.calories }),
+    ...(s.rpe !== undefined && { rpe: s.rpe }),
+    ...(s.variant !== undefined && { variant: s.variant }),
+    ...(s.metric !== undefined && { metric: s.metric }),
+    ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
+    ...(s.speed !== undefined && { speed: s.speed }),
+    ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
+  };
+}
 
 // Lightweight list: only workout metadata, no exercise/set joins.
 // Full exercise/set data lives in the local Zustand store (synced via create mutation).
@@ -55,7 +94,10 @@ export const listFull = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     const exerciseMap = new Map(
-      exerciseDefs.map((e) => [e.clientId, { name: e.name, type: e.type }])
+      exerciseDefs.map((e) => [
+        e.clientId,
+        { name: e.name, type: e.type, metrics: e.metrics },
+      ])
     );
 
     // Batch-fetch all log exercises and sets for this user (avoids N+1)
@@ -96,6 +138,9 @@ export const listFull = query({
           exerciseClientId: ex.exerciseClientId,
           name: def?.name ?? "Unknown",
           type: def?.type ?? ("reps_weight" as const),
+          // Passed through as-is; the client fills legacy gaps via
+          // resolveExerciseMetrics on hydrate.
+          metrics: ex.metrics ?? def?.metrics,
           order: ex.order,
           restTimeSeconds: ex.restTimeSeconds,
           sets: sets
@@ -104,16 +149,7 @@ export const listFull = query({
               clientId: s.clientId,
               completed: s.completed,
               type: s.type,
-              ...(s.reps !== undefined && { reps: s.reps }),
-              ...(s.weight !== undefined && { weight: s.weight }),
-              ...(s.time !== undefined && { time: s.time }),
-              ...(s.distance !== undefined && { distance: s.distance }),
-              ...(s.rpe !== undefined && { rpe: s.rpe }),
-              ...(s.variant !== undefined && { variant: s.variant }),
-              ...(s.metric !== undefined && { metric: s.metric }),
-              ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
-              ...(s.speed !== undefined && { speed: s.speed }),
-              ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
+              ...setValueFields(s),
             })),
         };
       });
@@ -174,6 +210,7 @@ export const create = mutation({
         exerciseClientId: ex.exerciseClientId,
         order: ex.order,
         restTimeSeconds: ex.restTimeSeconds,
+        ...(ex.metrics !== undefined && { metrics: ex.metrics }),
       });
 
       for (const s of ex.sets) {
@@ -185,16 +222,7 @@ export const create = mutation({
           order: s.order,
           completed: s.completed,
           type: s.type,
-          ...(s.reps !== undefined && { reps: s.reps }),
-          ...(s.weight !== undefined && { weight: s.weight }),
-          ...(s.time !== undefined && { time: s.time }),
-          ...(s.distance !== undefined && { distance: s.distance }),
-          ...(s.rpe !== undefined && { rpe: s.rpe }),
-          ...(s.variant !== undefined && { variant: s.variant }),
-          ...(s.metric !== undefined && { metric: s.metric }),
-          ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
-          ...(s.speed !== undefined && { speed: s.speed }),
-          ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
+          ...setValueFields(s),
         });
       }
     }
@@ -304,6 +332,7 @@ export const update = mutation({
           exerciseClientId: ex.exerciseClientId,
           order: ex.order,
           restTimeSeconds: ex.restTimeSeconds,
+          ...(ex.metrics !== undefined && { metrics: ex.metrics }),
         });
 
         for (const s of ex.sets) {
@@ -315,16 +344,7 @@ export const update = mutation({
             order: s.order,
             completed: s.completed,
             type: s.type,
-            ...(s.reps !== undefined && { reps: s.reps }),
-            ...(s.weight !== undefined && { weight: s.weight }),
-            ...(s.time !== undefined && { time: s.time }),
-            ...(s.distance !== undefined && { distance: s.distance }),
-            ...(s.rpe !== undefined && { rpe: s.rpe }),
-            ...(s.variant !== undefined && { variant: s.variant }),
-            ...(s.metric !== undefined && { metric: s.metric }),
-            ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
-            ...(s.speed !== undefined && { speed: s.speed }),
-            ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
+            ...setValueFields(s),
           });
         }
       }
@@ -393,6 +413,7 @@ export const bulkUpsert = mutation({
             exerciseClientId: ex.exerciseClientId,
             order: ex.order,
             restTimeSeconds: ex.restTimeSeconds,
+            ...(ex.metrics !== undefined && { metrics: ex.metrics }),
           });
 
           for (const s of ex.sets) {
@@ -404,16 +425,7 @@ export const bulkUpsert = mutation({
               order: s.order,
               completed: s.completed,
               type: s.type,
-              ...(s.reps !== undefined && { reps: s.reps }),
-              ...(s.weight !== undefined && { weight: s.weight }),
-              ...(s.time !== undefined && { time: s.time }),
-              ...(s.distance !== undefined && { distance: s.distance }),
-              ...(s.rpe !== undefined && { rpe: s.rpe }),
-              ...(s.variant !== undefined && { variant: s.variant }),
-              ...(s.metric !== undefined && { metric: s.metric }),
-              ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
-              ...(s.speed !== undefined && { speed: s.speed }),
-              ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
+              ...setValueFields(s),
             });
           }
         }

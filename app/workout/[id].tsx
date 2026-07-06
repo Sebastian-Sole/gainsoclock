@@ -12,13 +12,14 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { format } from 'date-fns';
 
 import { SetRow } from '@/components/workout/set-row';
+import { SetHeaderRow } from '@/components/workout/set-header-row';
 import { useEditLogStore } from '@/stores/edit-log-store';
 import { useHistoryStore } from '@/stores/history-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { createDefaultSet, createEmptyLog, createIntervalPair, createLogFromTemplate } from '@/lib/defaults';
 import { lightHaptic, mediumHaptic, successHaptic } from '@/lib/haptics';
 import { useTemplateStore } from '@/stores/template-store';
-import type { IntervalSet, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
+import type { WorkoutLogExercise, WorkoutSet } from '@/lib/types';
 
 export default function EditLogScreen() {
   const { id, date, templateId } = useLocalSearchParams<{ id: string; date?: string; templateId?: string }>();
@@ -27,7 +28,6 @@ export default function EditLogScreen() {
   const isDark = colorScheme === 'dark';
   const weightUnit = useSettingsStore((s) => s.weightUnit);
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
-  const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
 
   const isNewLog = id === 'new';
   const logs = useHistoryStore((s) => s.logs);
@@ -143,13 +143,13 @@ export default function EditLogScreen() {
 
   const handleAddSet = (exercise: WorkoutLogExercise) => {
     if (exercise.type === 'intervals') {
-      const lastSet = exercise.sets[exercise.sets.length - 1] as IntervalSet | undefined;
+      const lastSet = exercise.sets[exercise.sets.length - 1];
       const [work, rest] = createIntervalPair(lastSet?.distanceUnit ?? 'km');
       addSet(exercise.id, work);
       addSet(exercise.id, rest);
       return;
     }
-    const newSet = createDefaultSet(exercise.type);
+    const newSet = createDefaultSet(exercise.type, exercise.metrics);
     addSet(exercise.id, newSet);
   };
 
@@ -392,42 +392,7 @@ export default function EditLogScreen() {
             </View>
 
             {/* Column headers */}
-            <View className="flex-row items-center gap-2 px-3 py-1">
-              <Text className="w-8 text-center text-xs text-muted-foreground">Set</Text>
-              <View className="flex-1 flex-row items-center gap-2">
-                {exercise.type === 'reps_weight' && (
-                  <>
-                    <Text className="flex-1 text-center text-xs text-muted-foreground">{weightUnit}</Text>
-                    <Text className="flex-1 text-center text-xs text-muted-foreground">Reps</Text>
-                  </>
-                )}
-                {exercise.type === 'reps_time' && (
-                  <>
-                    <Text className="flex-[2] pr-3 text-center text-xs text-muted-foreground">Time</Text>
-                    <Text className="flex-1 text-left text-xs text-muted-foreground">Reps</Text>
-                  </>
-                )}
-                {exercise.type === 'time_only' && (
-                  <Text className="flex-1 text-center text-xs text-muted-foreground">Time</Text>
-                )}
-                {exercise.type === 'time_distance' && (
-                  <>
-                    <Text className="flex-[2] text-center text-xs text-muted-foreground">Time</Text>
-                    <Text className="flex-1 text-center text-xs text-muted-foreground">{distanceUnit}</Text>
-                  </>
-                )}
-                {exercise.type === 'reps_only' && (
-                  <Text className="flex-1 text-center text-xs text-muted-foreground">Reps</Text>
-                )}
-                {exercise.type === 'intervals' && (
-                  <Text className="flex-1 text-xs text-muted-foreground">Effort &amp; Time</Text>
-                )}
-              </View>
-              {rpeEnabled && (
-                <Text className="min-w-[40px] text-center text-xs text-muted-foreground">RPE</Text>
-              )}
-              <View className="w-[68px]" />
-            </View>
+            <SetHeaderRow type={exercise.type} metrics={exercise.metrics} />
 
             {/* Set rows */}
             <Animated.View className="gap-1">
@@ -435,6 +400,7 @@ export default function EditLogScreen() {
                 <Animated.View key={set.id} layout={Layout.duration(200)}>
                   <SetRow
                     set={set}
+                    metrics={exercise.metrics}
                     index={setIndex}
                     onUpdate={(updates) => {
                       updateSet(exercise.id, set.id, updates);

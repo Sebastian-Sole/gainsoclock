@@ -1,6 +1,7 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { normalizeExerciseMetrics, type MetricId } from "./metricsMap";
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -15,6 +16,7 @@ const VALID_EXERCISE_TYPES = [
   "time_distance",
   "reps_only",
   "intervals",
+  "metrics",
 ] as const;
 
 type ExerciseType = (typeof VALID_EXERCISE_TYPES)[number];
@@ -75,7 +77,10 @@ function validateExercise(
 ): void {
   const prefix = `${context}exercises[${index}]`;
   assertString(ex.name, `${prefix}.name`);
-  assertExerciseType(ex.type, `${prefix}.type`);
+  // `type` and `metrics` are both optional; normalizeExerciseMetrics resolves
+  // whatever combination the model provides (invalid metric ids are dropped).
+  if (ex.type !== undefined) assertExerciseType(ex.type, `${prefix}.type`);
+  if (ex.metrics !== undefined) assertArray(ex.metrics, `${prefix}.metrics`);
   assertNumber(ex.defaultSetsCount, `${prefix}.defaultSetsCount`);
   assertNumber(ex.restTimeSeconds, `${prefix}.restTimeSeconds`);
   assertOptionalNumber(ex.suggestedReps, `${prefix}.suggestedReps`);
@@ -290,7 +295,8 @@ function validateCreateRecipePayload(data: Record<string, unknown>): CreateRecip
 
 interface ExercisePayload {
   name: string;
-  type: ExerciseType;
+  type?: ExerciseType;
+  metrics?: MetricId[];
   defaultSetsCount: number;
   restTimeSeconds: number;
   suggestedReps?: number;
@@ -487,7 +493,15 @@ export const executeApproval = mutation({
       const exercises = tpl.exercises.map(
         (ex, i) => {
           const exerciseClientId = generateId();
-          return { ...ex, exerciseClientId, clientId: generateId(), order: i };
+          const resolved = normalizeExerciseMetrics(ex.type, ex.metrics);
+          return {
+            ...ex,
+            exerciseClientId,
+            clientId: generateId(),
+            order: i,
+            resolvedType: resolved.type,
+            resolvedMetrics: resolved.metrics,
+          };
         }
       );
 
@@ -505,7 +519,8 @@ export const executeApproval = mutation({
             userId,
             clientId: ex.exerciseClientId,
             name: ex.name,
-            type: ex.type,
+            type: ex.resolvedType,
+            metrics: ex.resolvedMetrics,
             createdAt: now,
           });
         } else {
@@ -529,6 +544,7 @@ export const executeApproval = mutation({
           clientId: ex.clientId,
           templateClientId,
           exerciseClientId: ex.exerciseClientId,
+          metrics: ex.resolvedMetrics,
           order: ex.order,
           restTimeSeconds: ex.restTimeSeconds,
           defaultSetsCount: ex.defaultSetsCount,
@@ -552,7 +568,15 @@ export const executeApproval = mutation({
         const exercises = template.exercises.map(
           (ex, i) => {
             const exerciseClientId = generateId();
-            return { ...ex, exerciseClientId, clientId: generateId(), order: i };
+            const resolved = normalizeExerciseMetrics(ex.type, ex.metrics);
+            return {
+              ...ex,
+              exerciseClientId,
+              clientId: generateId(),
+              order: i,
+              resolvedType: resolved.type,
+              resolvedMetrics: resolved.metrics,
+            };
           }
         );
 
@@ -570,7 +594,8 @@ export const executeApproval = mutation({
               userId,
               clientId: ex.exerciseClientId,
               name: ex.name,
-              type: ex.type,
+              type: ex.resolvedType,
+              metrics: ex.resolvedMetrics,
               createdAt: now,
             });
           } else {
@@ -593,6 +618,7 @@ export const executeApproval = mutation({
             clientId: ex.clientId,
             templateClientId,
             exerciseClientId: ex.exerciseClientId,
+            metrics: ex.resolvedMetrics,
             order: ex.order,
             restTimeSeconds: ex.restTimeSeconds,
             defaultSetsCount: ex.defaultSetsCount,
@@ -673,7 +699,15 @@ export const executeApproval = mutation({
         const exercises = template.exercises.map(
           (ex, i) => {
             const exerciseClientId = generateId();
-            return { ...ex, exerciseClientId, clientId: generateId(), order: i };
+            const resolved = normalizeExerciseMetrics(ex.type, ex.metrics);
+            return {
+              ...ex,
+              exerciseClientId,
+              clientId: generateId(),
+              order: i,
+              resolvedType: resolved.type,
+              resolvedMetrics: resolved.metrics,
+            };
           }
         );
 
@@ -690,7 +724,8 @@ export const executeApproval = mutation({
               userId,
               clientId: ex.exerciseClientId,
               name: ex.name,
-              type: ex.type,
+              type: ex.resolvedType,
+              metrics: ex.resolvedMetrics,
               createdAt: now,
             });
           } else {
@@ -712,9 +747,14 @@ export const executeApproval = mutation({
             clientId: ex.clientId,
             templateClientId,
             exerciseClientId: ex.exerciseClientId,
+            metrics: ex.resolvedMetrics,
             order: ex.order,
             restTimeSeconds: ex.restTimeSeconds,
             defaultSetsCount: ex.defaultSetsCount,
+            suggestedReps: ex.suggestedReps,
+            suggestedWeight: ex.suggestedWeight,
+            suggestedTime: ex.suggestedTime,
+            suggestedDistance: ex.suggestedDistance,
           });
         }
       }

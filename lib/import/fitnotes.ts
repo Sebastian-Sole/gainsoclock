@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import { generateId } from '@/lib/id';
+import { metricsForLegacyType } from '@/lib/metrics';
 import type {
   ExerciseType,
   WorkoutLog,
@@ -176,6 +177,7 @@ export function buildWorkoutLogs(
           exerciseId,
           name: exerciseName,
           type: exerciseType,
+          metrics: metricsForLegacyType(exerciseType),
           order: exerciseOrder++,
           restTimeSeconds: 90,
           sets: options.setsAndReps ? sets : [],
@@ -289,5 +291,9 @@ function buildSet(
         distanceUnit: 'km',
         distance: applyWeight ? distance : 0,
       };
+    default:
+      // FitNotes only produces the legacy types above; composed 'metrics'
+      // exercises never come from a FitNotes CSV.
+      return { id, completed, type };
   }
 }

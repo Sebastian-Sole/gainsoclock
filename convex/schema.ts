@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 import {
   exerciseTypeValidator,
+  metricIdValidator,
   chatMessageRoleValidator,
   chatMessageStatusValidator,
   pendingApprovalValidator,
@@ -32,6 +33,9 @@ export default defineSchema({
     clientId: v.string(),
     name: v.string(),
     type: exerciseTypeValidator,
+    // Composed metric list. Optional for back-compat with pre-migration rows;
+    // resolved from `type` when absent (see lib/metrics.ts resolveExerciseMetrics).
+    metrics: v.optional(v.array(metricIdValidator)),
     createdAt: v.string(),
   })
     .index("by_user", ["userId"])
@@ -56,6 +60,7 @@ export default defineSchema({
     clientId: v.string(),
     templateClientId: v.string(),
     exerciseClientId: v.string(),
+    metrics: v.optional(v.array(metricIdValidator)),
     order: v.number(),
     restTimeSeconds: v.number(),
     defaultSetsCount: v.number(),
@@ -87,6 +92,7 @@ export default defineSchema({
     clientId: v.string(),
     workoutLogClientId: v.string(),
     exerciseClientId: v.string(),
+    metrics: v.optional(v.array(metricIdValidator)),
     order: v.number(),
     restTimeSeconds: v.number(),
   })
@@ -106,6 +112,11 @@ export default defineSchema({
     weight: v.optional(v.number()),
     time: v.optional(v.number()),
     distance: v.optional(v.number()),
+    // Composed cardio/metric fields
+    powerAvg: v.optional(v.number()),
+    heartRateAvg: v.optional(v.number()),
+    cadence: v.optional(v.number()),
+    calories: v.optional(v.number()),
     rpe: v.optional(v.number()),
     // Interval-type fields (work/rest pairs)
     variant: v.optional(v.union(v.literal("work"), v.literal("rest"))),

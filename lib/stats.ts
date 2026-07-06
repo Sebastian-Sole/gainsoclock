@@ -178,26 +178,16 @@ function computeExerciseStats(logs: WorkoutLog[]): ExerciseStats[] {
         if (!set.completed) continue;
         stats.totalSets++;
 
-        // Accumulate totals
-        if (set.type === 'reps_weight') {
-          stats.totalReps += set.reps;
-          stats.totalWeight += set.reps * set.weight;
-        } else if (set.type === 'reps_time') {
-          stats.totalReps += set.reps;
-          stats.totalTime += set.time;
-        } else if (set.type === 'time_only') {
-          stats.totalTime += set.time;
-        } else if (set.type === 'time_distance') {
-          stats.totalTime += set.time;
-          stats.totalDistance += set.distance;
-        } else if (set.type === 'reps_only') {
-          stats.totalReps += set.reps;
-        } else if (set.type === 'intervals') {
-          if (set.variant === 'work') {
-            stats.totalTime += set.time;
-            if (set.metric === 'distance' && set.distance !== undefined) {
-              stats.totalDistance += set.distance;
-            }
+        // Accumulate totals. Sets are flat: sum whichever metrics are present.
+        // Interval exercises only count their 'work' sub-sets; 'rest' sub-sets
+        // contribute nothing (matches the legacy per-type behavior).
+        const isRestInterval = set.type === 'intervals' && set.variant === 'rest';
+        if (!isRestInterval) {
+          if (set.reps !== undefined) stats.totalReps += set.reps;
+          if (set.time !== undefined) stats.totalTime += set.time;
+          if (set.distance !== undefined) stats.totalDistance += set.distance;
+          if (set.weight !== undefined && set.reps !== undefined) {
+            stats.totalWeight += set.reps * set.weight;
           }
         }
 
@@ -226,7 +216,7 @@ function computeExerciseStats(logs: WorkoutLog[]): ExerciseStats[] {
           }
         }
 
-        if (set.type === 'reps_weight') {
+        if (set.weight !== undefined && set.reps !== undefined) {
           const volume = set.reps * set.weight;
           if (!stats.maxVolume || volume > stats.maxVolume.value) {
             stats.maxVolume = { value: volume, date: logDate };
@@ -335,18 +325,13 @@ function computeTotals(logs: WorkoutLog[]): TotalStats {
         if (!set.completed) continue;
         totalSets++;
 
-        if (set.type === 'reps_weight') {
-          totalWeightLifted += set.reps * set.weight;
-          totalReps += set.reps;
-        } else if (set.type === 'reps_time') {
-          totalReps += set.reps;
-        } else if (set.type === 'time_distance') {
-          totalDistance += set.distance;
-        } else if (set.type === 'reps_only') {
-          totalReps += set.reps;
-        } else if (set.type === 'intervals') {
-          if (set.variant === 'work' && set.metric === 'distance' && set.distance !== undefined) {
-            totalDistance += set.distance;
+        // Flat accumulation; interval 'rest' sub-sets contribute nothing.
+        const isRestInterval = set.type === 'intervals' && set.variant === 'rest';
+        if (!isRestInterval) {
+          if (set.reps !== undefined) totalReps += set.reps;
+          if (set.distance !== undefined) totalDistance += set.distance;
+          if (set.weight !== undefined && set.reps !== undefined) {
+            totalWeightLifted += set.reps * set.weight;
           }
         }
       }

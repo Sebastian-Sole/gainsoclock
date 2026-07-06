@@ -1,75 +1,67 @@
-// Exercise types
+// Exercise "type".
+// - The legacy six drive back-compat data and the intervals special case.
+// - 'metrics' means "read the exercise's composed `metrics` list" (see
+//   lib/metrics.ts). New exercises are created as 'metrics'; the legacy six
+//   are mapped to an equivalent metrics list at read/migration time.
+// - 'intervals' stays a standalone special case (work/rest pair structure).
 export type ExerciseType =
   | 'reps_weight'
   | 'reps_time'
   | 'time_only'
   | 'time_distance'
   | 'reps_only'
-  | 'intervals';
+  | 'intervals'
+  | 'metrics';
+
+// Curated palette of composable metric primitives. Registry: lib/metrics.ts.
+export type MetricId =
+  | 'reps'
+  | 'weight'
+  | 'duration'
+  | 'distance'
+  | 'power_avg'
+  | 'heart_rate_avg'
+  | 'pace'
+  | 'speed'
+  | 'cadence'
+  | 'calories';
 
 export type IntervalMetric = 'pace' | 'distance' | 'speed';
 export type IntervalDistanceUnit = 'km' | 'mi';
 
-// Workout Set types (discriminated union)
-interface BaseSet {
+// Workout Set — a flat row. Which fields are meaningful is driven by the parent
+// exercise's `metrics` list (lib/metrics.ts), not by a per-type shape. Interval
+// exercises (type 'intervals') additionally use variant/metric/distanceUnit.
+// Kept flat (all metric fields optional) so an exercise can compose any subset
+// of the palette; see docs/decisions/custom-exercise-metrics.md.
+export interface WorkoutSet {
   id: string;
   completed: boolean;
+  type: ExerciseType;
   variant?: 'work' | 'rest';
   rpe?: number; // 1-10, only when rpeEnabled
+  // Metric values — present when the exercise tracks that metric.
+  reps?: number;
+  weight?: number;
+  time?: number; // duration, seconds
+  distance?: number;
+  powerAvg?: number; // average watts
+  heartRateAvg?: number; // average bpm
+  cadence?: number; // strokes/rev per minute
+  calories?: number; // kcal
+  speed?: number; // per hour, e.g. 12 = 12 km/h
+  paceSeconds?: number; // seconds per distance unit, e.g. 330 = 5:30/km
+  // Intervals-only
+  metric?: IntervalMetric;
+  distanceUnit?: IntervalDistanceUnit;
 }
-
-export interface RepsWeightSet extends BaseSet {
-  type: 'reps_weight';
-  reps: number;
-  weight: number;
-}
-
-export interface RepsTimeSet extends BaseSet {
-  type: 'reps_time';
-  reps: number;
-  time: number; // seconds
-}
-
-export interface TimeOnlySet extends BaseSet {
-  type: 'time_only';
-  time: number; // seconds
-}
-
-export interface TimeDistanceSet extends BaseSet {
-  type: 'time_distance';
-  time: number; // seconds
-  distance: number;
-}
-
-export interface RepsOnlySet extends BaseSet {
-  type: 'reps_only';
-  reps: number;
-}
-
-export interface IntervalSet extends BaseSet {
-  type: 'intervals';
-  variant: 'work' | 'rest'; // required for intervals (overrides BaseSet's optional variant)
-  metric: IntervalMetric;
-  time: number; // seconds
-  distanceUnit: IntervalDistanceUnit;
-  distance?: number;     // when metric === 'distance'
-  paceSeconds?: number;  // when metric === 'pace' (seconds per distanceUnit, e.g. 330 = 5:30/km)
-  speed?: number;        // when metric === 'speed' (per hour, e.g. 12 = 12 km/h)
-}
-
-export type WorkoutSet =
-  | RepsWeightSet
-  | RepsTimeSet
-  | TimeOnlySet
-  | TimeDistanceSet
-  | RepsOnlySet
-  | IntervalSet;
 
 // Master exercise definition (from exercises table)
 export interface ExerciseDefinition {
   id: string; // clientId
   name: string;
   type: ExerciseType;
+  metrics: MetricId[]; // ordered composed metrics (empty for 'intervals')
   createdAt: string;
 }
 
@@ -79,6 +71,7 @@ export interface TemplateExercise {
   exerciseId: string; // clientId referencing ExerciseDefinition
   name: string; // denormalized for display
   type: ExerciseType; // denormalized for display
+  metrics: MetricId[]; // denormalized for display/logging
   order: number;
   restTimeSeconds: number;
   defaultSetsCount: number;
@@ -94,6 +87,7 @@ export interface Exercise {
   exerciseId: string; // reference to master exercise
   name: string;
   type: ExerciseType;
+  metrics: MetricId[];
   sets: WorkoutSet[];
   restTimeSeconds: number;
 }
@@ -104,6 +98,7 @@ export interface WorkoutLogExercise {
   exerciseId: string; // clientId referencing ExerciseDefinition
   name: string; // denormalized
   type: ExerciseType; // denormalized
+  metrics: MetricId[]; // denormalized
   order: number;
   restTimeSeconds: number;
   sets: WorkoutSet[];

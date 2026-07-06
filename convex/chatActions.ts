@@ -10,6 +10,7 @@ import type {
 import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
 import { OPENAI_CHAT_MODEL } from "./openaiConfig";
+import { METRIC_IDS } from "./metricsMap";
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -47,6 +48,60 @@ const OPENAI_HISTORY_WINDOW = 30;
 
 // ── Tool Definitions ───────────────────────────────────────────
 
+// Shared shape of one exercise inside a template payload. Metric-aware: the
+// model composes `metrics` from the palette (max 5) and sets type "metrics".
+// Legacy `type` values and "intervals" remain accepted for back-compat.
+const AI_EXERCISE_ITEM = {
+  type: "object",
+  properties: {
+    name: { type: "string", description: "Exercise name" },
+    metrics: {
+      type: "array",
+      items: { type: "string", enum: METRIC_IDS },
+      description:
+        'Ordered metrics this exercise tracks (max 5), composed from the palette. Examples: strength ["weight","reps"]; bodyweight ["reps"]; running/rowing ["duration","distance","pace","heart_rate_avg"]; cycling ["duration","distance","speed","heart_rate_avg"]; watts bike ["duration","power_avg","distance","heart_rate_avg"]; timed hold ["duration"]. Provide this for every non-interval exercise.',
+    },
+    type: {
+      type: "string",
+      enum: [
+        "reps_weight",
+        "reps_time",
+        "time_only",
+        "time_distance",
+        "reps_only",
+        "intervals",
+        "metrics",
+      ],
+      description:
+        'Use "metrics" for normal exercises (and provide the `metrics` array). Use "intervals" only for work/rest interval exercises. Legacy types are still accepted.',
+    },
+    defaultSetsCount: { type: "number", description: "Number of sets" },
+    restTimeSeconds: {
+      type: "number",
+      description: "Rest between sets in seconds",
+    },
+    suggestedReps: {
+      type: "number",
+      description: "Suggested reps per set based on user history and goals",
+    },
+    suggestedWeight: {
+      type: "number",
+      description:
+        "Suggested weight per set in the user's preferred unit, based on history",
+    },
+    suggestedTime: {
+      type: "number",
+      description:
+        "Suggested time in seconds per set (duration-based exercises)",
+    },
+    suggestedDistance: {
+      type: "number",
+      description: "Suggested distance per set (distance-based exercises)",
+    },
+  },
+  required: ["name", "defaultSetsCount", "restTimeSeconds"],
+} as const;
+
 const TOOLS: ChatCompletionTool[] = [
   {
     type: "function",
@@ -68,53 +123,7 @@ const TOOLS: ChatCompletionTool[] = [
           },
           exercises: {
             type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name: { type: "string", description: "Exercise name" },
-                type: {
-                  type: "string",
-                  enum: [
-                    "reps_weight",
-                    "reps_time",
-                    "time_only",
-                    "time_distance",
-                    "reps_only",
-                    "intervals",
-                  ],
-                  description: "Exercise measurement type",
-                },
-                defaultSetsCount: {
-                  type: "number",
-                  description: "Number of sets",
-                },
-                restTimeSeconds: {
-                  type: "number",
-                  description: "Rest between sets in seconds",
-                },
-                suggestedReps: {
-                  type: "number",
-                  description:
-                    "Suggested reps per set based on user history and goals",
-                },
-                suggestedWeight: {
-                  type: "number",
-                  description:
-                    "Suggested weight per set in user's preferred unit, based on history",
-                },
-                suggestedTime: {
-                  type: "number",
-                  description:
-                    "Suggested time in seconds per set (for time-based exercises)",
-                },
-                suggestedDistance: {
-                  type: "number",
-                  description:
-                    "Suggested distance per set (for distance-based exercises)",
-                },
-              },
-              required: ["name", "type", "defaultSetsCount", "restTimeSeconds"],
-            },
+            items: AI_EXERCISE_ITEM,
           },
         },
         required: ["name", "exercises"],
@@ -175,35 +184,7 @@ const TOOLS: ChatCompletionTool[] = [
                 },
                 exercises: {
                   type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      name: { type: "string" },
-                      type: {
-                        type: "string",
-                        enum: [
-                          "reps_weight",
-                          "reps_time",
-                          "time_only",
-                          "time_distance",
-                          "reps_only",
-                          "intervals",
-                        ],
-                      },
-                      defaultSetsCount: { type: "number" },
-                      restTimeSeconds: { type: "number" },
-                      suggestedReps: { type: "number" },
-                      suggestedWeight: { type: "number" },
-                      suggestedTime: { type: "number" },
-                      suggestedDistance: { type: "number" },
-                    },
-                    required: [
-                      "name",
-                      "type",
-                      "defaultSetsCount",
-                      "restTimeSeconds",
-                    ],
-                  },
+                  items: AI_EXERCISE_ITEM,
                 },
               },
               required: ["name", "exercises"],
@@ -255,31 +236,7 @@ const TOOLS: ChatCompletionTool[] = [
                     name: { type: "string" },
                     exercises: {
                       type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          name: { type: "string" },
-                          type: {
-                            type: "string",
-                            enum: [
-                              "reps_weight",
-                              "reps_time",
-                              "time_only",
-                              "time_distance",
-                              "reps_only",
-                              "intervals",
-                            ],
-                          },
-                          defaultSetsCount: { type: "number" },
-                          restTimeSeconds: { type: "number" },
-                        },
-                        required: [
-                          "name",
-                          "type",
-                          "defaultSetsCount",
-                          "restTimeSeconds",
-                        ],
-                      },
+                      items: AI_EXERCISE_ITEM,
                     },
                   },
                   required: ["name", "exercises"],
@@ -657,17 +614,17 @@ ${planSection}
 - For log_meal: estimate macros conservatively from typical portion sizes and state your portion assumption in portionDescription. Make exactly ONE log_meal call per distinct meal (combine items eaten together, e.g. a burrito and a coke at lunch, into one call; separate meals like "breakfast and lunch" get one call each). Only ask about portion size when it genuinely changes the estimate AND the description is truly ambiguous — otherwise assume a standard portion and log it.
 - When the user asks you to set or update their daily nutrition/macro targets (e.g. "set my protein to 180g", "aim for 2200 calories a day"), use the set_nutrition_goals tool with all four fields (calories, protein, carbs, fat). If they only mention one or two values, infer the rest using a reasonable split (e.g. keep their implied ratio, or default to ~30/40/30 protein/carbs/fat) rather than asking — state your assumption in your text response before the tool call.
 - IMPORTANT: Before calling any tool function, you MUST first write a brief explanation in your text response. Explain what you're creating and why — e.g. the reasoning behind exercise selection, set/rep schemes, plan structure, or recipe choices. This gives the user context before they see the approval card. Keep it concise (2-4 sentences).
-- When creating templates, ALWAYS include suggestedReps and suggestedWeight (or suggestedTime/suggestedDistance for time/distance exercises) for each exercise. Base these on the user's exercise performance history above. If no history exists for an exercise, use sensible defaults for the exercise type and apparent experience level.
+- When creating templates, include suggested values matching each exercise's metrics — suggestedReps/suggestedWeight for strength, suggestedTime/suggestedDistance for cardio. Base these on the user's exercise performance history above. If no history exists, use sensible defaults for the movement and apparent experience level.
 - When creating a workout plan, use create_workout_plan and include ALL necessary templates in the templates array.
 - You can create multiple templates at once by making multiple create_workout_template tool calls in a single response. Each will appear as a separate approval card for the user.
 - Always include notes for each template describing the workout's purpose, target muscle groups, intensity level, and any specific guidance (e.g., pace zones for running, RPE targets, rest guidance).
-- For running/cardio plans, create distinct exercises for each run type (Easy Run, Tempo Run, Long Run, Intervals, etc.) using time_distance type. Use the template notes to describe pace zones, heart rate targets, and workout intent.
+- For running/cardio plans, create distinct exercises for each run type (Easy Run, Tempo Run, Long Run, Intervals, etc.). Compose their metrics from the palette — e.g. runs ["duration","distance","pace","heart_rate_avg"], a watts-bike session ["duration","power_avg","distance","heart_rate_avg"] — and reserve "intervals" for true work/rest exercises. Use the template notes to describe pace zones, heart rate targets, and workout intent.
 - When creating a workout plan, always set startDate to the nearest upcoming Monday (or Sunday for sunday-start users) from the current date, unless the user specifies a different start date. The startDate is the first day of Week 1.
 - Prefer exercises from the user's existing library when possible. Match names exactly.
 - All data you create will require user approval before being saved. The user can reject and ask for changes.
 - Use the user's preferred units (${context.settings.weightUnit}, ${context.settings.distanceUnit}).
 - Be concise but helpful. Focus on actionable advice.
-- When suggesting exercises, consider the user's exercise types (reps_weight, reps_time, time_only, time_distance, reps_only).
+- Every exercise you create should set type "metrics" and list the metrics it tracks (compose from weight, reps, duration, distance, pace, speed, power_avg, heart_rate_avg, cadence, calories; max 5). Reserve "intervals" for work/rest interval exercises.
 - For workout plans, use dayOfWeek values: 0=Sunday, 1=Monday, ..., 6=Saturday.
 - For rest days in plans, omit the templateName field.
 - When the user asks to modify their existing plan, use the update_workout_plan tool with the plan's Plan ID (shown above in the Active Plan section). Reference existing template names exactly as they appear in the schedule. Only include newTemplates if you need to add workout types that don't already exist.

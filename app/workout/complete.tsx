@@ -37,7 +37,7 @@ export default function WorkoutCompleteScreen() {
   );
   const totalVolume = lastLog.exercises.reduce((t, e) => {
     return t + e.sets.reduce((st, s) => {
-      if (s.completed && s.type === 'reps_weight') {
+      if (s.completed && s.weight !== undefined && s.reps !== undefined) {
         return st + s.reps * s.weight;
       }
       return st;
@@ -99,7 +99,7 @@ export default function WorkoutCompleteScreen() {
                 <View key={exercise.id} className="flex-row items-center justify-between rounded-xl bg-card px-4 py-3">
                   <View className="flex-1">
                     <Text className="font-medium">{exercise.name}</Text>
-                    <Text className="text-xs text-muted-foreground">{exerciseTypeLabel(exercise.type)}</Text>
+                    <Text className="text-xs text-muted-foreground">{exerciseTypeLabel(exercise.type, exercise.metrics)}</Text>
                   </View>
                   <Text className="text-sm text-muted-foreground">
                     {done}/{exercise.sets.length} sets

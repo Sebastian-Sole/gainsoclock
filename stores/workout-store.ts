@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
-import type { ActiveWorkout, Exercise, TemplateExercise, WorkoutLog, WorkoutSet } from '@/lib/types';
+import type { ActiveWorkout, Exercise, MetricId, TemplateExercise, WorkoutLog, WorkoutSet } from '@/lib/types';
 import { generateId } from '@/lib/id';
 import { createDefaultSets } from '@/lib/defaults';
+import { MAX_METRICS_PER_EXERCISE, resolveExerciseMetrics } from '@/lib/metrics';
 
 interface WorkoutState {
   activeWorkout: ActiveWorkout | null;
@@ -17,6 +18,9 @@ interface WorkoutState {
   addExercise: (exercise: Exercise) => void;
   removeExercise: (exerciseId: string) => void;
   reorderExercises: (exercises: Exercise[]) => void;
+  moveExercise: (exerciseId: string, direction: 'up' | 'down') => void;
+  addExerciseMetric: (exerciseId: string, metricId: MetricId) => void;
+  removeExerciseMetric: (exerciseId: string, metricId: MetricId) => void;
 
   // Set management
   addSet: (exerciseId: string, set: WorkoutSet) => void;
@@ -58,6 +62,7 @@ export const useWorkoutStore = create<WorkoutState>()(
           exerciseId: te.exerciseId,
           name: te.name,
           type: te.type,
+          metrics: te.metrics,
           sets,
           restTimeSeconds: te.restTimeSeconds,
         };
@@ -69,7 +74,8 @@ export const useWorkoutStore = create<WorkoutState>()(
         exerciseId: te.exerciseId,
         name: te.name,
         type: te.type,
-        sets: createDefaultSets(te.type, te.defaultSetsCount, {
+        metrics: te.metrics,
+        sets: createDefaultSets(te.type, te.metrics, te.defaultSetsCount, {
           suggestedReps: te.suggestedReps,
           suggestedWeight: te.suggestedWeight,
           suggestedTime: te.suggestedTime,
@@ -141,6 +147,53 @@ export const useWorkoutStore = create<WorkoutState>()(
       if (!state.activeWorkout) return state;
       return {
         activeWorkout: { ...state.activeWorkout, exercises },
+      };
+    }),
+
+  moveExercise: (exerciseId, direction) =>
+    set((state) => {
+      if (!state.activeWorkout) return state;
+      const list = [...state.activeWorkout.exercises];
+      const i = list.findIndex((e) => e.id === exerciseId);
+      const j = direction === 'up' ? i - 1 : i + 1;
+      if (i === -1 || j < 0 || j >= list.length) return state;
+      [list[i], list[j]] = [list[j], list[i]];
+      return { activeWorkout: { ...state.activeWorkout, exercises: list } };
+    }),
+
+  // Metrics are exercise-level: adding one adds a column to every set (blank
+  // where unfilled). See docs/decisions/custom-exercise-metrics.md.
+  addExerciseMetric: (exerciseId, metricId) =>
+    set((state) => {
+      if (!state.activeWorkout) return state;
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          exercises: state.activeWorkout.exercises.map((e) => {
+            if (e.id !== exerciseId) return e;
+            const base = resolveExerciseMetrics(e.type, e.metrics);
+            if (base.includes(metricId) || base.length >= MAX_METRICS_PER_EXERCISE) {
+              return { ...e, metrics: base };
+            }
+            return { ...e, metrics: [...base, metricId] };
+          }),
+        },
+      };
+    }),
+
+  removeExerciseMetric: (exerciseId, metricId) =>
+    set((state) => {
+      if (!state.activeWorkout) return state;
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          exercises: state.activeWorkout.exercises.map((e) => {
+            if (e.id !== exerciseId) return e;
+            const base = resolveExerciseMetrics(e.type, e.metrics);
+            if (base.length <= 1) return { ...e, metrics: base };
+            return { ...e, metrics: base.filter((m) => m !== metricId) };
+          }),
+        },
       };
     }),
 

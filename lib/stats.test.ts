@@ -21,6 +21,7 @@ function exercise(
     exerciseId,
     name,
     type: "reps_weight", // denormalized display field; not read by the stats math
+    metrics: ["weight", "reps"],
     order: 0,
     restTimeSeconds: 60,
     sets,
@@ -189,5 +190,68 @@ describe("computeAllStats — totals", () => {
     expect(all.totals.totalWeightLifted).toBe(250); // 5*50 only
     const s = all.exerciseStats.find((e) => e.exerciseName === "Squat")!;
     expect(s.maxWeight?.value).toBe(50); // the 999 set was not completed
+  });
+});
+
+// Composed ('metrics') exercises accumulate flat fields the same way — no
+// per-type branch. A cardio machine contributes its duration/distance; power
+// and heart rate are avg metrics and don't pollute the volume/rep totals.
+function metricsExercise(
+  exerciseId: string,
+  name: string,
+  metrics: WorkoutLogExercise["metrics"],
+  sets: WorkoutSet[]
+): WorkoutLogExercise {
+  return {
+    id: `wle-${exerciseId}`,
+    exerciseId,
+    name,
+    type: "metrics",
+    metrics,
+    order: 0,
+    restTimeSeconds: 0,
+    sets,
+  };
+}
+
+describe("computeAllStats — composed metrics exercises", () => {
+  it("Watts Bike: duration→totalTime, distance→totalDistance; power/HR don't add reps or volume", () => {
+    const bike = metricsExercise(
+      "bike",
+      "Watts Bike",
+      ["duration", "power_avg", "distance", "heart_rate_avg"],
+      [
+        {
+          id: "b1",
+          type: "metrics",
+          time: 600,
+          powerAvg: 220,
+          distance: 4.2,
+          heartRateAvg: 150,
+          completed: true,
+        },
+      ]
+    );
+    const all = computeAllStats([log("l", "2026-06-10T08:00:00Z", 700, [bike])], NOW);
+    const s = all.exerciseStats.find((e) => e.exerciseName === "Watts Bike")!;
+    expect(s.totalTime).toBe(600);
+    expect(s.totalDistance).toBe(4.2);
+    expect(s.totalReps).toBe(0);
+    expect(s.totalWeight).toBe(0); // no weight metric → no volume
+    expect(s.maxDistance?.value).toBe(4.2);
+    expect(all.totals.totalDistance).toBe(4.2);
+    expect(all.totals.totalWeightLifted).toBe(0);
+  });
+
+  it("composed weight+reps exercise counts volume and weight PB like a legacy strength set", () => {
+    const lift = metricsExercise("dl", "Deadlift", ["weight", "reps"], [
+      { id: "d1", type: "metrics", weight: 140, reps: 3, completed: true },
+    ]);
+    const all = computeAllStats([log("l", "2026-06-10T08:00:00Z", 700, [lift])], NOW);
+    const s = all.exerciseStats.find((e) => e.exerciseName === "Deadlift")!;
+    expect(s.totalWeight).toBe(420); // 140*3
+    expect(s.maxWeight?.value).toBe(140);
+    expect(s.maxVolume?.value).toBe(420);
+    expect(all.totals.totalWeightLifted).toBe(420);
   });
 });

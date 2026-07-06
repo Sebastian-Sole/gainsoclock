@@ -7,15 +7,16 @@ import { X, ChevronLeft, Search } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 
-import { ExerciseTypeSelector } from '@/components/workout/exercise-type-selector';
+import { ExercisePresetSelector } from '@/components/workout/exercise-preset-selector';
+import { MetricPicker } from '@/components/workout/metric-picker';
 import { RestTimerPresets } from '@/components/workout/rest-timer-presets';
 import { StepIndicator } from '@/components/shared/step-indicator';
 import { NumericInput } from '@/components/shared/numeric-input';
 
-import type { Exercise, ExerciseType, ExerciseDefinition, IntervalDistanceUnit, TemplateExercise } from '@/lib/types';
+import type { Exercise, ExerciseType, ExerciseDefinition, IntervalDistanceUnit, MetricId, TemplateExercise } from '@/lib/types';
 import { createDefaultSets } from '@/lib/defaults';
+import { resolveExerciseMetrics } from '@/lib/metrics';
 import { generateId } from '@/lib/id';
-import { DEFAULT_REST_TIME } from '@/lib/defaults';
 import { lightHaptic } from '@/lib/haptics';
 import { exerciseTypeLabel } from '@/lib/format';
 import { useTemplateCreateStore } from '@/stores/exercise-draft-store';
@@ -25,7 +26,13 @@ import { useExerciseLibraryStore } from '@/stores/exercise-library-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { cn } from '@/lib/utils';
 
-const TOTAL_STEPS = 4;
+// Wizard steps (picker is -1).
+const STEP_PRESET = 0;
+const STEP_METRICS = 1;
+const STEP_NAME = 2;
+const STEP_CONFIG = 3;
+const STEP_REST = 4;
+const TOTAL_STEPS = 5;
 
 export default function CreateExerciseScreen() {
   const router = useRouter();
@@ -39,18 +46,34 @@ export default function CreateExerciseScreen() {
   const userDefaultSetsCount = useSettingsStore((s) => s.defaultSetsCount);
   const userDefaultRepsCount = useSettingsStore((s) => s.defaultRepsCount);
   const userDistanceUnit = useSettingsStore((s) => s.distanceUnit);
+  const weightUnit = useSettingsStore((s) => s.weightUnit);
 
-  // -1 = picker, 0-3 = wizard steps
+  // -1 = picker, 0-4 = wizard steps
   const [step, setStep] = useState(-1);
+  const [presetId, setPresetId] = useState<string | undefined>();
   const [exerciseType, setExerciseType] = useState<ExerciseType | undefined>();
+  const [metrics, setMetrics] = useState<MetricId[]>([]);
   const [name, setName] = useState('');
   const [setsCount, setSetsCount] = useState(userDefaultSetsCount);
   const [repsCount, setRepsCount] = useState(userDefaultRepsCount);
   const [restTime, setRestTime] = useState(userDefaultRestTime);
   const [intervalUnit, setIntervalUnit] = useState<IntervalDistanceUnit>(userDistanceUnit);
+  // Template suggested defaults (duration captured in minutes, stored as seconds).
+  const [suggestedWeight, setSuggestedWeight] = useState(20);
+  const [suggestedDurationMin, setSuggestedDurationMin] = useState(10);
+  const [suggestedDistance, setSuggestedDistance] = useState(5);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseDefinition | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  const isIntervals = exerciseType === 'intervals';
+  const hasReps = metrics.includes('reps');
+  const hasWeight = metrics.includes('weight');
+  const hasDuration = metrics.includes('duration');
+  const hasDistance = metrics.includes('distance');
+  // Suggested defaults are template-only; the active/edit-log flows keep the
+  // registry defaults so logging starts from a clean slate.
+  const isTemplateFlow = !isActiveWorkout && source !== 'edit-log';
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -72,28 +95,41 @@ export default function CreateExerciseScreen() {
 
   const canProceed = useCallback(() => {
     switch (step) {
-      case 0: return exerciseType !== undefined;
-      case 1: return name.trim().length > 0;
-      case 2: return setsCount > 0;
-      case 3: return true;
+      case STEP_PRESET: return exerciseType !== undefined;
+      case STEP_METRICS: return isIntervals || metrics.length > 0;
+      case STEP_NAME: return name.trim().length > 0;
+      case STEP_CONFIG: return setsCount > 0;
+      case STEP_REST: return true;
       default: return false;
     }
-  }, [step, exerciseType, name, setsCount]);
+  }, [step, exerciseType, isIntervals, metrics, name, setsCount]);
+
+  const handleSelectPreset = (preset: { id: string; metrics: MetricId[]; isIntervals?: boolean }) => {
+    setPresetId(preset.id);
+    setExerciseType(preset.isIntervals ? 'intervals' : 'metrics');
+    setMetrics(preset.isIntervals ? [] : preset.metrics);
+    lightHaptic();
+  };
 
   const handleSelectExisting = (exercise: ExerciseDefinition) => {
     setSelectedExercise(exercise);
     setName(exercise.name);
+    setPresetId('existing');
     setExerciseType(exercise.type);
+    setMetrics(resolveExerciseMetrics(exercise.type, exercise.metrics));
     lightHaptic();
-    // Skip type and name steps, go straight to sets count
-    setStep(2);
+    // Skip preset/metrics/name steps, go straight to sets config
+    setStep(STEP_CONFIG);
   };
 
   const handleCreateNew = () => {
     setSelectedExercise(null);
+    setPresetId(undefined);
+    setExerciseType(undefined);
+    setMetrics([]);
     setName(searchQuery);
     lightHaptic();
-    setStep(0);
+    setStep(STEP_PRESET);
   };
 
   const handleNext = () => {
@@ -110,12 +146,14 @@ export default function CreateExerciseScreen() {
     lightHaptic();
     if (step === -1) {
       router.back();
-    } else if (step === 0) {
+    } else if (step === STEP_PRESET) {
       setStep(-1);
-    } else if (selectedExercise && step === 2) {
+    } else if (selectedExercise && step === STEP_CONFIG) {
       // Came from picker, go back to picker
       setSelectedExercise(null);
       setExerciseType(undefined);
+      setPresetId(undefined);
+      setMetrics([]);
       setName('');
       setStep(-1);
     } else {
@@ -128,15 +166,15 @@ export default function CreateExerciseScreen() {
     const trimmedName = name.trim();
 
     // Ensure exercise exists in the library
-    const exerciseDef = getOrCreate(trimmedName, exerciseType);
+    const exerciseDef = getOrCreate(trimmedName, exerciseType, metrics);
 
-    const hasReps = exerciseType === 'reps_weight' || exerciseType === 'reps_time' || exerciseType === 'reps_only';
-    const isIntervals = exerciseType === 'intervals';
-    const suggested = hasReps
-      ? { suggestedReps: repsCount }
-      : isIntervals
-        ? { intervalDistanceUnit: intervalUnit }
-        : undefined;
+    const suggested = {
+      ...(hasReps ? { suggestedReps: repsCount } : {}),
+      ...(isTemplateFlow && hasWeight ? { suggestedWeight } : {}),
+      ...(isTemplateFlow && hasDuration ? { suggestedTime: suggestedDurationMin * 60 } : {}),
+      ...(isTemplateFlow && hasDistance ? { suggestedDistance } : {}),
+      ...(isIntervals ? { intervalDistanceUnit: intervalUnit } : {}),
+    };
 
     if (isActiveWorkout || source === 'edit-log') {
       const exercise: Exercise = {
@@ -144,7 +182,8 @@ export default function CreateExerciseScreen() {
         exerciseId: exerciseDef.id,
         name: trimmedName,
         type: exerciseType,
-        sets: createDefaultSets(exerciseType, setsCount, suggested),
+        metrics,
+        sets: createDefaultSets(exerciseType, metrics, setsCount, suggested),
         restTimeSeconds: restTime,
       };
       if (isActiveWorkout) {
@@ -158,10 +197,14 @@ export default function CreateExerciseScreen() {
         exerciseId: exerciseDef.id,
         name: trimmedName,
         type: exerciseType,
+        metrics,
         order: useTemplateCreateStore.getState().exercises.length,
         restTimeSeconds: restTime,
         defaultSetsCount: setsCount,
         ...(hasReps ? { suggestedReps: repsCount } : {}),
+        ...(hasWeight ? { suggestedWeight } : {}),
+        ...(hasDuration ? { suggestedTime: suggestedDurationMin * 60 } : {}),
+        ...(hasDistance ? { suggestedDistance } : {}),
       };
       addTemplateExercise(templateExercise);
     }
@@ -227,7 +270,7 @@ export default function CreateExerciseScreen() {
                 <View>
                   <Text className="font-medium">{item.name}</Text>
                   <Text className="text-xs text-muted-foreground">
-                    {exerciseTypeLabel(item.type)}
+                    {exerciseTypeLabel(item.type, item.metrics)}
                   </Text>
                 </View>
               </Pressable>
@@ -247,17 +290,33 @@ export default function CreateExerciseScreen() {
 
   const renderStep = () => {
     switch (step) {
-      case 0:
+      case STEP_PRESET:
         return (
-          <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-0" className="flex-1">
+          <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-preset" className="flex-1">
             <Text className="mb-2 text-2xl font-bold">Exercise Type</Text>
-            <Text className="mb-6 text-muted-foreground">What kind of exercise is this?</Text>
-            <ExerciseTypeSelector selected={exerciseType} onSelect={setExerciseType} />
+            <Text className="mb-6 text-muted-foreground">Pick a starting point — you can tweak what it tracks next.</Text>
+            <ExercisePresetSelector selectedId={presetId} onSelect={handleSelectPreset} />
           </Animated.View>
         );
-      case 1:
+      case STEP_METRICS:
         return (
-          <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-1" className="flex-1">
+          <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-metrics" className="flex-1">
+            <Text className="mb-2 text-2xl font-bold">What to track</Text>
+            {isIntervals ? (
+              <Text className="text-muted-foreground">
+                Intervals track pace, distance, or speed per work/rest pair — you&apos;ll set that on each set.
+              </Text>
+            ) : (
+              <>
+                <Text className="mb-6 text-muted-foreground">Choose the values you want to log for this exercise.</Text>
+                <MetricPicker metrics={metrics} onChange={setMetrics} />
+              </>
+            )}
+          </Animated.View>
+        );
+      case STEP_NAME:
+        return (
+          <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-name" className="flex-1">
             <Text className="mb-2 text-2xl font-bold">Exercise Name</Text>
             <Text className="mb-6 text-muted-foreground">Give your exercise a name</Text>
             <TextInput
@@ -270,12 +329,10 @@ export default function CreateExerciseScreen() {
             />
           </Animated.View>
         );
-      case 2: {
-        const hasReps = exerciseType === 'reps_weight' || exerciseType === 'reps_time' || exerciseType === 'reps_only';
-        const isIntervals = exerciseType === 'intervals';
+      case STEP_CONFIG: {
         const countLabel = isIntervals ? 'Intervals' : 'Sets';
         return (
-          <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-2" className="flex-1">
+          <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-config" className="flex-1">
             <Text className="mb-2 text-2xl font-bold">
               {isIntervals ? 'Intervals' : `Sets${hasReps ? ' & Reps' : ''}`}
             </Text>
@@ -295,6 +352,24 @@ export default function CreateExerciseScreen() {
                 <View className="flex-row items-center justify-between">
                   <Text className="text-base font-medium">Reps</Text>
                   <NumericInput value={repsCount} onValueChange={setRepsCount} min={1} max={100} />
+                </View>
+              )}
+              {isTemplateFlow && hasWeight && (
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-base font-medium">Weight ({weightUnit})</Text>
+                  <NumericInput value={suggestedWeight} onValueChange={setSuggestedWeight} min={0} max={2000} step={5} label="suggested weight" />
+                </View>
+              )}
+              {isTemplateFlow && hasDuration && (
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-base font-medium">Duration (min)</Text>
+                  <NumericInput value={suggestedDurationMin} onValueChange={setSuggestedDurationMin} min={1} max={600} label="suggested duration in minutes" />
+                </View>
+              )}
+              {isTemplateFlow && hasDistance && (
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-base font-medium">Distance ({userDistanceUnit})</Text>
+                  <NumericInput value={suggestedDistance} onValueChange={setSuggestedDistance} min={1} max={1000} label="suggested distance" />
                 </View>
               )}
               {isIntervals && (
@@ -331,9 +406,9 @@ export default function CreateExerciseScreen() {
           </Animated.View>
         );
       }
-      case 3:
+      case STEP_REST:
         return (
-          <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-3" className="flex-1">
+          <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-rest" className="flex-1">
             <Text className="mb-2 text-2xl font-bold">Rest Time</Text>
             <Text className="mb-6 text-muted-foreground">Rest between sets</Text>
             <RestTimerPresets selected={restTime} onSelect={setRestTime} />

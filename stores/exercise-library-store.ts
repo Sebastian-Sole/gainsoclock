@@ -4,15 +4,16 @@ import { zustandStorage } from '@/lib/storage';
 import { generateId } from '@/lib/id';
 import { syncToConvex } from '@/lib/convex-sync';
 import { api } from '@/convex/_generated/api';
-import type { ExerciseDefinition, ExerciseType } from '@/lib/types';
+import type { ExerciseDefinition, ExerciseType, MetricId } from '@/lib/types';
+import { resolveExerciseMetricsLoose } from '@/lib/metrics';
 
 interface ExerciseLibraryState {
   exercises: ExerciseDefinition[];
 
-  addExercise: (name: string, type: ExerciseType) => ExerciseDefinition;
-  getOrCreate: (name: string, type: ExerciseType) => ExerciseDefinition;
+  addExercise: (name: string, type: ExerciseType, metrics: MetricId[]) => ExerciseDefinition;
+  getOrCreate: (name: string, type: ExerciseType, metrics: MetricId[]) => ExerciseDefinition;
   searchByName: (query: string) => ExerciseDefinition[];
-  hydrateFromServer: (serverExercises: Array<{ clientId: string; name: string; type: ExerciseType; createdAt: string }>) => void;
+  hydrateFromServer: (serverExercises: Array<{ clientId: string; name: string; type: ExerciseType; metrics?: string[]; createdAt: string }>) => void;
 }
 
 export const useExerciseLibraryStore = create<ExerciseLibraryState>()(
@@ -20,11 +21,12 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>()(
     (set, get) => ({
       exercises: [],
 
-      addExercise: (name, type) => {
+      addExercise: (name, type, metrics) => {
         const exercise: ExerciseDefinition = {
           id: generateId(),
           name,
           type,
+          metrics,
           createdAt: new Date().toISOString(),
         };
         set((state) => ({ exercises: [...state.exercises, exercise] }));
@@ -33,18 +35,19 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>()(
           clientId: exercise.id,
           name: exercise.name,
           type: exercise.type,
+          metrics: exercise.metrics,
           createdAt: exercise.createdAt,
         });
 
         return exercise;
       },
 
-      getOrCreate: (name, type) => {
+      getOrCreate: (name, type, metrics) => {
         const existing = get().exercises.find(
           (e) => e.name.toLowerCase() === name.toLowerCase()
         );
         if (existing) return existing;
-        return get().addExercise(name, type);
+        return get().addExercise(name, type, metrics);
       },
 
       searchByName: (query) => {
@@ -60,6 +63,7 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>()(
           id: e.clientId,
           name: e.name,
           type: e.type,
+          metrics: resolveExerciseMetricsLoose(e.type, e.metrics),
           createdAt: e.createdAt,
         }));
         set({ exercises: mapped });

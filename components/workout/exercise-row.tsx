@@ -21,7 +21,7 @@ export function ExerciseRow({ exercise, index }: ExerciseRowProps) {
         </Text>
       </View>
       <Badge variant="secondary">
-        <Text className="text-xs">{exerciseTypeLabel(exercise.type)}</Text>
+        <Text className="text-xs">{exerciseTypeLabel(exercise.type, exercise.metrics)}</Text>
       </Badge>
     </View>
   );

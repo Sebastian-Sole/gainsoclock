@@ -58,7 +58,7 @@ export function TemplateCard({ template, index, onPress, onStart, onLongPress, t
                   {exercise.defaultSetsCount} x {exercise.name}
                 </Text>
                 <Text className="text-xs text-muted-foreground/60">
-                  {exerciseTypeLabel(exercise.type)}
+                  {exerciseTypeLabel(exercise.type, exercise.metrics)}
                 </Text>
               </View>
             ))}

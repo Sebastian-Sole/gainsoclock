@@ -1,7 +1,80 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
+import { legacyTypeToMetrics } from "./metricsMap";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Backfill `metrics` on exercises / templateExercises / workoutLogExercises from
+ * the legacy `type`. Optional for correctness (reads fall back to
+ * resolveExerciseMetrics client-side) but keeps server rows self-describing.
+ *
+ * Run from the Convex dashboard. Pass `logOnly: true` first to dry-run.
+ */
+export const migrateExerciseMetrics = internalMutation({
+  args: { logOnly: v.boolean() },
+  handler: async (ctx, args) => {
+    let touched = 0;
+    let skipped = 0;
+
+    const exercises = await ctx.db.query("exercises").collect();
+    for (const row of exercises) {
+      if (row.metrics !== undefined) {
+        skipped++;
+        continue;
+      }
+      const metrics = legacyTypeToMetrics(row.type);
+      if (metrics.length === 0) {
+        skipped++;
+        continue;
+      }
+      if (args.logOnly) {
+        console.log(
+          `[migrate metrics] exercises/${row.clientId} ${row.type} -> ${metrics.join(",")}`,
+        );
+      } else {
+        await ctx.db.patch(row._id, { metrics });
+      }
+      touched++;
+    }
+
+    // Denormalized copies on the log/template join rows use their parent
+    // exercise's type; look it up per-user for the mapping.
+    const templateExercises = await ctx.db.query("templateExercises").collect();
+    const logExercises = await ctx.db.query("workoutLogExercises").collect();
+
+    for (const row of [...templateExercises, ...logExercises]) {
+      if (row.metrics !== undefined) {
+        skipped++;
+        continue;
+      }
+      const def = await ctx.db
+        .query("exercises")
+        .withIndex("by_user_clientId", (q) =>
+          q.eq("userId", row.userId).eq("clientId", row.exerciseClientId),
+        )
+        .unique();
+      const metrics = legacyTypeToMetrics(def?.type ?? "");
+      if (metrics.length === 0) {
+        skipped++;
+        continue;
+      }
+      if (args.logOnly) {
+        console.log(
+          `[migrate metrics] ${row.exerciseClientId} -> ${metrics.join(",")}`,
+        );
+      } else {
+        await ctx.db.patch(row._id, { metrics });
+      }
+      touched++;
+    }
+
+    console.log(
+      `[migrate metrics] done — touched=${touched} skipped=${skipped} dryRun=${args.logOnly}`,
+    );
+    return { touched, skipped, dryRun: args.logOnly };
+  },
+});
 
 /**
  * One-shot migration to backfill the V2 state-machine columns on existing

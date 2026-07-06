@@ -11,6 +11,7 @@ export default function WorkoutLayout() {
         />
         <Stack.Screen name="complete" />
         <Stack.Screen name="[id]" />
+        <Stack.Screen name="summary" options={{ gestureEnabled: false }} />
       </Stack>
     </SafeAreaProvider>
   );

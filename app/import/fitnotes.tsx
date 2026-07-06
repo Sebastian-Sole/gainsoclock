@@ -34,6 +34,7 @@ import {
   type FitNotesRow,
 } from '@/lib/import/fitnotes';
 import type { ExerciseType, TemplateExercise } from '@/lib/types';
+import { metricsForLegacyType } from '@/lib/metrics';
 import { generateId } from '@/lib/id';
 
 type Step = 'instructions' | 'options' | 'importing' | 'complete';
@@ -201,7 +202,7 @@ export default function FitNotesImportScreen() {
     setStep('importing');
 
     const exerciseResolver = (name: string, type: ExerciseType): string => {
-      const exercise = getOrCreate(name, type);
+      const exercise = getOrCreate(name, type, metricsForLegacyType(type));
       return exercise.id;
     };
 
@@ -271,6 +272,7 @@ export default function FitNotesImportScreen() {
           exerciseId: ex.exerciseId,
           name: ex.name,
           type: ex.type,
+          metrics: ex.metrics,
           order: i,
           restTimeSeconds: ex.restTimeSeconds,
           defaultSetsCount: ex.sets.length || 3,
