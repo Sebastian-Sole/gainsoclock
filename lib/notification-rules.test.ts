@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  hasWorkoutToday,
   planDailyReminder,
   decideProteinNudge,
   clampReviewWeekday,
@@ -11,59 +12,100 @@ import {
 // (and `target`, where relevant) as parameters, so no fake timers are
 // needed — every case below uses a fixed local Date.
 
+describe("hasWorkoutToday", () => {
+  it("true when the device stamp matches today", () => {
+    expect(
+      hasWorkoutToday({
+        todayStr: "2026-06-15",
+        lastWorkoutLoggedDate: "2026-06-15",
+        logDates: [],
+      })
+    ).toBe(true);
+  });
+
+  it("true when a history log date matches today, even without a stamp (other-device sync)", () => {
+    expect(
+      hasWorkoutToday({
+        todayStr: "2026-06-15",
+        lastWorkoutLoggedDate: null,
+        logDates: ["2026-06-13", "2026-06-15"],
+      })
+    ).toBe(true);
+  });
+
+  it("false when the stamp is stale and no log is today-dated", () => {
+    expect(
+      hasWorkoutToday({
+        todayStr: "2026-06-15",
+        lastWorkoutLoggedDate: "2026-06-14",
+        logDates: ["2026-06-13", "2026-06-14"],
+      })
+    ).toBe(false);
+  });
+
+  it("false with no stamp and no logs", () => {
+    expect(
+      hasWorkoutToday({
+        todayStr: "2026-06-15",
+        lastWorkoutLoggedDate: undefined,
+        logDates: [],
+      })
+    ).toBe(false);
+  });
+
+  it("accepts any iterable of log dates (Set)", () => {
+    expect(
+      hasWorkoutToday({
+        todayStr: "2026-06-15",
+        lastWorkoutLoggedDate: null,
+        logDates: new Set(["2026-06-15"]),
+      })
+    ).toBe(true);
+  });
+});
+
 describe("planDailyReminder", () => {
-  it("logged today + before reminder time -> one-shot for tomorrow with exact seconds", () => {
+  it("worked out today + before reminder time -> one-shot for tomorrow with exact seconds", () => {
     const now = new Date(2026, 5, 15, 10, 0, 0); // 2026-06-15 10:00
     const plan = planDailyReminder({
       now,
       hour: 18,
       minute: 0,
-      lastWorkoutLoggedDate: "2026-06-15",
+      workedOutToday: true,
     });
     // 2026-06-16 18:00 - 2026-06-15 10:00 = 32h = 115200s exactly.
     expect(plan).toEqual({ kind: "one-shot-tomorrow", seconds: 115200 });
   });
 
-  it("logged today + after reminder time -> repeating daily", () => {
+  it("worked out today + after reminder time -> repeating daily", () => {
     const now = new Date(2026, 5, 15, 19, 0, 0); // after 18:00 reminder
     const plan = planDailyReminder({
       now,
       hour: 18,
       minute: 0,
-      lastWorkoutLoggedDate: "2026-06-15",
+      workedOutToday: true,
     });
     expect(plan).toEqual({ kind: "repeating-daily" });
   });
 
-  it("not logged today -> repeating daily", () => {
+  it("no workout today -> repeating daily", () => {
     const now = new Date(2026, 5, 15, 10, 0, 0);
     const plan = planDailyReminder({
       now,
       hour: 18,
       minute: 0,
-      lastWorkoutLoggedDate: null,
+      workedOutToday: false,
     });
     expect(plan).toEqual({ kind: "repeating-daily" });
   });
 
-  it("logged yesterday (date-string mismatch) -> repeating daily", () => {
-    const now = new Date(2026, 5, 15, 10, 0, 0);
-    const plan = planDailyReminder({
-      now,
-      hour: 18,
-      minute: 0,
-      lastWorkoutLoggedDate: "2026-06-14",
-    });
-    expect(plan).toEqual({ kind: "repeating-daily" });
-  });
-
-  it("midnight edge: now 23:59 logged today, reminder was 23:58 -> repeating (time already passed)", () => {
+  it("midnight edge: now 23:59 worked out today, reminder was 23:58 -> repeating (time already passed)", () => {
     const now = new Date(2026, 5, 15, 23, 59, 0);
     const plan = planDailyReminder({
       now,
       hour: 23,
       minute: 58,
-      lastWorkoutLoggedDate: "2026-06-15",
+      workedOutToday: true,
     });
     expect(plan).toEqual({ kind: "repeating-daily" });
   });
@@ -74,22 +116,11 @@ describe("planDailyReminder", () => {
       now,
       hour: 18,
       minute: 0,
-      lastWorkoutLoggedDate: "2026-06-15",
+      workedOutToday: true,
     });
     // now < reminderToday (17:59:59 < 18:00:00), so one-shot-tomorrow fires;
     // tomorrow 18:00:00 - now 17:59:59 = 86401s.
     expect(plan).toEqual({ kind: "one-shot-tomorrow", seconds: 86401 });
-  });
-
-  it("undefined lastWorkoutLoggedDate -> repeating daily", () => {
-    const now = new Date(2026, 5, 15, 10, 0, 0);
-    const plan = planDailyReminder({
-      now,
-      hour: 18,
-      minute: 0,
-      lastWorkoutLoggedDate: undefined,
-    });
-    expect(plan).toEqual({ kind: "repeating-daily" });
   });
 });
 

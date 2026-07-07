@@ -7,6 +7,8 @@ import { capture } from '@/lib/analytics';
 import { useSettingsStore } from '@/stores/settings-store';
 import { usePlanStore } from '@/stores/plan-store';
 import { useHistoryStore } from '@/stores/history-store';
+import { useWorkoutStore } from '@/stores/workout-store';
+import { hasWorkoutToday } from '@/lib/notification-rules';
 import {
   IDENTIFIERS,
   scheduleDailyWorkoutReminder,
@@ -28,17 +30,16 @@ import { collectPlanRestDates, computeStreak } from '@/lib/streaks';
  * listener). Deliberately mirrors `hooks/use-stats.ts`'s streak computation
  * but omits external (Apple Health) workouts — that data comes from a Convex
  * query, which isn't available outside a React render. This can under-count
- * a streak kept alive only by synced workouts; the next render-scoped
- * evaluation (e.g. opening Stats) doesn't correct this notification
- * retroactively, but the notification itself just re-arms on the next
- * foreground/settings change, so the gap is self-healing and never causes a
- * false "streak broken" ping (the notification only ever tells the user to
- * train, never that they failed).
+ * a streak kept alive only by synced workouts on *past* days; for *today*,
+ * the `lastWorkoutLoggedDate` stamp (set by in-app finishes and today-dated
+ * Apple Health imports) fills the gap, so an already-trained day never gets
+ * a "streak on the line" ping. The remaining under-count only shortens the
+ * streak length shown in the notification body, never fires it falsely.
  */
 function computeCurrentStreakSnapshot(): { currentStreak: number; todayCovered: boolean } {
   const { logs } = useHistoryStore.getState();
   const { activePlanWithDays } = usePlanStore.getState();
-  const { weekStartDay } = useSettingsStore.getState();
+  const { weekStartDay, lastWorkoutLoggedDate } = useSettingsStore.getState();
 
   const workoutDates = new Set<string>();
   for (const log of logs) {
@@ -50,24 +51,58 @@ function computeCurrentStreakSnapshot(): { currentStreak: number; todayCovered: 
       ? collectPlanRestDates(activePlanWithDays, weekStartDay)
       : new Set<string>();
 
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
   const streak = computeStreak({
     workoutDates,
     externalWorkoutDates: new Set(),
     restDates,
-    today: format(new Date(), 'yyyy-MM-dd'),
+    today: todayStr,
   });
 
-  return { currentStreak: streak.current, todayCovered: streak.todayCovered };
+  // The `lastWorkoutLoggedDate` stamp covers today-dated Apple Health imports
+  // (see useHealthImport), which the history-store logs above can't see —
+  // without it, a Watch workout would still get a "streak on the line" ping.
+  return {
+    currentStreak: streak.current,
+    todayCovered: streak.todayCovered || lastWorkoutLoggedDate === todayStr,
+  };
+}
+
+/**
+ * Local `yyyy-MM-dd` start dates of history-store logs, passed to
+ * `scheduleDailyWorkoutReminder` as workout-happened-today evidence. Covers
+ * workouts synced from other devices and manually edited/imported logs,
+ * which never stamp `lastWorkoutLoggedDate` on this device.
+ */
+function workoutLogDates(): string[] {
+  return useHistoryStore
+    .getState()
+    .logs.map((log) => format(new Date(log.startedAt), 'yyyy-MM-dd'));
 }
 
 // Configure foreground notification behavior
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const id = notification.request.identifier;
-    // Only suppress rest-timer alerts when the active workout screen is on
-    // screen (the timer UI + haptic are the cue). If the user closed the
-    // workout to use other parts of the app, the notification should fire.
-    const show = id !== IDENTIFIERS.REST_TIMER || !isActiveWorkoutVisible();
+    let show = true;
+    if (id === IDENTIFIERS.REST_TIMER) {
+      // Only suppress rest-timer alerts when the active workout screen is on
+      // screen (the timer UI + haptic are the cue). If the user closed the
+      // workout to use other parts of the app, the notification should fire.
+      show = !isActiveWorkoutVisible();
+    } else if (id === IDENTIFIERS.DAILY_REMINDER) {
+      // "You haven't logged a workout today" is wrong on its face when the
+      // user is mid-workout or already trained today — last-resort catch for
+      // a trigger that was armed before the scheduler knew about the workout.
+      const midWorkout = useWorkoutStore.getState().activeWorkout != null;
+      show =
+        !midWorkout &&
+        !hasWorkoutToday({
+          todayStr: format(new Date(), 'yyyy-MM-dd'),
+          lastWorkoutLoggedDate: useSettingsStore.getState().lastWorkoutLoggedDate,
+          logDates: workoutLogDates(),
+        });
+    }
     return {
       shouldShowAlert: show,
       shouldPlaySound: show,
@@ -103,10 +138,32 @@ export function useNotificationSetup() {
 
       const [hour, minute] = time.split(':').map(Number);
       if (Number.isFinite(hour) && Number.isFinite(minute)) {
-        scheduleDailyWorkoutReminder(hour, minute);
+        scheduleDailyWorkoutReminder(hour, minute, { workoutLogDates: workoutLogDates() });
       }
     });
     return unsub;
+  }, []);
+
+  // Re-arm the daily reminder on every app foreground: a new day may have
+  // started, the one-shot suppression may have fired (leaving nothing
+  // scheduled until now), or a workout may have arrived from another device
+  // or Apple Health. Scheduling is idempotent (fixed identifier, cancel
+  // before re-arm), so re-running is safe.
+  useEffect(() => {
+    const rearmDailyReminder = () => {
+      const { notificationsReminderEnabled, notificationsReminderTime } =
+        useSettingsStore.getState();
+      if (!notificationsReminderEnabled) return;
+      const [hour, minute] = notificationsReminderTime.split(':').map(Number);
+      if (Number.isFinite(hour) && Number.isFinite(minute)) {
+        scheduleDailyWorkoutReminder(hour, minute, { workoutLogDates: workoutLogDates() });
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') rearmDailyReminder();
+    });
+    return () => subscription.remove();
   }, []);
 
   // Subscribe to settings changes for weekly review notification
@@ -277,7 +334,7 @@ export function useNotificationSetup() {
     if (notificationsReminderEnabled) {
       const [hour, minute] = notificationsReminderTime.split(':').map(Number);
       if (Number.isFinite(hour) && Number.isFinite(minute)) {
-        scheduleDailyWorkoutReminder(hour, minute);
+        scheduleDailyWorkoutReminder(hour, minute, { workoutLogDates: workoutLogDates() });
       }
     }
 
