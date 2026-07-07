@@ -26,7 +26,7 @@ export function StreaksSection({ streaks }: StreaksSectionProps) {
         <View className="flex-row items-center gap-3 p-4">
           <Icon as={Flame} size={24} className="text-primary" />
           <View className="flex-1">
-            <Text className="text-lg font-bold">
+            <Text className="text-lg font-extrabold">
               {streaks.currentStreak} {streaks.currentStreak === 1 ? 'day' : 'days'}
             </Text>
             <Text className="text-sm text-muted-foreground">
@@ -52,7 +52,7 @@ export function StreaksSection({ streaks }: StreaksSectionProps) {
         <View className="flex-row items-center gap-3 p-4">
           <Icon as={Trophy} size={24} className="text-primary" />
           <View className="flex-1">
-            <Text className="text-lg font-bold">
+            <Text className="text-lg font-extrabold">
               {streaks.longestStreak} {streaks.longestStreak === 1 ? 'day' : 'days'}
             </Text>
             <Text className="text-sm text-muted-foreground">

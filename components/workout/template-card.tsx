@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { exerciseTypeLabel } from '@/lib/format';
@@ -24,18 +23,14 @@ export function TemplateCard({ template, index, onPress, onStart, onLongPress, t
         onPress={onPress}
         onLongPress={onLongPress}
         testID={testID}
-        className="mb-3 rounded-xl border border-border bg-card p-4"
+        className="mb-3 rounded-2xl border border-border bg-card p-4"
       >
         <View className="flex-row items-start justify-between">
           <View className="flex-1">
-            <Text className="text-lg font-semibold">{template.name}</Text>
-            <View className="mt-1 flex-row items-center gap-2">
-              <Badge variant="secondary">
-                <Text className="text-xs">
-                  {template.exercises.length} exercise{template.exercises.length !== 1 ? 's' : ''}
-                </Text>
-              </Badge>
-            </View>
+            <Text className="text-lg font-bold">{template.name}</Text>
+            <Text className="mt-0.5 text-xs text-muted-foreground">
+              {template.exercises.length} exercise{template.exercises.length !== 1 ? 's' : ''}
+            </Text>
           </View>
           <View className="flex-row items-center gap-2">
             <Pressable

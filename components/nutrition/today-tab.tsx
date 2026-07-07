@@ -83,7 +83,7 @@ export function TodayTab() {
         <AnalyticsConsentCard />
 
         {/* Macro Progress */}
-        <View className="rounded-xl border border-border bg-card p-4 mb-4">
+        <View className="rounded-2xl border border-border bg-card p-4 mb-4">
           <MacroProgress consumed={consumed} goals={goals} onEditGoals={() => setShowGoalsModal(true)} />
         </View>
 

@@ -8,6 +8,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ScreenGlow } from '@/components/shared/screen-glow';
 import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
 import { DateRangePicker } from '@/components/stats/date-range-picker';
 import { ExercisesTab } from '@/components/stats/exercises-tab';
@@ -57,6 +58,7 @@ export default function StatsScreen() {
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
+      <ScreenGlow />
       <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
         <Text className="text-3xl font-bold">Stats</Text>
         <View className="flex-row items-center gap-2">

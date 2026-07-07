@@ -15,6 +15,7 @@ import { ChatInput } from '@/components/chat/chat-input';
 import { ChatSidebar } from '@/components/chat/chat-sidebar';
 import { Paywall } from '@/components/paywall';
 import { OfflineBanner } from '@/components/shared/offline-banner';
+import { ScreenGlow } from '@/components/shared/screen-glow';
 import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
 import type { Id } from '@/convex/_generated/dataModel';
 import {
@@ -101,6 +102,7 @@ function ChatScreenContent() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={-20}
     >
+      <ScreenGlow />
       <OfflineBanner />
 
       {/* Header */}

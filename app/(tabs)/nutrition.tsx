@@ -8,6 +8,7 @@ import { useColorScheme } from 'nativewind';
 
 import { Colors } from '@/constants/theme';
 import { Icon } from '@/components/ui/icon';
+import { ScreenGlow } from '@/components/shared/screen-glow';
 import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
 import { RecipesTab } from '@/components/nutrition/recipes-tab';
 import { TodayTab } from '@/components/nutrition/today-tab';
@@ -26,6 +27,7 @@ export default function NutritionScreen() {
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
+      <ScreenGlow />
       <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
         <Text className="text-3xl font-bold">Nutrition</Text>
         <View className="flex-row items-center">

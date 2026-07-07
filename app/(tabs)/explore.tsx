@@ -4,6 +4,7 @@ import { Text } from '@/components/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CalculatorsSection } from '@/components/explore/calculators-section';
+import { ScreenGlow } from '@/components/shared/screen-glow';
 import { SettingsHeaderButton } from '@/components/shared/settings-header-button';
 
 export default function ExploreScreen() {
@@ -11,6 +12,7 @@ export default function ExploreScreen() {
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
+      <ScreenGlow />
       <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
         <Text className="text-3xl font-bold">Explore</Text>
         <SettingsHeaderButton />

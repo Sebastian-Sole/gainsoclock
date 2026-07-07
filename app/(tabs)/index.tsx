@@ -13,6 +13,7 @@ import { Alert, FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PlansList } from '@/components/chat/plans-list';
+import { ScreenGlow } from '@/components/shared/screen-glow';
 import { MissedDayBanner } from '@/components/plan/missed-day-banner';
 import { HealthKitReaskCard } from '@/components/home/healthkit-reask-card';
 import { StatusStrip } from '@/components/home/status-strip';
@@ -175,6 +176,7 @@ export default function WorkoutsScreen() {
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
+      <ScreenGlow />
       <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
         <Text className="text-3xl font-bold">Workouts</Text>
         <SettingsHeaderButton />
@@ -225,16 +227,23 @@ export default function WorkoutsScreen() {
           {todayPlanDay && (
             <Pressable
               onPress={handleStartFromPlan}
-              className="mx-4 mb-3 rounded-xl border border-primary/20 bg-primary/5 p-4"
+              accessibilityRole="button"
+              accessibilityLabel={`Start today's workout: ${todayPlanDay.label}`}
+              className="mx-4 mb-3 rounded-2xl border border-border bg-card p-4"
             >
-              <View className="flex-row items-center gap-2 mb-1">
-                <Icon as={Calendar} size={16} className="text-primary" />
-                <Text className="text-sm font-semibold text-primary">Today&apos;s Workout</Text>
+              <View className="mb-1.5 flex-row items-center gap-2">
+                <Icon as={Calendar} size={14} className="text-primary" />
+                <Text className="text-xs font-semibold uppercase tracking-wide text-primary">
+                  Up next · from your plan
+                </Text>
               </View>
-              <Text className="text-base font-bold">{todayPlanDay.label}</Text>
-              <Text className="text-xs text-muted-foreground mt-0.5">
+              <Text className="text-2xl font-extrabold">{todayPlanDay.label}</Text>
+              <Text className="mt-0.5 text-xs text-muted-foreground">
                 Week {todayPlanDay.week} · {activePlanData?.name}
               </Text>
+              <View className="mt-3 h-14 items-center justify-center rounded-2xl bg-primary">
+                <Text className="text-base font-bold text-primary-foreground">Start workout</Text>
+              </View>
             </Pressable>
           )}
 

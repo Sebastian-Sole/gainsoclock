@@ -16,7 +16,7 @@ export function YearlyOverviewSection({ currentYear }: YearlyOverviewSectionProp
       </Text>
       <View className="rounded-xl border border-border bg-card p-4">
         <View className="mb-3 flex-row items-baseline justify-between">
-          <Text className="text-2xl font-bold">
+          <Text className="text-2xl font-extrabold">
             {currentYear.daysTrained}
           </Text>
           <Text className="text-sm text-muted-foreground">
