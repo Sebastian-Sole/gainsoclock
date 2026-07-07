@@ -51,8 +51,36 @@ function withLock<T>(fn: () => Promise<T>): Promise<T> {
   });
 }
 
+/** True when the Convex WebSocket is currently connected. Guarded so mock
+ *  clients (tests) without connectionState() are treated as disconnected. */
+function isSocketConnected(): boolean {
+  try {
+    return convexClient?.connectionState().isWebSocketConnected === true;
+  } catch {
+    return false;
+  }
+}
+
+let unsubscribeConnectionState: (() => void) | null = null;
+
 export function setConvexClient(client: ConvexReactClient) {
   convexClient = client;
+
+  // Flush the queue whenever the Convex socket (re)connects. NetInfo can
+  // report the internet as unreachable (notably on the iOS simulator) while
+  // the Convex WebSocket is healthy — without this trigger, queued mutations
+  // strand until a NetInfo offline→online transition that may never come.
+  unsubscribeConnectionState?.();
+  unsubscribeConnectionState = null;
+  if (typeof client.subscribeToConnectionState === "function") {
+    let wasConnected = false;
+    unsubscribeConnectionState = client.subscribeToConnectionState((state) => {
+      const connected = state.isWebSocketConnected;
+      if (connected && !wasConnected) void flushSyncQueue();
+      wasConnected = connected;
+    });
+  }
+  if (isSocketConnected()) void flushSyncQueue();
 }
 
 const MAX_RETRIES = 5;
@@ -228,7 +256,12 @@ export function syncToConvex<M extends FunctionReference<"mutation">>(
 ): void {
   const path = getMutationPath(mutation);
   const { isConnected, isInternetReachable } = useNetworkStore.getState();
-  const isOffline = isConnected === false || isInternetReachable === false;
+  // A live Convex socket overrides NetInfo: the simulator (and some real
+  // networks) report isInternetReachable=false while the socket is healthy,
+  // which used to strand every mutation in the offline queue.
+  const isOffline =
+    !isSocketConnected() &&
+    (isConnected === false || isInternetReachable === false);
 
   if (!convexClient || isOffline) {
     if (path) {

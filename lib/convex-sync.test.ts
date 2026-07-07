@@ -294,4 +294,56 @@ describe("convex-sync queue", () => {
 
     expect(sync.getPendingClientIds().has("a")).toBe(false);
   });
+
+  // Regression: NetInfo can report isInternetReachable=false (notably on the
+  // iOS simulator) while the Convex WebSocket is healthy. Before the fix,
+  // every syncToConvex call in that state was queued "offline" and the queue
+  // never flushed — mutations (e.g. plans:swapPlanDays) silently stranded.
+  it("a live Convex socket overrides NetInfo-reported offline", async () => {
+    goOffline(); // NetInfo says offline…
+    const mutation = vi.fn(async () => undefined);
+    const client = {
+      mutation,
+      connectionState: () => ({ isWebSocketConnected: true }), // …socket disagrees
+    } as unknown as ConvexReactClient;
+    sync.setConvexClient(client);
+
+    sync.syncToConvex(api.mealLogs.deleteMealLog, { clientId: "live" });
+    await tick();
+
+    expect(mutation).toHaveBeenCalledTimes(1);
+    expect(sync.getPendingClientIds().has("live")).toBe(false);
+  });
+
+  it("flushes the queue when the Convex socket connects, even if NetInfo never flips online", async () => {
+    goOffline();
+    sync.syncToConvex(api.mealLogs.deleteMealLog, { clientId: "q1" });
+    await tick();
+    expect(sync.getPendingClientIds().has("q1")).toBe(true);
+
+    let connected = false;
+    let notify: ((s: { isWebSocketConnected: boolean }) => void) | undefined;
+    const mutation = vi.fn(async () => undefined);
+    const client = {
+      mutation,
+      connectionState: () => ({ isWebSocketConnected: connected }),
+      subscribeToConnectionState: (
+        cb: (s: { isWebSocketConnected: boolean }) => void,
+      ) => {
+        notify = cb;
+        return () => {};
+      },
+    } as unknown as ConvexReactClient;
+    // Socket still down at registration; NetInfo stays "offline" throughout.
+    sync.setConvexClient(client);
+    await tick();
+    expect(mutation).not.toHaveBeenCalled();
+
+    connected = true;
+    notify?.({ isWebSocketConnected: true });
+    await tick();
+
+    expect(mutation).toHaveBeenCalledTimes(1);
+    expect(sync.getPendingClientIds().has("q1")).toBe(false);
+  });
 });
