@@ -13,7 +13,7 @@ import { useWorkoutStore } from '@/stores/workout-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useRestTimer } from '@/hooks/use-rest-timer';
 import { useWorkoutTimer } from '@/hooks/use-workout-timer';
-import { createDefaultSet, DEFAULT_REST_TIME } from '@/lib/defaults';
+import { createDefaultSet } from '@/lib/defaults';
 import { generateId } from '@/lib/id';
 import { formatTime, formatDuration } from '@/lib/format';
 import { resolveExerciseMetrics, METRIC_LIST, MAX_METRICS_PER_EXERCISE } from '@/lib/metrics';
@@ -195,8 +195,8 @@ export default function ActiveWorkoutScreen() {
     if (!exercise || !curSet) return;
     if (!curSet.completed) {
       toggleSetComplete(exercise.id, curSet.id);
-      const restSec = exercise.restTimeSeconds > 0 ? exercise.restTimeSeconds : DEFAULT_REST_TIME;
-      startRestTimer(restSec);
+      // 0 is an explicit "no rest timer" (same rule as the classic screen).
+      if (exercise.restTimeSeconds > 0) startRestTimer(exercise.restTimeSeconds);
       successHaptic();
       setRewardTick((t) => t + 1);
     }

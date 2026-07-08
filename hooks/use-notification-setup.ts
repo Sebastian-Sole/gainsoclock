@@ -144,16 +144,29 @@ export function useNotificationSetup() {
     return unsub;
   }, []);
 
-  // Re-arm the daily reminder on every app foreground: a new day may have
-  // started, the one-shot suppression may have fired (leaving nothing
-  // scheduled until now), or a workout may have arrived from another device
-  // or Apple Health. Scheduling is idempotent (fixed identifier, cancel
-  // before re-arm), so re-running is safe.
+  // Re-arm the daily reminder on app foreground: a new day may have started,
+  // the one-shot suppression may have fired (leaving nothing scheduled until
+  // now), or a workout may have arrived from another device or Apple Health.
+  // Scheduling is idempotent (fixed identifier, cancel before re-arm), but it
+  // walks the log history and makes 2-3 native calls — so skip when none of
+  // the inputs that change the outcome (day, reminder time, log set,
+  // today-covered stamp) have changed since the last arm.
   useEffect(() => {
+    let lastArmedKey: string | null = null;
+
     const rearmDailyReminder = () => {
-      const { notificationsReminderEnabled, notificationsReminderTime } =
-        useSettingsStore.getState();
+      const {
+        notificationsReminderEnabled,
+        notificationsReminderTime,
+        lastWorkoutLoggedDate,
+      } = useSettingsStore.getState();
       if (!notificationsReminderEnabled) return;
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const logCount = useHistoryStore.getState().logs.length;
+      const key = `${todayStr}|${notificationsReminderTime}|${logCount}|${lastWorkoutLoggedDate ?? ''}`;
+      if (key === lastArmedKey) return;
+      lastArmedKey = key;
+
       const [hour, minute] = notificationsReminderTime.split(':').map(Number);
       if (Number.isFinite(hour) && Number.isFinite(minute)) {
         scheduleDailyWorkoutReminder(hour, minute, { workoutLogDates: workoutLogDates() });

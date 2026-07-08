@@ -39,7 +39,13 @@ export const migrateExerciseMetrics = internalMutation({
     }
 
     // Denormalized copies on the log/template join rows use their parent
-    // exercise's type; look it up per-user for the mapping.
+    // exercise's type; look it up from the exercises already collected above
+    // (one Map build instead of a per-row indexed query).
+    const typeByUserClientId = new Map<string, string>();
+    for (const ex of exercises) {
+      typeByUserClientId.set(`${ex.userId}|${ex.clientId}`, ex.type);
+    }
+
     const templateExercises = await ctx.db.query("templateExercises").collect();
     const logExercises = await ctx.db.query("workoutLogExercises").collect();
 
@@ -48,13 +54,8 @@ export const migrateExerciseMetrics = internalMutation({
         skipped++;
         continue;
       }
-      const def = await ctx.db
-        .query("exercises")
-        .withIndex("by_user_clientId", (q) =>
-          q.eq("userId", row.userId).eq("clientId", row.exerciseClientId),
-        )
-        .unique();
-      const metrics = legacyTypeToMetrics(def?.type ?? "");
+      const type = typeByUserClientId.get(`${row.userId}|${row.exerciseClientId}`);
+      const metrics = legacyTypeToMetrics(type ?? "");
       if (metrics.length === 0) {
         skipped++;
         continue;

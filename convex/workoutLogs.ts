@@ -31,7 +31,12 @@ type SetValues = {
   distanceUnit?: "km" | "mi";
 };
 
-function setValueFields(s: SetValues) {
+function setValueFields(s: SetValues & { type?: string }) {
+  // Defense-in-depth: interval sets must carry a variant — stats count a
+  // variant-less interval set as 'work', so make that explicit at the
+  // write/read boundary instead of leaving it implicit in malformed data.
+  const variant: "work" | "rest" | undefined =
+    s.variant ?? (s.type === "intervals" ? "work" : undefined);
   return {
     ...(s.reps !== undefined && { reps: s.reps }),
     ...(s.weight !== undefined && { weight: s.weight }),
@@ -42,7 +47,7 @@ function setValueFields(s: SetValues) {
     ...(s.cadence !== undefined && { cadence: s.cadence }),
     ...(s.calories !== undefined && { calories: s.calories }),
     ...(s.rpe !== undefined && { rpe: s.rpe }),
-    ...(s.variant !== undefined && { variant: s.variant }),
+    ...(variant !== undefined && { variant }),
     ...(s.metric !== undefined && { metric: s.metric }),
     ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
     ...(s.speed !== undefined && { speed: s.speed }),
