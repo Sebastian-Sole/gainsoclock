@@ -1,4 +1,5 @@
-import type { ExerciseType, IntervalDistanceUnit, IntervalSet, WorkoutLog, WorkoutLogExercise, WorkoutSet, WorkoutTemplate } from './types';
+import type { ExerciseType, IntervalDistanceUnit, MetricId, WorkoutLog, WorkoutLogExercise, WorkoutSet, WorkoutTemplate } from './types';
+import { METRICS, metricUpdate, resolveExerciseMetrics } from './metrics';
 import { generateId } from './id';
 
 export const DEFAULT_REST_TIME = 90; // seconds
@@ -15,7 +16,7 @@ interface SuggestedValues {
 function makeIntervalSet(
   variant: 'work' | 'rest',
   distanceUnit: IntervalDistanceUnit
-): IntervalSet {
+): WorkoutSet {
   return {
     id: generateId(),
     completed: false,
@@ -28,26 +29,49 @@ function makeIntervalSet(
   };
 }
 
-export function createDefaultSet(type: ExerciseType, suggested?: SuggestedValues): WorkoutSet {
-  const base = { id: generateId(), completed: false };
-
-  switch (type) {
-    case 'reps_weight':
-      return { ...base, type: 'reps_weight', reps: suggested?.suggestedReps ?? 10, weight: suggested?.suggestedWeight ?? 0 };
-    case 'reps_time':
-      return { ...base, type: 'reps_time', reps: suggested?.suggestedReps ?? 10, time: suggested?.suggestedTime ?? 30 };
-    case 'time_only':
-      return { ...base, type: 'time_only', time: suggested?.suggestedTime ?? 60 };
-    case 'time_distance':
-      return { ...base, type: 'time_distance', time: suggested?.suggestedTime ?? 0, distance: suggested?.suggestedDistance ?? 0 };
-    case 'reps_only':
-      return { ...base, type: 'reps_only', reps: suggested?.suggestedReps ?? 10 };
-    case 'intervals':
-      return makeIntervalSet('work', suggested?.intervalDistanceUnit ?? 'km');
+/** Legacy suggested-value override for a metric, if any. */
+function suggestedFor(id: MetricId, suggested?: SuggestedValues): number | undefined {
+  switch (id) {
+    case 'reps':
+      return suggested?.suggestedReps;
+    case 'weight':
+      return suggested?.suggestedWeight;
+    case 'duration':
+      return suggested?.suggestedTime;
+    case 'distance':
+      return suggested?.suggestedDistance;
+    default:
+      return undefined;
   }
 }
 
-export function createDefaultSets(type: ExerciseType, count = DEFAULT_SETS_COUNT, suggested?: SuggestedValues): WorkoutSet[] {
+/**
+ * Build one default set for an exercise. Non-interval sets seed a value for each
+ * of the exercise's `metrics` (registry defaults, overridable via `suggested`).
+ */
+export function createDefaultSet(
+  type: ExerciseType,
+  metrics: MetricId[],
+  suggested?: SuggestedValues
+): WorkoutSet {
+  if (type === 'intervals') {
+    return makeIntervalSet('work', suggested?.intervalDistanceUnit ?? 'km');
+  }
+  const set: WorkoutSet = { id: generateId(), completed: false, type };
+  for (const id of resolveExerciseMetrics(type, metrics)) {
+    const spec = METRICS[id];
+    const value = suggestedFor(id, suggested) ?? spec.defaultValue;
+    Object.assign(set, metricUpdate(spec.field, value));
+  }
+  return set;
+}
+
+export function createDefaultSets(
+  type: ExerciseType,
+  metrics: MetricId[],
+  count = DEFAULT_SETS_COUNT,
+  suggested?: SuggestedValues
+): WorkoutSet[] {
   if (type === 'intervals') {
     const unit = suggested?.intervalDistanceUnit ?? 'km';
     return Array.from({ length: count }).flatMap(() => [
@@ -55,11 +79,11 @@ export function createDefaultSets(type: ExerciseType, count = DEFAULT_SETS_COUNT
       makeIntervalSet('rest', unit),
     ]);
   }
-  return Array.from({ length: count }, () => createDefaultSet(type, suggested));
+  return Array.from({ length: count }, () => createDefaultSet(type, metrics, suggested));
 }
 
 /** Add a single (work, rest) interval pair to an existing intervals exercise's sets. */
-export function createIntervalPair(distanceUnit: IntervalDistanceUnit): IntervalSet[] {
+export function createIntervalPair(distanceUnit: IntervalDistanceUnit): WorkoutSet[] {
   return [makeIntervalSet('work', distanceUnit), makeIntervalSet('rest', distanceUnit)];
 }
 
@@ -102,9 +126,10 @@ export function createLogFromTemplate(date: Date, template: WorkoutTemplate): Wo
     exerciseId: te.exerciseId,
     name: te.name,
     type: te.type,
+    metrics: te.metrics,
     order: i,
     restTimeSeconds: te.restTimeSeconds,
-    sets: createDefaultSets(te.type, te.defaultSetsCount, {
+    sets: createDefaultSets(te.type, te.metrics, te.defaultSetsCount, {
       suggestedReps: te.suggestedReps,
       suggestedWeight: te.suggestedWeight,
       suggestedTime: te.suggestedTime,

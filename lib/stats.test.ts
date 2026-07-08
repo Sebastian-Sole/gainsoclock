@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeAllStats } from "@/lib/stats";
+import { computeAllStats, sessionTotals } from "@/lib/stats";
 import type { WorkoutLog, WorkoutLogExercise, WorkoutSet } from "@/lib/types";
 
 // Characterization tests: pin CURRENT computeAllStats behavior over a fixture
@@ -21,6 +21,7 @@ function exercise(
     exerciseId,
     name,
     type: "reps_weight", // denormalized display field; not read by the stats math
+    metrics: ["weight", "reps"],
     order: 0,
     restTimeSeconds: 60,
     sets,
@@ -158,6 +159,33 @@ describe("computeAllStats — per-type accumulation", () => {
     expect(s.maxTime?.value).toBe(120); // PB tracking still fires
     expect(s.maxDistance?.value).toBe(0.4);
   });
+
+  it("intervals: residual distance is NOT counted after switching to a non-distance metric", () => {
+    // The interval UI keeps every value field on the flat set; switching the
+    // effort metric (distance → pace/speed) must not leave the old distance
+    // feeding totals/PBs. Interval distance only counts when it is the
+    // selected metric.
+    const stale = exercise("stale", "Stale Interval", [
+      {
+        id: "sw",
+        type: "intervals",
+        variant: "work",
+        metric: "pace",
+        paceSeconds: 300,
+        time: 120,
+        distanceUnit: "km",
+        distance: 2.5, // residual from before the metric switch
+        completed: true,
+      },
+    ]);
+    const all = computeAllStats([log("logStale", "2026-06-10T09:00:00Z", 600, [stale])], NOW);
+    const s = all.exerciseStats.find((e) => e.exerciseName === "Stale Interval")!;
+    expect(s.totalDistance).toBe(0);
+    expect(s.maxDistance).toBeUndefined();
+    expect(all.totals.totalDistance).toBe(0);
+    // Non-distance fields are unaffected.
+    expect(s.totalTime).toBe(120);
+  });
 });
 
 describe("computeAllStats — totals", () => {
@@ -189,5 +217,117 @@ describe("computeAllStats — totals", () => {
     expect(all.totals.totalWeightLifted).toBe(250); // 5*50 only
     const s = all.exerciseStats.find((e) => e.exerciseName === "Squat")!;
     expect(s.maxWeight?.value).toBe(50); // the 999 set was not completed
+  });
+});
+
+// Composed ('metrics') exercises accumulate flat fields the same way — no
+// per-type branch. A cardio machine contributes its duration/distance; power
+// and heart rate are avg metrics and don't pollute the volume/rep totals.
+function metricsExercise(
+  exerciseId: string,
+  name: string,
+  metrics: WorkoutLogExercise["metrics"],
+  sets: WorkoutSet[]
+): WorkoutLogExercise {
+  return {
+    id: `wle-${exerciseId}`,
+    exerciseId,
+    name,
+    type: "metrics",
+    metrics,
+    order: 0,
+    restTimeSeconds: 0,
+    sets,
+  };
+}
+
+describe("computeAllStats — composed metrics exercises", () => {
+  it("Watts Bike: duration→totalTime, distance→totalDistance; power/HR don't add reps or volume", () => {
+    const bike = metricsExercise(
+      "bike",
+      "Watts Bike",
+      ["duration", "power_avg", "distance", "heart_rate_avg"],
+      [
+        {
+          id: "b1",
+          type: "metrics",
+          time: 600,
+          powerAvg: 220,
+          distance: 4.2,
+          heartRateAvg: 150,
+          completed: true,
+        },
+      ]
+    );
+    const all = computeAllStats([log("l", "2026-06-10T08:00:00Z", 700, [bike])], NOW);
+    const s = all.exerciseStats.find((e) => e.exerciseName === "Watts Bike")!;
+    expect(s.totalTime).toBe(600);
+    expect(s.totalDistance).toBe(4.2);
+    expect(s.totalReps).toBe(0);
+    expect(s.totalWeight).toBe(0); // no weight metric → no volume
+    expect(s.maxDistance?.value).toBe(4.2);
+    expect(all.totals.totalDistance).toBe(4.2);
+    expect(all.totals.totalWeightLifted).toBe(0);
+  });
+
+  it("composed weight+reps exercise counts volume and weight PB like a legacy strength set", () => {
+    const lift = metricsExercise("dl", "Deadlift", ["weight", "reps"], [
+      { id: "d1", type: "metrics", weight: 140, reps: 3, completed: true },
+    ]);
+    const all = computeAllStats([log("l", "2026-06-10T08:00:00Z", 700, [lift])], NOW);
+    const s = all.exerciseStats.find((e) => e.exerciseName === "Deadlift")!;
+    expect(s.totalWeight).toBe(420); // 140*3
+    expect(s.maxWeight?.value).toBe(140);
+    expect(s.maxVolume?.value).toBe(420);
+    expect(all.totals.totalWeightLifted).toBe(420);
+  });
+});
+
+// sessionTotals: the summary-screen helper shares the aggregate stats'
+// exclusions (completed-only, rest intervals, stale interval distance).
+describe("sessionTotals", () => {
+  it("sums volume/distance/reps/time over completed sets with shared exclusions", () => {
+    const totals = sessionTotals([
+      {
+        sets: [
+          { id: "a", type: "metrics", weight: 100, reps: 5, completed: true },
+          { id: "b", type: "metrics", weight: 999, reps: 5, completed: false }, // not completed
+        ],
+      },
+      {
+        sets: [
+          { id: "c", type: "metrics", time: 600, distance: 4.2, completed: true },
+          {
+            id: "d",
+            type: "intervals",
+            variant: "rest", // rest sub-set contributes nothing
+            metric: "distance",
+            time: 30,
+            distanceUnit: "km",
+            distance: 1,
+            completed: true,
+          },
+          {
+            id: "e",
+            type: "intervals",
+            variant: "work",
+            metric: "pace", // residual distance not counted
+            paceSeconds: 300,
+            time: 120,
+            distanceUnit: "km",
+            distance: 2.5,
+            completed: true,
+          },
+        ],
+      },
+    ]);
+    expect(totals.volume).toBe(500);
+    expect(totals.distance).toBe(4.2);
+    expect(totals.reps).toBe(5);
+    expect(totals.time).toBe(720); // 600 + interval work 120
+  });
+
+  it("returns zeros for an empty session", () => {
+    expect(sessionTotals([])).toEqual({ volume: 0, distance: 0, reps: 0, time: 0 });
   });
 });

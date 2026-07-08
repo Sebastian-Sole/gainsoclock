@@ -6,7 +6,24 @@ export const exerciseTypeValidator = v.union(
   v.literal("time_only"),
   v.literal("time_distance"),
   v.literal("reps_only"),
-  v.literal("intervals")
+  v.literal("intervals"),
+  // Composed-metrics exercise: read the exercise's `metrics` list.
+  v.literal("metrics")
+);
+
+// Curated metric palette. Source of truth: lib/metrics.ts (kept in lockstep via
+// the drift tripwire lib/types-drift.test-types.ts).
+export const metricIdValidator = v.union(
+  v.literal("reps"),
+  v.literal("weight"),
+  v.literal("duration"),
+  v.literal("distance"),
+  v.literal("power_avg"),
+  v.literal("heart_rate_avg"),
+  v.literal("pace"),
+  v.literal("speed"),
+  v.literal("cadence"),
+  v.literal("calories")
 );
 
 const setVariantValidator = v.union(v.literal("work"), v.literal("rest"));
@@ -17,74 +34,39 @@ const intervalMetricValidator = v.union(
 );
 const distanceUnitValidator = v.union(v.literal("km"), v.literal("mi"));
 
-export const workoutSetValidator = v.union(
-  v.object({
-    id: v.string(),
-    completed: v.boolean(),
-    type: v.literal("reps_weight"),
-    reps: v.number(),
-    weight: v.number(),
-    variant: v.optional(setVariantValidator),
-    rpe: v.optional(v.number()),
-  }),
-  v.object({
-    id: v.string(),
-    completed: v.boolean(),
-    type: v.literal("reps_time"),
-    reps: v.number(),
-    time: v.number(),
-    variant: v.optional(setVariantValidator),
-    rpe: v.optional(v.number()),
-  }),
-  v.object({
-    id: v.string(),
-    completed: v.boolean(),
-    type: v.literal("time_only"),
-    time: v.number(),
-    variant: v.optional(setVariantValidator),
-    rpe: v.optional(v.number()),
-  }),
-  v.object({
-    id: v.string(),
-    completed: v.boolean(),
-    type: v.literal("time_distance"),
-    time: v.number(),
-    distance: v.number(),
-    variant: v.optional(setVariantValidator),
-    rpe: v.optional(v.number()),
-  }),
-  v.object({
-    id: v.string(),
-    completed: v.boolean(),
-    type: v.literal("reps_only"),
-    reps: v.number(),
-    variant: v.optional(setVariantValidator),
-    rpe: v.optional(v.number()),
-  }),
-  v.object({
-    id: v.string(),
-    completed: v.boolean(),
-    type: v.literal("intervals"),
-    variant: setVariantValidator,
-    metric: intervalMetricValidator,
-    time: v.number(),
-    distanceUnit: distanceUnitValidator,
-    distance: v.optional(v.number()),
-    paceSeconds: v.optional(v.number()),
-    speed: v.optional(v.number()),
-    rpe: v.optional(v.number()),
-  })
-);
+// Flat set shape (all metric fields optional). Which fields are meaningful is
+// driven by the parent exercise's `metrics` list, not a per-type shape. Mirrors
+// the client `WorkoutSet` in lib/types.ts.
+export const workoutSetValidator = v.object({
+  id: v.string(),
+  completed: v.boolean(),
+  type: exerciseTypeValidator,
+  variant: v.optional(setVariantValidator),
+  rpe: v.optional(v.number()),
+  reps: v.optional(v.number()),
+  weight: v.optional(v.number()),
+  time: v.optional(v.number()),
+  distance: v.optional(v.number()),
+  powerAvg: v.optional(v.number()),
+  heartRateAvg: v.optional(v.number()),
+  cadence: v.optional(v.number()),
+  calories: v.optional(v.number()),
+  speed: v.optional(v.number()),
+  paceSeconds: v.optional(v.number()),
+  metric: v.optional(intervalMetricValidator),
+  distanceUnit: v.optional(distanceUnitValidator),
+});
 
 export const exerciseValidator = v.object({
   id: v.string(),
   name: v.string(),
   type: exerciseTypeValidator,
+  metrics: v.array(metricIdValidator),
   sets: v.array(workoutSetValidator),
   restTimeSeconds: v.number(),
 });
 
-// Flat set shape for the workoutSets table (optional fields instead of discriminated union)
+// Flat set shape for the workoutSets table (clientId/order instead of id).
 export const flatSetValidator = v.object({
   clientId: v.string(),
   order: v.number(),
@@ -94,6 +76,10 @@ export const flatSetValidator = v.object({
   weight: v.optional(v.number()),
   time: v.optional(v.number()),
   distance: v.optional(v.number()),
+  powerAvg: v.optional(v.number()),
+  heartRateAvg: v.optional(v.number()),
+  cadence: v.optional(v.number()),
+  calories: v.optional(v.number()),
   rpe: v.optional(v.number()),
   variant: v.optional(setVariantValidator),
   metric: v.optional(intervalMetricValidator),

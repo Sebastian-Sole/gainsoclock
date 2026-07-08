@@ -1,114 +1,92 @@
-import React, { useCallback } from 'react';
-import { View, ScrollView, Pressable, Alert, Keyboard } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Pressable, ScrollView } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Badge } from '@/components/ui/badge';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, X, ChevronUp, ChevronDown } from 'lucide-react-native';
+import { useColorScheme } from 'nativewind';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { X, MoreHorizontal, Trash2, ChevronUp, ChevronDown, Plus, Dumbbell } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
-import Animated, { FadeInDown, FadeOutDown, Layout } from 'react-native-reanimated';
 
-import { SetRow } from '@/components/workout/set-row';
 import { useWorkoutStore } from '@/stores/workout-store';
-import { useHistoryStore } from '@/stores/history-store';
-import { useWorkoutTimer } from '@/hooks/use-workout-timer';
-import { useRestTimer } from '@/hooks/use-rest-timer';
-import { createDefaultSet, createIntervalPair } from '@/lib/defaults';
-import { generateId } from '@/lib/id';
-import { formatDuration, formatTime } from '@/lib/format';
-import { mediumHaptic, successHaptic } from '@/lib/haptics';
-import { saveWorkoutToHealthKit } from '@/lib/healthkit';
-import { capture } from '@/lib/analytics';
-import { syncToConvex } from '@/lib/convex-sync';
-import { useAction } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import type { Exercise, IntervalSet, WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
-import { schedulePostWorkoutNotification, rescheduleReminderAfterWorkout, cancelStreakRiskNotification, setActiveWorkoutVisible } from '@/lib/notifications';
 import { useSettingsStore } from '@/stores/settings-store';
-import { useTemplateStore } from '@/stores/template-store';
+import { useRestTimer } from '@/hooks/use-rest-timer';
+import { useWorkoutTimer } from '@/hooks/use-workout-timer';
+import { createDefaultSet } from '@/lib/defaults';
+import { generateId } from '@/lib/id';
+import { formatTime, formatDuration } from '@/lib/format';
+import { resolveExerciseMetrics, METRIC_LIST, MAX_METRICS_PER_EXERCISE } from '@/lib/metrics';
+import type { WorkoutSet } from '@/lib/types';
+import { successHaptic, lightHaptic, mediumHaptic } from '@/lib/haptics';
+import { setActiveWorkoutVisible } from '@/lib/notifications';
+import { cn } from '@/lib/utils';
+import { FocusSetCard } from '@/components/workout/focus/focus-set-card';
+import { FocusReward } from '@/components/workout/focus/focus-reward';
+import { ProgressRing } from '@/components/workout/focus/progress-ring';
+import { FocusGradient } from '@/components/workout/focus/focus-gradient';
 
-// How long to wait for AI workout feedback before falling back to the static
-// post-workout summary. Never blocks completion UX — only delays scheduling
-// of the (already minutes-delayed) notification.
-const FEEDBACK_TIMEOUT_MS = 6000;
-
-interface MemoizedSetRowProps {
-  set: WorkoutSet;
-  index: number;
-  exerciseId: string;
-  restTimeSeconds: number;
-  onUpdateSet: (exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => void;
-  onToggleSet: (exerciseId: string, setId: string, restTimeSeconds: number, wasCompleted: boolean) => void;
-  onRemoveSet: (exerciseId: string, setId: string) => void;
+// Isolated so the 1 Hz elapsed tick doesn't re-render the whole logger.
+function ElapsedTimer({ startedAt }: { startedAt: string | null }) {
+  const elapsed = useWorkoutTimer(startedAt);
+  return <Text className="font-mono text-xs text-muted-foreground">{formatDuration(elapsed)}</Text>;
 }
 
-const MemoizedSetRow = React.memo(function MemoizedSetRow({
-  set, index, exerciseId, restTimeSeconds, onUpdateSet, onToggleSet, onRemoveSet,
-}: MemoizedSetRowProps) {
-  const handleUpdate = useCallback(
-    (updates: Partial<WorkoutSet>) => onUpdateSet(exerciseId, set.id, updates),
-    [onUpdateSet, exerciseId, set.id]
-  );
-  const handleToggle = useCallback(
-    // Pass the facts the toggle needs (rest time + prior completion state)
-    // instead of the whole `exercise` object, so this row keeps prop identity
-    // when a sibling set in the same exercise is edited.
-    () => onToggleSet(exerciseId, set.id, restTimeSeconds, set.completed),
-    [onToggleSet, exerciseId, set.id, restTimeSeconds, set.completed]
-  );
-  const handleRemove = useCallback(
-    () => onRemoveSet(exerciseId, set.id),
-    [onRemoveSet, exerciseId, set.id]
-  );
-
+// Isolated so the rest countdown tick stays out of the pager's render path.
+function RestIndicator() {
+  const { isActive, remaining, stop } = useRestTimer();
+  const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
+  if (!isActive) {
+    return <Text className="font-mono text-[10px] text-muted-foreground">rest · auto</Text>;
+  }
   return (
-    <SetRow
-      set={set}
-      index={index}
-      onUpdate={handleUpdate}
-      onToggleComplete={handleToggle}
-      onRemove={handleRemove}
-    />
+    <View className="flex-row items-center gap-2 rounded-full border border-primary/40 bg-card px-2 py-1">
+      <Text className="font-mono text-xs font-semibold text-primary" style={{ minWidth: 34, textAlign: 'center' }}>
+        {formatTime(remaining)}
+      </Text>
+      <Pressable onPress={() => startRestTimer(remaining + 15)} accessibilityRole="button" accessibilityLabel="Add 15 seconds rest">
+        <Text className="font-mono text-xs text-muted-foreground">+15</Text>
+      </Pressable>
+      <Pressable onPress={() => stop()} accessibilityRole="button" accessibilityLabel="Skip rest">
+        <Text className="font-mono text-xs text-muted-foreground">Skip</Text>
+      </Pressable>
+    </View>
   );
-});
-
-// Isolates the 1 Hz workout-timer tick to a leaf component so the whole
-// active-workout screen no longer re-renders every second.
-function WorkoutTimerDisplay({ startedAt }: { startedAt: string | null }) {
-  const elapsed = useWorkoutTimer(startedAt);
-  return <Text className="text-sm text-primary font-medium">{formatDuration(elapsed)}</Text>;
 }
 
 export default function ActiveWorkoutScreen() {
   const router = useRouter();
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const ring = {
+    primary: isDark ? '#fb8b3c' : '#f97316',
+    track: isDark ? '#302820' : '#e7e1d8',
+    good: '#22c55e',
+  };
 
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
   const updateSet = useWorkoutStore((s) => s.updateSet);
-  const updateSetsFromIndex = useWorkoutStore((s) => s.updateSetsFromIndex);
   const toggleSetComplete = useWorkoutStore((s) => s.toggleSetComplete);
   const addSet = useWorkoutStore((s) => s.addSet);
   const removeSet = useWorkoutStore((s) => s.removeSet);
-  const addExercise = useWorkoutStore((s) => s.addExercise);
   const removeExercise = useWorkoutStore((s) => s.removeExercise);
-  const reorderExercises = useWorkoutStore((s) => s.reorderExercises);
-  const endWorkout = useWorkoutStore((s) => s.endWorkout);
-  const discardWorkout = useWorkoutStore((s) => s.discardWorkout);
+  const moveExercise = useWorkoutStore((s) => s.moveExercise);
+  const addExerciseMetric = useWorkoutStore((s) => s.addExerciseMetric);
+  const removeExerciseMetric = useWorkoutStore((s) => s.removeExerciseMetric);
   const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
-  const addLog = useHistoryStore((s) => s.addLog);
+
   const weightUnit = useSettingsStore((s) => s.weightUnit);
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
-  const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
-  const templateNotes = useTemplateStore((s) =>
-    activeWorkout?.templateId ? s.templates.find((t) => t.id === activeWorkout.templateId)?.notes : undefined
-  );
 
-  const generateWorkoutFeedback = useAction(api.workoutFeedback.generateFeedback);
+  const [exIdx, setExIdx] = useState(0);
+  const [setIdx, setSetIdx] = useState(0);
+  const [rewardTick, setRewardTick] = useState(0);
+  const [showAddMetric, setShowAddMetric] = useState(false);
+  const [showExMenu, setShowExMenu] = useState(false);
+  const [pageW, setPageW] = useState(0);
+  const tx = useSharedValue(0);
 
-  const { isActive: isRestActive, remaining: restRemaining, stop: stopRest } = useRestTimer();
-
-  // Flag the rest-timer notification handler: suppress the alert only while
-  // this screen is focused (the on-screen timer + haptic are the cue). When
-  // the user closes/minimises the workout, the notification fires normally.
+  // Suppress the rest-timer notification alert while this screen is focused.
   useFocusEffect(
     useCallback(() => {
       setActiveWorkoutVisible(true);
@@ -116,425 +94,470 @@ export default function ActiveWorkoutScreen() {
     }, [])
   );
 
-  // "Apply to all below" prompt — shown when user edits any set
-  const [applyAllPrompt, setApplyAllPrompt] = React.useState<{
-    exerciseId: string;
-    setIndex: number;
-    field: string;
-    value: number;
-    label: string;
-  } | null>(null);
+  // If the workout is cleared (discarded, or finished) while the logger is the
+  // top screen, leave the workout modal instead of rendering a blank screen.
+  useEffect(() => {
+    if (!activeWorkout) router.dismissAll();
+  }, [activeWorkout, router]);
 
-  const handleToggleSet = useCallback((exerciseId: string, setId: string, restTimeSeconds: number, wasCompleted: boolean) => {
-    Keyboard.dismiss();
+  const exercises = activeWorkout?.exercises ?? [];
+  const safeExIdx = Math.min(exIdx, Math.max(0, exercises.length - 1));
+  const exercise = exercises[safeExIdx];
+  const sets = exercise?.sets ?? [];
+  const safeSetIdx = Math.min(setIdx, Math.max(0, sets.length - 1));
 
-    toggleSetComplete(exerciseId, setId);
-    mediumHaptic();
+  const prevSet = sets[safeSetIdx - 1];
+  const curSet = sets[safeSetIdx];
+  const nextSet = sets[safeSetIdx + 1];
+  const hasPrev = !!prevSet;
+  const hasNext = !!nextSet;
 
-    // Start rest timer if set was just completed
-    if (!wasCompleted && restTimeSeconds > 0) {
-      startRestTimer(restTimeSeconds);
-    }
-  }, [toggleSetComplete, startRestTimer]);
+  // Recenter the pager whenever the current set/exercise (or width) changes.
+  useEffect(() => {
+    tx.value = -pageW;
+  }, [pageW, safeSetIdx, safeExIdx, tx]);
 
-  const handleAddSet = useCallback((exercise: Exercise) => {
-    Keyboard.dismiss();
-    if (exercise.type === 'intervals') {
-      const lastSet = exercise.sets[exercise.sets.length - 1] as IntervalSet | undefined;
-      const [work, rest] = createIntervalPair(lastSet?.distanceUnit ?? 'km');
-      addSet(exercise.id, work);
-      addSet(exercise.id, rest);
+  const commitPrev = useCallback(() => {
+    lightHaptic();
+    setSetIdx((i) => Math.max(0, i - 1));
+    tx.value = -pageW;
+  }, [pageW, tx]);
+  const commitNext = useCallback(() => {
+    lightHaptic();
+    setSetIdx((i) => Math.min(sets.length - 1, i + 1));
+    tx.value = -pageW;
+  }, [pageW, sets.length, tx]);
+
+  const pan = Gesture.Pan()
+    .activeOffsetX([-16, 16])
+    .onUpdate((e) => {
+      'worklet';
+      let base = -pageW + e.translationX;
+      if ((!hasPrev && e.translationX > 0) || (!hasNext && e.translationX < 0)) {
+        base = -pageW + e.translationX * 0.28; // rubber-band at the ends
+      }
+      tx.value = base;
+    })
+    .onEnd((e) => {
+      'worklet';
+      const threshold = pageW * 0.22;
+      if (e.translationX < -threshold && hasNext) {
+        tx.value = withTiming(-2 * pageW, { duration: 190 }, (f) => {
+          if (f) runOnJS(commitNext)();
+        });
+      } else if (e.translationX > threshold && hasPrev) {
+        tx.value = withTiming(0, { duration: 190 }, (f) => {
+          if (f) runOnJS(commitPrev)();
+        });
+      } else {
+        tx.value = withTiming(-pageW, { duration: 170 });
+      }
+    });
+
+  const rowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
+
+  const goToSet = (i: number) => {
+    setSetIdx(Math.max(0, Math.min(i, sets.length - 1)));
+  };
+  const selectExercise = (i: number) => {
+    lightHaptic();
+    setExIdx(i);
+    setSetIdx(0);
+  };
+
+  const advanceAfterComplete = useCallback(() => {
+    const wk = useWorkoutStore.getState().activeWorkout;
+    if (!wk) return;
+    const ex = wk.exercises[safeExIdx];
+    if (!ex) return;
+    // Any remaining incomplete set in this exercise → go log it.
+    const nextInEx = ex.sets.findIndex((s) => !s.completed);
+    if (nextInEx !== -1) {
+      goToSet(nextInEx);
       return;
     }
-    const newSet = createDefaultSet(exercise.type);
-    addSet(exercise.id, newSet);
-  }, [addSet]);
-
-  const handleMoveExercise = useCallback((index: number, direction: 'up' | 'down') => {
-    Keyboard.dismiss();
-    if (!activeWorkout) return;
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= activeWorkout.exercises.length) return;
-    const exercises = [...activeWorkout.exercises];
-    [exercises[index], exercises[targetIndex]] = [exercises[targetIndex], exercises[index]];
-    reorderExercises(exercises);
-    mediumHaptic();
-  }, [activeWorkout, reorderExercises]);
-
-  const handleAddExercise = useCallback(() => {
-    Keyboard.dismiss();
-    router.push('/exercise/create?source=active');
-  }, [router]);
-
-  const handleUpdateSet = useCallback((exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => {
-    updateSet(exerciseId, setId, updates);
-
-    // Show "Apply to all below" when editing a set that has sets after it.
-    // Read post-update store state instead of closing over `activeWorkout`:
-    // `updateSet` is synchronous and never changes set order/count, so the
-    // prompt logic is behavior-identical while keeping this callback stable
-    // (so memoized rows don't re-render on every keystroke).
-    const current = useWorkoutStore.getState().activeWorkout;
-    const exercise = current?.exercises.find((e) => e.id === exerciseId);
-    if (!exercise) return;
-    const setIndex = exercise.sets.findIndex((s) => s.id === setId);
-    if (setIndex === -1 || setIndex >= exercise.sets.length - 1) return; // no sets below
-
-    if ('weight' in updates && updates.weight !== undefined) {
-      setApplyAllPrompt({ exerciseId, setIndex, field: 'weight', value: updates.weight, label: `${updates.weight} ${weightUnit}` });
-    } else if ('reps' in updates && updates.reps !== undefined) {
-      setApplyAllPrompt({ exerciseId, setIndex, field: 'reps', value: updates.reps, label: `${updates.reps} reps` });
-    } else if ('distance' in updates && updates.distance !== undefined) {
-      setApplyAllPrompt({ exerciseId, setIndex, field: 'distance', value: updates.distance, label: `${updates.distance} ${distanceUnit}` });
+    // Exercise fully complete → next exercise with incomplete sets (prefer later).
+    const after = wk.exercises.findIndex((e, i) => i > safeExIdx && e.sets.some((s) => !s.completed));
+    const any = wk.exercises.findIndex((e) => e.sets.some((s) => !s.completed));
+    const target = after !== -1 ? after : any;
+    if (target !== -1) {
+      lightHaptic();
+      setExIdx(target);
+      setSetIdx(Math.max(0, wk.exercises[target].sets.findIndex((s) => !s.completed)));
+      return;
     }
-  }, [updateSet, weightUnit, distanceUnit]);
+    // Everything is logged → workout summary.
+    router.push('/workout/summary');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safeExIdx, sets.length, router]);
 
-  const handleRemoveSet = useCallback((exerciseId: string, setId: string) => {
-    removeSet(exerciseId, setId);
-  }, [removeSet]);
+  const handleComplete = () => {
+    if (!exercise || !curSet) return;
+    if (!curSet.completed) {
+      toggleSetComplete(exercise.id, curSet.id);
+      // 0 is an explicit "no rest timer" (same rule as the classic screen).
+      if (exercise.restTimeSeconds > 0) startRestTimer(exercise.restTimeSeconds);
+      successHaptic();
+      setRewardTick((t) => t + 1);
+    }
+    setTimeout(advanceAfterComplete, 360);
+  };
 
-  if (!activeWorkout) {
+  const handleAddSet = () => {
+    if (!exercise) return;
+    mediumHaptic();
+    const last = sets[sets.length - 1];
+    const newSet: WorkoutSet = last
+      ? { ...last, id: generateId(), completed: false }
+      : createDefaultSet(exercise.type, exercise.metrics);
+    addSet(exercise.id, newSet);
+    setSetIdx(sets.length);
+  };
+
+  const handleRemoveSet = () => {
+    if (!exercise || sets.length <= 1 || !curSet) return;
+    mediumHaptic();
+    removeSet(exercise.id, curSet.id);
+    setSetIdx((i) => Math.max(0, Math.min(i, sets.length - 2)));
+  };
+
+  const handleMoveExercise = (direction: 'up' | 'down') => {
+    if (!exercise) return;
+    lightHaptic();
+    moveExercise(exercise.id, direction);
+    setExIdx((i) => (direction === 'up' ? Math.max(0, i - 1) : Math.min(exercises.length - 1, i + 1)));
+    setShowExMenu(false);
+  };
+
+  const handleRemoveExercise = () => {
+    if (!exercise || exercises.length <= 1) {
+      setShowExMenu(false);
+      return;
+    }
+    mediumHaptic();
+    removeExercise(exercise.id);
+    setExIdx((i) => Math.max(0, Math.min(i, exercises.length - 2)));
+    setSetIdx(0);
+    setShowExMenu(false);
+  };
+
+  if (!activeWorkout) return null;
+
+  // --- empty workout ---
+  if (!exercise) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-background">
-        <Text className="text-muted-foreground">No active workout</Text>
+      <SafeAreaView className="flex-1 items-center justify-center gap-4 bg-background px-8">
+        <FocusGradient />
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Minimize workout"
+          className="absolute right-4 top-14 h-10 w-10 items-center justify-center"
+        >
+          <Icon as={X} size={22} className="text-foreground" />
+        </Pressable>
+        <Icon as={Dumbbell} size={40} className="text-muted-foreground" />
+        <Text className="text-center text-lg font-semibold text-foreground">Empty workout</Text>
+        <Text className="text-center text-sm text-muted-foreground">Add an exercise to start logging.</Text>
+        <Pressable
+          onPress={() => router.push('/exercise/create?source=active')}
+          accessibilityRole="button"
+          accessibilityLabel="Add exercise"
+          testID="workout-add-exercise"
+          className="mt-2 rounded-xl bg-primary px-6 py-3"
+        >
+          <Text className="font-semibold text-primary-foreground">Add exercise</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/workout/summary')} accessibilityRole="button" accessibilityLabel="Finish workout">
+          <Text className="text-sm font-medium text-muted-foreground">Finish workout</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
 
-  const handleEndWorkout = () => {
-    Keyboard.dismiss();
-    Alert.alert('End Workout', 'What would you like to do?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Discard',
-        style: 'destructive',
-        onPress: () => {
-          discardWorkout();
-          router.dismissAll();
-        },
-      },
-      {
-        text: 'Save',
-        onPress: () => {
-          const workout = endWorkout();
-          if (workout) {
-            const completedSets = workout.exercises.reduce(
-              (total, e) => total + e.sets.filter((s) => s.completed).length,
-              0
-            );
+  const totalSets = exercises.reduce((n, e) => n + e.sets.length, 0);
+  const doneSets = exercises.reduce((n, e) => n + e.sets.filter((s) => s.completed).length, 0);
+  const metrics = resolveExerciseMetrics(exercise.type, exercise.metrics);
+  const addableMetrics = METRIC_LIST.filter((spec) => !metrics.includes(spec.id));
 
-            const logExercises: WorkoutLogExercise[] = workout.exercises.map((e, i) => ({
-              id: generateId(),
-              exerciseId: e.exerciseId,
-              name: e.name,
-              type: e.type,
-              order: i,
-              restTimeSeconds: e.restTimeSeconds,
-              sets: e.sets,
-            }));
-
-            // Compute elapsed directly from the workout's start time (matching
-            // use-workout-timer's arithmetic) now that the 1 Hz `elapsed` state
-            // lives inside WorkoutTimerDisplay rather than this screen.
-            const durationSeconds = workout.startedAt
-              ? Math.floor((Date.now() - new Date(workout.startedAt).getTime()) / 1000)
-              : 0;
-
-            const log: WorkoutLog = {
-              id: generateId(),
-              templateId: workout.templateId,
-              templateName: workout.templateName,
-              exercises: logExercises,
-              startedAt: workout.startedAt,
-              completedAt: new Date().toISOString(),
-              durationSeconds,
-            };
-            addLog(log);
-            saveWorkoutToHealthKit(log);
-
-            // Schedule post-workout summary notification. Fire the AI
-            // feedback action in the background, raced against a timeout:
-            // if feedback arrives in time it's appended to the body,
-            // otherwise (slow / failed / null for non-Pro) the static
-            // summary is scheduled exactly as before. Fire-and-forget —
-            // completion UX never waits on this.
-            const summaryParams = {
-              templateName: log.templateName,
-              exerciseCount: log.exercises.length,
-              completedSets,
-              durationSeconds: log.durationSeconds,
-              delayMinutes: useSettingsStore.getState().notificationsPostWorkoutDelay,
-            };
-            void (async () => {
-              const feedback = await Promise.race([
-                generateWorkoutFeedback({ workoutLogClientId: log.id })
-                  .then((result) => result?.feedback ?? null)
-                  .catch(() => null),
-                new Promise<null>((resolve) =>
-                  setTimeout(() => resolve(null), FEEDBACK_TIMEOUT_MS),
-                ),
-              ]);
-              schedulePostWorkoutNotification(
-                feedback ? { ...summaryParams, feedback } : summaryParams,
-              );
-            })();
-
-            // Cancel today's workout reminder (workout done)
-            rescheduleReminderAfterWorkout();
-            // Logging a workout defuses tonight's streak-risk warning; the
-            // next foreground/arm pass reschedules it if still needed.
-            cancelStreakRiskNotification();
-
-            capture({ name: 'workout_logged', props: {
-              exerciseCount: log.exercises.length,
-              setCount: completedSets,
-              fromTemplate: Boolean(workout.templateId),
-            } });
-
-            // Update plan day status if workout was started from a plan
-            if (workout.planDayId) {
-              const parts = workout.planDayId.split(':');
-              if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
-                const [planClientId, weekStr, dayStr] = parts;
-                const week = Number(weekStr);
-                const dayOfWeek = Number(dayStr);
-                if (!isNaN(week) && !isNaN(dayOfWeek)) {
-                  syncToConvex(api.plans.updatePlanDayStatus, {
-                    planClientId,
-                    week,
-                    dayOfWeek,
-                    status: 'completed' as const,
-                    workoutLogClientId: log.id,
-                  });
-                }
-              }
-            }
-
-            successHaptic();
-            router.replace('/workout/complete');
-          }
-        },
-      },
-    ]);
-  };
-
-  const totalSets = activeWorkout.exercises.reduce((t, e) => t + e.sets.length, 0);
-  const completedSets = activeWorkout.exercises.reduce(
-    (t, e) => t + e.sets.filter((s) => s.completed).length,
-    0
+  const renderPage = (pageSet: WorkoutSet | undefined, key: string, editable: boolean) => (
+    <View key={key} style={{ width: pageW }} className="px-5">
+      {pageSet ? (
+        <FocusSetCard
+          exercise={exercise}
+          set={pageSet}
+          weightUnit={weightUnit}
+          distanceUnit={distanceUnit}
+          editable={editable}
+          onUpdate={(updates) => updateSet(exercise.id, pageSet.id, updates)}
+          onAddMetric={() => setShowAddMetric(true)}
+          onRemoveMetric={(m) => removeExerciseMetric(exercise.id, m)}
+        />
+      ) : null}
+    </View>
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-background" testID="workout-active-screen">
-      {/* Header — fixed height so rest-timer swap doesn't shift layout */}
-      <View className={`h-16 flex-row items-center gap-2 border-b px-4 ${isRestActive ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']} testID="workout-active-screen">
+      <FocusGradient />
+      {/* Top bar */}
+      <View className="flex-row items-center gap-3 px-4 pb-1 pt-1">
         <Pressable
-          onPress={() => {
-            Keyboard.dismiss();
-            router.back();
-          }}
-          hitSlop={8}
-          className="-ml-2 h-9 w-9 items-center justify-center"
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Minimize workout"
+          className="h-9 w-9 items-center justify-center rounded-xl border border-border"
         >
-          <Icon as={ChevronDown} size={22} className="text-foreground" />
+          <Icon as={X} size={18} className="text-muted-foreground" />
         </Pressable>
-        <View className="flex-1 flex-row items-center justify-between">
-          {isRestActive ? (
-            <>
-              <View key="rest-header" className="flex-1 flex-row items-center gap-3">
-                <Text className="text-2xl font-bold tabular-nums text-primary">{formatTime(restRemaining)}</Text>
-                <Text className="text-sm text-muted-foreground">rest</Text>
-              </View>
-              <Pressable onPress={stopRest} className="rounded-lg bg-secondary px-4 py-2">
-                <Text className="text-sm font-semibold text-secondary-foreground">Skip</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <View key="workout-header" className="flex-1">
-                <Text className="text-lg font-bold" numberOfLines={1}>{activeWorkout.templateName}</Text>
-                <WorkoutTimerDisplay startedAt={activeWorkout.startedAt} />
-              </View>
-              <View className="flex-row items-center gap-2">
-                <Badge variant="secondary">
-                  <Text className="text-xs">{completedSets}/{totalSets} sets</Text>
-                </Badge>
-              </View>
-            </>
-          )}
+        <ElapsedTimer startedAt={activeWorkout.startedAt} />
+        <View className="ml-auto flex-row items-center gap-3">
+          <RestIndicator />
+          <Pressable
+            onPress={() => router.push('/workout/summary')}
+            accessibilityRole="button"
+            accessibilityLabel="Finish workout"
+            testID="workout-finish"
+            className="rounded-lg bg-secondary px-3 py-1.5"
+          >
+            <Text className="text-xs font-semibold text-secondary-foreground">Finish</Text>
+          </Pressable>
         </View>
       </View>
 
-      {/* Template notes */}
-      {templateNotes && (
-        <View className="border-b border-border bg-muted/30 px-4 py-2">
-          <Text className="text-xs text-muted-foreground italic">{templateNotes}</Text>
-        </View>
-      )}
+      {/* Session progress */}
+      <View className="flex-row items-center gap-2 px-4 pb-1">
+        <ProgressRing progress={totalSets ? doneSets / totalSets : 0} size={22} strokeWidth={3} color={ring.good} trackColor={ring.track} />
+        <Text className="text-xs text-muted-foreground">
+          <Text className="font-semibold text-foreground">{doneSets}</Text> / {totalSets} sets logged
+        </Text>
+      </View>
 
-      {/* Body */}
-      <ScrollView className="flex-1" contentContainerClassName="px-4 pb-32" keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
-        {activeWorkout.exercises.map((exercise, exerciseIndex) => (
-          <View key={exercise.id} className="mt-6">
-            {/* Exercise Header */}
-            <View className="mb-2 flex-row items-center justify-between">
-              <View className="flex-1 flex-row items-center gap-1">
-                <View className="items-center justify-center">
-                  <Pressable
-                    onPress={() => handleMoveExercise(exerciseIndex, 'up')}
-                    disabled={exerciseIndex === 0}
-                    className="h-6 w-6 items-center justify-center"
-                    style={{ opacity: exerciseIndex === 0 ? 0.25 : 1 }}
-                  >
-                    <Icon as={ChevronUp} size={14} className="text-foreground" />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => handleMoveExercise(exerciseIndex, 'down')}
-                    disabled={exerciseIndex === activeWorkout.exercises.length - 1}
-                    className="h-6 w-6 items-center justify-center"
-                    style={{ opacity: exerciseIndex === activeWorkout.exercises.length - 1 ? 0.25 : 1 }}
-                  >
-                    <Icon as={ChevronDown} size={14} className="text-foreground" />
-                  </Pressable>
-                </View>
-                <Text className="flex-1 text-base font-semibold" numberOfLines={1}>{exercise.name}</Text>
-              </View>
-              <View className="flex-row items-center gap-1">
-                <Pressable
-                  onPress={() => handleAddSet(exercise)}
-                  className="h-8 w-8 items-center justify-center rounded-md bg-secondary"
-                >
-                  <Icon as={Plus} size={14} className="text-foreground" />
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    Alert.alert('Remove Exercise', `Remove ${exercise.name}?`, [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Remove',
-                        style: 'destructive',
-                        onPress: () => removeExercise(exercise.id),
-                      },
-                    ]);
-                  }}
-                  className="h-8 w-8 items-center justify-center"
-                >
-                  <Icon as={X} size={14} className="text-destructive" />
-                </Pressable>
-              </View>
-            </View>
-
-            {/* Column headers */}
-            <View className="flex-row items-center gap-2 px-3 py-1">
-              <Text className="w-8 text-center text-xs text-muted-foreground">Set</Text>
-              <View className="flex-1 flex-row items-center gap-2">
-                {exercise.type === 'reps_weight' && (
-                  <>
-                    <Text className="flex-1 text-center text-xs text-muted-foreground">{weightUnit}</Text>
-                    <Text className="flex-1 text-center text-xs text-muted-foreground">Reps</Text>
-                  </>
-                )}
-                {exercise.type === 'reps_time' && (
-                  <>
-                    <Text className="flex-[2] pr-3 text-center text-xs text-muted-foreground">Time</Text>
-                    <Text className="flex-1 text-left text-xs text-muted-foreground">Reps</Text>
-                  </>
-                )}
-                {exercise.type === 'time_only' && (
-                  <Text className="flex-1 text-center text-xs text-muted-foreground">Time</Text>
-                )}
-                {exercise.type === 'time_distance' && (
-                  <>
-                    <Text className="flex-[2] text-center text-xs text-muted-foreground">Time</Text>
-                    <Text className="flex-1 text-center text-xs text-muted-foreground">{distanceUnit}</Text>
-                  </>
-                )}
-                {exercise.type === 'reps_only' && (
-                  <Text className="flex-1 text-center text-xs text-muted-foreground">Reps</Text>
-                )}
-                {exercise.type === 'intervals' && (
-                  <Text className="flex-1 text-xs text-muted-foreground">Effort &amp; Time</Text>
-                )}
-              </View>
-              {rpeEnabled && (
-                <Text className="min-w-[40px] text-center text-xs text-muted-foreground">RPE</Text>
+      {/* Exercise pills */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        style={{ flexGrow: 0 }}
+        contentContainerClassName="items-center gap-2 px-4 py-2"
+      >
+        {exercises.map((e, i) => {
+          const p = e.sets.length ? e.sets.filter((s) => s.completed).length / e.sets.length : 0;
+          const selected = i === safeExIdx;
+          return (
+            <Pressable
+              key={e.id}
+              onPress={() => selectExercise(i)}
+              accessibilityRole="button"
+              accessibilityLabel={e.name}
+              accessibilityState={{ selected }}
+              className={cn(
+                'flex-row items-center gap-2 rounded-full border py-2 pl-2 pr-3.5',
+                selected ? 'border-primary bg-accent' : 'border-border bg-card'
               )}
-              <View className="w-[68px]" />
-            </View>
-
-            {/* Set rows */}
-            <Animated.View className="gap-1">
-              {exercise.sets.map((set, setIndex) => (
-                <Animated.View key={set.id} layout={Layout.duration(200)}>
-                  <MemoizedSetRow
-                    set={set}
-                    index={setIndex}
-                    exerciseId={exercise.id}
-                    restTimeSeconds={exercise.restTimeSeconds}
-                    onUpdateSet={handleUpdateSet}
-                    onToggleSet={handleToggleSet}
-                    onRemoveSet={handleRemoveSet}
-                  />
-                  {applyAllPrompt?.exerciseId === exercise.id && applyAllPrompt.setIndex === setIndex && (
-                    <Animated.View
-                      entering={FadeInDown.duration(200)}
-                      exiting={FadeOutDown.duration(150)}
-                      layout={Layout.duration(200)}
-                      className="mx-3 my-1 flex-row items-center rounded-lg border border-primary bg-primary/10"
-                    >
-                      <Pressable
-                        onPress={() => {
-                          updateSetsFromIndex(exercise.id, applyAllPrompt.setIndex, { [applyAllPrompt.field]: applyAllPrompt.value } as Partial<WorkoutSet>);
-                          setApplyAllPrompt(null);
-                        }}
-                        className="flex-1 items-center py-2"
-                      >
-                        <Text className="text-sm font-semibold text-primary">
-                          Apply {applyAllPrompt.label} to all sets below
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => setApplyAllPrompt(null)}
-                        className="aspect-square items-center justify-center self-stretch"
-                        style={{ minWidth: 40 }}
-                      >
-                        <Icon as={X} size={14} className="text-primary" />
-                      </Pressable>
-                    </Animated.View>
-                  )}
-                </Animated.View>
-              ))}
-            </Animated.View>
-          </View>
-        ))}
-
-        {/* Add Exercise Button */}
+            >
+              <ProgressRing progress={p} size={18} strokeWidth={3} color={p >= 1 ? ring.good : ring.primary} trackColor={ring.track} />
+              <Text className={cn('text-sm font-semibold', selected ? 'text-foreground' : 'text-muted-foreground')}>
+                {e.name}
+              </Text>
+            </Pressable>
+          );
+        })}
         <Pressable
-          onPress={handleAddExercise}
+          onPress={() => router.push('/exercise/create?source=active')}
           accessibilityRole="button"
           accessibilityLabel="Add exercise"
           testID="workout-add-exercise"
-          className="mt-6 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-4"
+          className="flex-row items-center gap-1 rounded-full border border-border bg-card px-3.5 py-2"
         >
-          <Icon as={Plus} size={20} className="text-primary" />
-          <Text className="font-medium text-primary">Add Exercise</Text>
+          <Icon as={Plus} size={14} className="text-primary" />
+          <Text className="text-sm font-semibold text-primary">Exercise</Text>
         </Pressable>
       </ScrollView>
 
-      {/* Footer */}
-      <View className="absolute inset-x-0 bottom-0 border-t border-border bg-background px-4 pb-8 pt-4">
+      {/* Exercise header */}
+      <View className="flex-row items-center justify-between px-5 pb-1 pt-1">
+        <Text className="text-sm text-muted-foreground">
+          {exercise.name} · {metrics.length} metrics
+        </Text>
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            onPress={handleRemoveSet}
+            disabled={sets.length <= 1}
+            accessibilityRole="button"
+            accessibilityLabel="Remove this set"
+            className="h-7 w-8 items-center justify-center rounded-lg border border-border"
+          >
+            <Icon as={Trash2} size={13} className={cn('text-muted-foreground', sets.length <= 1 && 'opacity-30')} />
+          </Pressable>
+          <Pressable
+            onPress={() => setShowExMenu(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Reorder or remove exercise"
+            className="h-7 w-8 items-center justify-center rounded-lg border border-border"
+          >
+            <Icon as={MoreHorizontal} size={16} className="text-muted-foreground" />
+          </Pressable>
+        </View>
+      </View>
+
+      <View className="flex-row items-baseline gap-2 px-5 pb-2">
+        <Text className="text-2xl font-extrabold text-foreground">Set {safeSetIdx + 1}</Text>
+        <Text className="font-mono text-xs uppercase tracking-wide text-muted-foreground">of {sets.length}</Text>
+      </View>
+
+      {/* Swipeable set pager */}
+      <View className="flex-1 overflow-hidden" onLayout={(e) => setPageW(e.nativeEvent.layout.width)}>
+        {pageW > 0 && (
+          <GestureDetector gesture={pan}>
+            <Animated.View style={[{ width: pageW * 3, flexDirection: 'row' }, rowStyle]}>
+              {renderPage(prevSet, `prev-${prevSet?.id ?? 'x'}`, false)}
+              {renderPage(curSet, `cur-${curSet?.id ?? 'x'}`, true)}
+              {renderPage(nextSet, `next-${nextSet?.id ?? 'x'}`, false)}
+            </Animated.View>
+          </GestureDetector>
+        )}
+      </View>
+
+      {/* Set dots */}
+      <View className="flex-row flex-wrap items-center justify-center gap-2 px-4 py-2">
+        {sets.map((s, i) => {
+          const st = s.completed ? 'done' : i === safeSetIdx ? 'cur' : 'todo';
+          return (
+            <Pressable
+              key={s.id}
+              onPress={() => { lightHaptic(); goToSet(i); }}
+              accessibilityRole="button"
+              accessibilityLabel={`Set ${i + 1}${s.completed ? ', logged' : ''}`}
+              className={cn(
+                'h-6 w-6 items-center justify-center rounded-full border',
+                st === 'done' && 'border-green-500 bg-green-500',
+                st === 'cur' && 'border-primary',
+                st === 'todo' && 'border-border'
+              )}
+            >
+              <Text
+                className={cn(
+                  'font-mono text-[10px]',
+                  st === 'done' && 'text-white',
+                  st === 'cur' && 'text-primary',
+                  st === 'todo' && 'text-muted-foreground'
+                )}
+              >
+                {s.completed ? '✓' : i + 1}
+              </Text>
+            </Pressable>
+          );
+        })}
         <Pressable
-          onPress={handleEndWorkout}
+          onPress={handleAddSet}
           accessibilityRole="button"
-          accessibilityLabel="End workout"
-          testID="workout-finish"
-          className="items-center rounded-xl bg-destructive py-4"
+          accessibilityLabel="Add set"
+          className="h-6 w-6 items-center justify-center rounded-full border border-dashed border-primary"
         >
-          <Text className="font-semibold text-destructive-foreground">End Workout</Text>
+          <Icon as={Plus} size={12} className="text-primary" />
         </Pressable>
       </View>
 
+      {/* CTA */}
+      <View className="px-5 pb-2 pt-1">
+        <Pressable
+          onPress={handleComplete}
+          accessibilityRole="button"
+          accessibilityLabel={curSet?.completed ? 'Next set' : 'Complete set'}
+          testID="focus-complete-set"
+          className={cn('h-14 items-center justify-center rounded-2xl', curSet?.completed ? 'border border-green-500 bg-card' : 'bg-primary')}
+        >
+          <Text className={cn('text-base font-bold', curSet?.completed ? 'text-green-500' : 'text-primary-foreground')}>
+            {curSet?.completed ? 'Set logged ✓' : 'Complete set'}
+          </Text>
+        </Pressable>
+      </View>
+
+      <FocusReward trigger={rewardTick} />
+
+      {/* Add-metric sheet */}
+      {showAddMetric && (
+        <View className="absolute inset-0" style={{ zIndex: 60 }}>
+          <Pressable className="absolute inset-0 bg-black/50" onPress={() => setShowAddMetric(false)} />
+          <View className="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-border bg-card px-5 pb-10 pt-4">
+            <View className="mb-3 h-1 w-9 self-center rounded-full bg-border" />
+            <Text className="text-base font-bold text-foreground">Track another metric</Text>
+            <Text className="mb-3 text-xs text-muted-foreground">
+              Adds it to every set of {exercise.name} · leave it blank where it doesn&apos;t apply.
+            </Text>
+            {addableMetrics.length === 0 ? (
+              <Text className="py-4 text-sm text-muted-foreground">
+                {metrics.length >= MAX_METRICS_PER_EXERCISE
+                  ? `That's the ${MAX_METRICS_PER_EXERCISE}-metric limit — remove one first.`
+                  : 'Every metric is already tracked.'}
+              </Text>
+            ) : (
+              <View className="flex-row flex-wrap gap-2">
+                {addableMetrics.map((spec) => (
+                  <Pressable
+                    key={spec.id}
+                    onPress={() => {
+                      lightHaptic();
+                      addExerciseMetric(exercise.id, spec.id);
+                      setShowAddMetric(false);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add ${spec.label}`}
+                    className="rounded-xl border border-border bg-secondary px-3.5 py-2.5"
+                  >
+                    <Text className="text-sm font-semibold text-foreground">{spec.label}</Text>
+                    {spec.unit ? (
+                      <Text className="font-mono text-[10px] uppercase text-muted-foreground">{spec.unit}</Text>
+                    ) : null}
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Exercise options sheet */}
+      {showExMenu && (
+        <View className="absolute inset-0" style={{ zIndex: 60 }}>
+          <Pressable className="absolute inset-0 bg-black/50" onPress={() => setShowExMenu(false)} />
+          <View className="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-border bg-card px-5 pb-10 pt-4">
+            <View className="mb-3 h-1 w-9 self-center rounded-full bg-border" />
+            <Text className="mb-3 text-base font-bold text-foreground">{exercise.name}</Text>
+            <Pressable
+              onPress={() => handleMoveExercise('up')}
+              disabled={safeExIdx === 0}
+              accessibilityRole="button"
+              accessibilityLabel="Move exercise earlier"
+              className={cn('flex-row items-center gap-3 rounded-xl border border-border px-4 py-3', safeExIdx === 0 && 'opacity-40')}
+            >
+              <Icon as={ChevronUp} size={18} className="text-foreground" />
+              <Text className="font-semibold text-foreground">Move earlier</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => handleMoveExercise('down')}
+              disabled={safeExIdx === exercises.length - 1}
+              accessibilityRole="button"
+              accessibilityLabel="Move exercise later"
+              className={cn('mt-2 flex-row items-center gap-3 rounded-xl border border-border px-4 py-3', safeExIdx === exercises.length - 1 && 'opacity-40')}
+            >
+              <Icon as={ChevronDown} size={18} className="text-foreground" />
+              <Text className="font-semibold text-foreground">Move later</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleRemoveExercise}
+              disabled={exercises.length <= 1}
+              accessibilityRole="button"
+              accessibilityLabel="Remove exercise"
+              className={cn('mt-2 flex-row items-center gap-3 rounded-xl border border-border px-4 py-3', exercises.length <= 1 && 'opacity-40')}
+            >
+              <Icon as={Trash2} size={18} className="text-destructive" />
+              <Text className="font-semibold text-destructive">Remove exercise</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }

@@ -7,13 +7,16 @@ import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } 
 import { SetInput } from './set-input';
 import { TimeInput } from '@/components/shared/time-input';
 import { RpeInput } from './rpe-input';
-import { IntervalSetInputs } from './interval-set-inputs';
-import type { WorkoutSet } from '@/lib/types';
+import { IntervalSetInputs, MmSsInput } from './interval-set-inputs';
+import type { MetricId, WorkoutSet } from '@/lib/types';
+import { METRICS, metricUpdate, resolveExerciseMetrics, type MetricSpec } from '@/lib/metrics';
 import { useSettingsStore } from '@/stores/settings-store';
 import { cn } from '@/lib/utils';
 
 interface SetRowProps {
   set: WorkoutSet;
+  /** Resolved metric list of the parent exercise (drives which inputs render). */
+  metrics: MetricId[];
   index: number;
   onUpdate: (updates: Partial<WorkoutSet>) => void;
   onToggleComplete: () => void;
@@ -21,7 +24,43 @@ interface SetRowProps {
   editable?: boolean;
 }
 
-export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggleComplete, onRemove, editable = true }: SetRowProps) {
+/** One input for one metric, chosen by the metric's input kind. */
+function MetricInput({
+  spec,
+  set,
+  index,
+  onUpdate,
+}: {
+  spec: MetricSpec;
+  set: WorkoutSet;
+  index: number;
+  onUpdate: (updates: Partial<WorkoutSet>) => void;
+}) {
+  const value = set[spec.field] ?? 0;
+  const change = (v: number) => onUpdate(metricUpdate(spec.field, v));
+
+  switch (spec.inputKind) {
+    case 'duration':
+      return <TimeInput value={value} onValueChange={change} className="flex-[2]" />;
+    case 'pace':
+      return <MmSsInput value={value} onValueChange={change} className="flex-[2]" />;
+    case 'integer':
+    case 'decimal':
+      return (
+        <SetInput
+          value={value}
+          onValueChange={change}
+          placeholder="0"
+          className="flex-1"
+          allowDecimals={spec.inputKind === 'decimal'}
+          accessibilityLabel={`${spec.label}, set ${index + 1}`}
+          testID={`set-${index}-${spec.id}`}
+        />
+      );
+  }
+}
+
+export const SetRow = React.memo(function SetRow({ set, metrics, index, onUpdate, onToggleComplete, onRemove, editable = true }: SetRowProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
@@ -41,91 +80,18 @@ export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggl
   };
 
   const renderInputs = () => {
-    switch (set.type) {
-      case 'reps_weight':
-        return (
-          <>
-            <SetInput
-              value={set.weight}
-              onValueChange={(weight) => onUpdate({ weight } as Partial<WorkoutSet>)}
-              placeholder="0"
-              className="flex-1"
-              allowDecimals
-              testID={`set-${index}-weight`}
-            />
-            <SetInput
-              value={set.reps}
-              onValueChange={(reps) => onUpdate({ reps } as Partial<WorkoutSet>)}
-              placeholder="0"
-              className="flex-1"
-              testID={`set-${index}-reps`}
-            />
-          </>
-        );
-      case 'reps_time':
-        return (
-          <>
-            <TimeInput
-              value={set.time}
-              onValueChange={(time) => onUpdate({ time } as Partial<WorkoutSet>)}
-              className="flex-[2]"
-            />
-            <SetInput
-              value={set.reps}
-              onValueChange={(reps) => onUpdate({ reps } as Partial<WorkoutSet>)}
-              placeholder="0"
-              className="flex-1"
-            />
-          </>
-        );
-      case 'time_only':
-        return (
-          <TimeInput
-            value={set.time}
-            onValueChange={(time) => onUpdate({ time } as Partial<WorkoutSet>)}
-            className="flex-1"
-          />
-        );
-      case 'time_distance':
-        return (
-          <>
-            <TimeInput
-              value={set.time}
-              onValueChange={(time) => onUpdate({ time } as Partial<WorkoutSet>)}
-              className="flex-[2]"
-            />
-            <SetInput
-              value={set.distance}
-              onValueChange={(distance) => onUpdate({ distance } as Partial<WorkoutSet>)}
-              placeholder="0"
-              className="flex-1"
-              allowDecimals
-            />
-          </>
-        );
-      case 'reps_only':
-        return (
-          <SetInput
-            value={set.reps}
-            onValueChange={(reps) => onUpdate({ reps } as Partial<WorkoutSet>)}
-            placeholder="0"
-            className="flex-1"
-          />
-        );
-      case 'intervals':
-        return (
-          <IntervalSetInputs
-            set={set}
-            onUpdate={(updates) => onUpdate(updates as Partial<WorkoutSet>)}
-          />
-        );
+    if (set.type === 'intervals') {
+      return <IntervalSetInputs set={set} onUpdate={onUpdate} />;
     }
+    return resolveExerciseMetrics(set.type, metrics).map((id) => (
+      <MetricInput key={id} spec={METRICS[id]} set={set} index={index} onUpdate={onUpdate} />
+    ));
   };
 
   const handleVariantToggle = () => {
     if (!editable) return;
     const next = set.variant === 'work' ? 'rest' : set.variant === 'rest' ? undefined : 'work';
-    onUpdate({ variant: next } as Partial<WorkoutSet>);
+    onUpdate({ variant: next });
   };
 
   return (
@@ -152,7 +118,7 @@ export const SetRow = React.memo(function SetRow({ set, index, onUpdate, onToggl
       {rpeEnabled && (
         <RpeInput
           value={set.rpe}
-          onValueChange={(rpe) => onUpdate({ rpe } as Partial<WorkoutSet>)}
+          onValueChange={(rpe) => onUpdate({ rpe })}
           disabled={!editable}
         />
       )}

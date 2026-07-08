@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { useConvexAuth, useMutation } from 'convex/react';
+import { format } from 'date-fns';
 
 import { api } from '@/convex/_generated/api';
 import { useNetwork } from '@/hooks/use-network';
@@ -9,6 +10,10 @@ import {
   queryDailyMetrics,
   queryExternalWorkouts,
 } from '@/lib/healthkit';
+import {
+  cancelStreakRiskNotification,
+  rescheduleReminderAfterWorkout,
+} from '@/lib/notifications';
 import { useSettingsStore } from '@/stores/settings-store';
 
 /** Don't auto-sync more often than this (manual `syncNow` bypasses it). */
@@ -99,6 +104,20 @@ export function useHealthImport() {
       }
 
       useSettingsStore.getState().setHealthImportLastSyncAt(now);
+
+      // A today-dated external workout counts as "worked out today" for
+      // notification purposes: stamp + re-arm the daily reminder (suppresses
+      // today's "you haven't logged a workout" ping) and drop tonight's
+      // streak-risk one-shot, exactly like an in-app finish does.
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const workedOutToday = workouts.some(
+        (w) => format(new Date(w.startedAt), 'yyyy-MM-dd') === todayStr
+      );
+      if (workedOutToday) {
+        void rescheduleReminderAfterWorkout();
+        void cancelStreakRiskNotification();
+      }
+
       return true;
     } catch (error) {
       // Leave healthImportLastSyncAt unchanged — next foreground retries.

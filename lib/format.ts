@@ -1,4 +1,5 @@
-import type { ExerciseType } from './types';
+import type { ExerciseType, MetricId } from './types';
+import { METRICS, resolveExerciseMetrics } from './metrics';
 
 export function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -66,16 +67,25 @@ export function parseAgeYears(input: string): number | null {
   return boundedParse(input, 16, 100, true);
 }
 
-export function exerciseTypeLabel(type: ExerciseType): string {
-  const labels: Record<ExerciseType, string> = {
-    reps_weight: 'Reps & Weight',
-    reps_time: 'Reps & Time',
-    time_only: 'Time Only',
-    time_distance: 'Time & Distance',
-    reps_only: 'Reps Only',
-    intervals: 'Intervals',
-  };
-  return labels[type];
+const LEGACY_TYPE_LABELS: Record<Exclude<ExerciseType, 'metrics'>, string> = {
+  reps_weight: 'Reps & Weight',
+  reps_time: 'Reps & Time',
+  time_only: 'Time Only',
+  time_distance: 'Time & Distance',
+  reps_only: 'Reps Only',
+  intervals: 'Intervals',
+};
+
+/**
+ * Short label for an exercise. Legacy types keep their fixed names; composed
+ * ('metrics') exercises derive a label from their metric list (e.g.
+ * "Duration · Avg power · Distance · Avg heart rate").
+ */
+export function exerciseTypeLabel(type: ExerciseType, metrics?: MetricId[]): string {
+  if (type !== 'metrics') return LEGACY_TYPE_LABELS[type];
+  const resolved = resolveExerciseMetrics(type, metrics);
+  if (resolved.length === 0) return 'Custom';
+  return resolved.map((m) => METRICS[m].label).join(' · ');
 }
 
 /** Format pace seconds as "m:ss" (e.g., 330 → "5:30"). */

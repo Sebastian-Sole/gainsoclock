@@ -3,6 +3,7 @@ import {
   clampReviewWeekday,
   decideProteinNudge,
   decideStreakRisk,
+  hasWorkoutToday,
   planDailyReminder,
 } from "@/lib/notification-rules";
 import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
@@ -177,6 +178,12 @@ export async function schedulePostWorkoutNotification(
 export async function scheduleDailyWorkoutReminder(
   hour: number,
   minute: number,
+  // Local `yyyy-MM-dd` start dates of history-store workout logs. Callers
+  // pass these in — this module deliberately does not import the history
+  // store (same pattern as `recomputeStreakRiskNotification`). The
+  // `lastWorkoutLoggedDate` stamp is read here regardless, so omitting the
+  // option can only under-suppress, never over-suppress.
+  opts?: { workoutLogDates?: Iterable<string> },
 ): Promise<void> {
   const { notificationsReminderEnabled } = useSettingsStore.getState();
   if (!notificationsReminderEnabled) return;
@@ -186,12 +193,19 @@ export async function scheduleDailyWorkoutReminder(
   // Cancel existing reminder before rescheduling
   await cancelDailyWorkoutReminder();
 
-  // If a workout was already logged today and today's reminder hasn't fired
-  // yet, skip today: schedule a one-shot for tomorrow instead of the DAILY
-  // trigger. The next app launch (or settings change) re-arms DAILY.
+  // If a workout already happened today (finished in-app, imported from
+  // Apple Health, or synced into the history store) and today's reminder
+  // hasn't fired yet, skip today: schedule a one-shot for tomorrow instead
+  // of the DAILY trigger. The next foreground/launch/settings change
+  // re-arms DAILY.
   const { lastWorkoutLoggedDate } = useSettingsStore.getState();
   const now = new Date();
-  const plan = planDailyReminder({ now, hour, minute, lastWorkoutLoggedDate });
+  const workedOutToday = hasWorkoutToday({
+    todayStr: format(now, "yyyy-MM-dd"),
+    lastWorkoutLoggedDate,
+    logDates: opts?.workoutLogDates ?? [],
+  });
+  const plan = planDailyReminder({ now, hour, minute, workedOutToday });
   if (plan.kind === "one-shot-tomorrow") {
     await Notifications.scheduleNotificationAsync({
       identifier: IDENTIFIERS.DAILY_REMINDER,
@@ -230,18 +244,20 @@ export async function cancelDailyWorkoutReminder(): Promise<void> {
 }
 
 /**
- * Record that a workout was logged today and re-arm the daily reminder with
+ * Record that a workout happened today (finished in-app, or imported from
+ * Apple Health by `useHealthImport`) and re-arm the daily reminder with
  * suppression awareness. Records the date even when reminders are disabled —
  * the user may enable them later the same day.
  *
  * Delegates all scheduling to scheduleDailyWorkoutReminder, which:
- * - skips today and schedules a one-shot for tomorrow if a workout was logged
- *   today and the reminder hasn't fired yet, or
+ * - skips today and schedules a one-shot for tomorrow if a workout already
+ *   happened today and the reminder hasn't fired yet, or
  * - falls through to the DAILY trigger otherwise.
  *
- * Accepted limitation: if the user never relaunches the app after the one-shot
- * fires, the DAILY trigger will not be restored until the next launch. iOS
- * offers no "daily starting two days from now" trigger without double-firing.
+ * If the user never reopens the app after the one-shot fires, the DAILY
+ * trigger is restored by the next launch or foreground (see the AppState
+ * re-arm in `hooks/use-notification-setup.ts`). iOS offers no "daily
+ * starting two days from now" trigger without double-firing.
  */
 export async function rescheduleReminderAfterWorkout(): Promise<void> {
   const { notificationsReminderEnabled, notificationsReminderTime } =

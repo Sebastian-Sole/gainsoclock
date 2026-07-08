@@ -4,12 +4,12 @@ import { Text } from '@/components/ui/text';
 import { TimeInput } from '@/components/shared/time-input';
 import { SetInput } from './set-input';
 import { lightHaptic } from '@/lib/haptics';
-import type { IntervalMetric, IntervalSet } from '@/lib/types';
+import type { IntervalMetric, WorkoutSet } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface IntervalSetInputsProps {
-  set: IntervalSet;
-  onUpdate: (updates: Partial<IntervalSet>) => void;
+  set: WorkoutSet;
+  onUpdate: (updates: Partial<WorkoutSet>) => void;
 }
 
 const METRICS: { value: IntervalMetric; label: string }[] = [
@@ -26,7 +26,7 @@ function paceUnitLabel(distanceUnit: 'km' | 'mi') {
   return `/ ${distanceUnit}`;
 }
 
-function MmSsInput({
+export function MmSsInput({
   value,
   onValueChange,
   className,
@@ -85,17 +85,30 @@ function MmSsInput({
 }
 
 export function IntervalSetInputs({ set, onUpdate }: IntervalSetInputsProps) {
-  const handleMetric = (metric: IntervalMetric) => {
-    if (metric === set.metric) return;
+  // Interval sets are always created with these fields; default defensively
+  // since the flat WorkoutSet type makes them optional.
+  const metric = set.metric ?? 'distance';
+  const distanceUnit = set.distanceUnit ?? 'km';
+
+  const handleMetric = (next: IntervalMetric) => {
+    if (next === metric) return;
     lightHaptic();
-    onUpdate({ metric });
+    // Clear the previous metric's value: the flat set shape keeps every
+    // field, so a leftover distance/speed/pace from before the switch would
+    // otherwise persist and get counted by stats.
+    onUpdate({
+      metric: next,
+      paceSeconds: undefined,
+      distance: undefined,
+      speed: undefined,
+    });
   };
 
   return (
     <View className="flex-1 gap-2">
       <View className="flex-row items-center gap-1">
         {METRICS.map((m) => {
-          const selected = set.metric === m.value;
+          const selected = metric === m.value;
           return (
             <Pressable
               key={m.value}
@@ -121,45 +134,47 @@ export function IntervalSetInputs({ set, onUpdate }: IntervalSetInputsProps) {
       </View>
 
       <View className="flex-row items-center gap-2">
-        {set.metric === 'pace' && (
+        {metric === 'pace' && (
           <View className="flex-row items-center gap-1">
             <MmSsInput
               value={set.paceSeconds ?? 0}
               onValueChange={(paceSeconds) => onUpdate({ paceSeconds })}
             />
             <Text className="text-xs text-muted-foreground">
-              {paceUnitLabel(set.distanceUnit)}
+              {paceUnitLabel(distanceUnit)}
             </Text>
           </View>
         )}
-        {set.metric === 'distance' && (
+        {metric === 'distance' && (
           <View className="flex-row items-center gap-1">
             <SetInput
               value={set.distance ?? 0}
               onValueChange={(distance) => onUpdate({ distance })}
               placeholder="0"
               allowDecimals
+              accessibilityLabel="Distance"
               className="w-16"
             />
-            <Text className="text-xs text-muted-foreground">{set.distanceUnit}</Text>
+            <Text className="text-xs text-muted-foreground">{distanceUnit}</Text>
           </View>
         )}
-        {set.metric === 'speed' && (
+        {metric === 'speed' && (
           <View className="flex-row items-center gap-1">
             <SetInput
               value={set.speed ?? 0}
               onValueChange={(speed) => onUpdate({ speed })}
               placeholder="0"
               allowDecimals
+              accessibilityLabel="Speed"
               className="w-16"
             />
             <Text className="text-xs text-muted-foreground">
-              {speedUnitLabel(set.distanceUnit)}
+              {speedUnitLabel(distanceUnit)}
             </Text>
           </View>
         )}
         <TimeInput
-          value={set.time}
+          value={set.time ?? 0}
           onValueChange={(time) => onUpdate({ time })}
           className="flex-1"
         />

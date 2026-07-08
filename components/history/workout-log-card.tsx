@@ -84,7 +84,7 @@ export function WorkoutLogCard({ log }: WorkoutLogCardProps) {
                 <View className="flex-1">
                   <Text className="text-sm font-medium">{exercise.name}</Text>
                   <Text className="text-xs text-muted-foreground">
-                    {exerciseTypeLabel(exercise.type)}
+                    {exerciseTypeLabel(exercise.type, exercise.metrics)}
                   </Text>
                 </View>
                 <Text className="text-sm text-muted-foreground">

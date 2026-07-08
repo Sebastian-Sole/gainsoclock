@@ -1,18 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, ScrollView, Pressable, Modal, Animated, Dimensions, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { X, Play, Dumbbell, Check, Pencil, ChevronRight, Moon, ArrowRightLeft, Trash2 } from 'lucide-react-native';
-import { Icon } from '@/components/ui/icon';
-import { useColorScheme } from 'nativewind';
-import { useRouter } from 'expo-router';
-import { api } from '@/convex/_generated/api';
-import { Colors } from '@/constants/theme';
-import { useTemplateStore } from '@/stores/template-store';
 import { TemplatePicker } from '@/components/plan/template-picker';
-import { cn } from '@/lib/utils';
-import { isPast } from '@/lib/plan-dates';
-import { lightHaptic } from '@/lib/haptics';
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
 import { syncToConvex } from '@/lib/convex-sync';
+import { lightHaptic } from '@/lib/haptics';
+import { isPast } from '@/lib/plan-dates';
+import { cn } from '@/lib/utils';
+import { useTemplateStore } from '@/stores/template-store';
+import { useRouter } from 'expo-router';
+import { ArrowRightLeft, Check, ChevronRight, Dumbbell, Moon, Pencil, Play, Trash2, X } from 'lucide-react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Dimensions, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 interface PlanDayDetailProps {
   visible: boolean;
@@ -45,10 +43,8 @@ export function PlanDayDetail({
   status,
   date,
 }: PlanDayDetailProps) {
-  const { colorScheme } = useColorScheme();
   const router = useRouter();
   const isMissed = status === 'pending' && !!date && isPast(date);
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
   const templates = useTemplateStore((s) => s.templates);
   const template = useTemplateStore((s) =>
     templateClientId ? s.getTemplate(templateClientId) : undefined
@@ -365,11 +361,12 @@ export function PlanDayDetail({
                 {templateClientId && status !== 'completed' && (
                   <Pressable
                     onPress={onStartWorkout}
-                    className="flex-row items-center justify-center gap-2 rounded-xl py-4 mb-3"
-                    style={{ backgroundColor: primaryColor }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Start workout"
+                    className="flex-row items-center justify-center gap-2 rounded-xl bg-primary py-4 mb-3"
                   >
                     <Icon as={Play} size={18} className="text-primary-foreground" />
-                    <Text className="text-base font-semibold text-white">Start Workout</Text>
+                    <Text className="text-base font-semibold text-primary-foreground">Start Workout</Text>
                   </Pressable>
                 )}
 

@@ -1,6 +1,7 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { METRIC_IDS, normalizeExerciseMetrics, type MetricId } from "./metricsMap";
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -15,6 +16,7 @@ const VALID_EXERCISE_TYPES = [
   "time_distance",
   "reps_only",
   "intervals",
+  "metrics",
 ] as const;
 
 type ExerciseType = (typeof VALID_EXERCISE_TYPES)[number];
@@ -75,7 +77,32 @@ function validateExercise(
 ): void {
   const prefix = `${context}exercises[${index}]`;
   assertString(ex.name, `${prefix}.name`);
-  assertExerciseType(ex.type, `${prefix}.type`);
+  // `type` and `metrics` are individually optional, but at least one must be
+  // provided and every metric id must be valid. Unknown ids throw (the error
+  // is surfaced back to the model for a retry) instead of being silently
+  // coerced away — coerceMetricIds dropping e.g. "watts" used to fall back to
+  // ["weight","reps"] and persist a cardio exercise as strength.
+  if (ex.type !== undefined) assertExerciseType(ex.type, `${prefix}.type`);
+  if (ex.metrics !== undefined) {
+    assertArray(ex.metrics, `${prefix}.metrics`);
+    for (const m of ex.metrics) {
+      if (typeof m !== "string" || !(METRIC_IDS as string[]).includes(m)) {
+        throw new Error(
+          `Invalid payload: "${prefix}.metrics" contains unknown metric id ${JSON.stringify(
+            m
+          )}. Valid ids: ${METRIC_IDS.join(", ")}.`
+        );
+      }
+    }
+  }
+  if (
+    ex.type === undefined &&
+    (!Array.isArray(ex.metrics) || ex.metrics.length === 0)
+  ) {
+    throw new Error(
+      `Invalid payload: "${prefix}" must provide "metrics" (non-empty) or a legacy "type".`
+    );
+  }
   assertNumber(ex.defaultSetsCount, `${prefix}.defaultSetsCount`);
   assertNumber(ex.restTimeSeconds, `${prefix}.restTimeSeconds`);
   assertOptionalNumber(ex.suggestedReps, `${prefix}.suggestedReps`);
@@ -290,7 +317,8 @@ function validateCreateRecipePayload(data: Record<string, unknown>): CreateRecip
 
 interface ExercisePayload {
   name: string;
-  type: ExerciseType;
+  type?: ExerciseType;
+  metrics?: MetricId[];
   defaultSetsCount: number;
   restTimeSeconds: number;
   suggestedReps?: number;
@@ -487,7 +515,15 @@ export const executeApproval = mutation({
       const exercises = tpl.exercises.map(
         (ex, i) => {
           const exerciseClientId = generateId();
-          return { ...ex, exerciseClientId, clientId: generateId(), order: i };
+          const resolved = normalizeExerciseMetrics(ex.type, ex.metrics);
+          return {
+            ...ex,
+            exerciseClientId,
+            clientId: generateId(),
+            order: i,
+            resolvedType: resolved.type,
+            resolvedMetrics: resolved.metrics,
+          };
         }
       );
 
@@ -505,7 +541,8 @@ export const executeApproval = mutation({
             userId,
             clientId: ex.exerciseClientId,
             name: ex.name,
-            type: ex.type,
+            type: ex.resolvedType,
+            metrics: ex.resolvedMetrics,
             createdAt: now,
           });
         } else {
@@ -529,6 +566,7 @@ export const executeApproval = mutation({
           clientId: ex.clientId,
           templateClientId,
           exerciseClientId: ex.exerciseClientId,
+          metrics: ex.resolvedMetrics,
           order: ex.order,
           restTimeSeconds: ex.restTimeSeconds,
           defaultSetsCount: ex.defaultSetsCount,
@@ -552,7 +590,15 @@ export const executeApproval = mutation({
         const exercises = template.exercises.map(
           (ex, i) => {
             const exerciseClientId = generateId();
-            return { ...ex, exerciseClientId, clientId: generateId(), order: i };
+            const resolved = normalizeExerciseMetrics(ex.type, ex.metrics);
+            return {
+              ...ex,
+              exerciseClientId,
+              clientId: generateId(),
+              order: i,
+              resolvedType: resolved.type,
+              resolvedMetrics: resolved.metrics,
+            };
           }
         );
 
@@ -570,7 +616,8 @@ export const executeApproval = mutation({
               userId,
               clientId: ex.exerciseClientId,
               name: ex.name,
-              type: ex.type,
+              type: ex.resolvedType,
+              metrics: ex.resolvedMetrics,
               createdAt: now,
             });
           } else {
@@ -593,6 +640,7 @@ export const executeApproval = mutation({
             clientId: ex.clientId,
             templateClientId,
             exerciseClientId: ex.exerciseClientId,
+            metrics: ex.resolvedMetrics,
             order: ex.order,
             restTimeSeconds: ex.restTimeSeconds,
             defaultSetsCount: ex.defaultSetsCount,
@@ -673,7 +721,15 @@ export const executeApproval = mutation({
         const exercises = template.exercises.map(
           (ex, i) => {
             const exerciseClientId = generateId();
-            return { ...ex, exerciseClientId, clientId: generateId(), order: i };
+            const resolved = normalizeExerciseMetrics(ex.type, ex.metrics);
+            return {
+              ...ex,
+              exerciseClientId,
+              clientId: generateId(),
+              order: i,
+              resolvedType: resolved.type,
+              resolvedMetrics: resolved.metrics,
+            };
           }
         );
 
@@ -690,7 +746,8 @@ export const executeApproval = mutation({
               userId,
               clientId: ex.exerciseClientId,
               name: ex.name,
-              type: ex.type,
+              type: ex.resolvedType,
+              metrics: ex.resolvedMetrics,
               createdAt: now,
             });
           } else {
@@ -712,9 +769,14 @@ export const executeApproval = mutation({
             clientId: ex.clientId,
             templateClientId,
             exerciseClientId: ex.exerciseClientId,
+            metrics: ex.resolvedMetrics,
             order: ex.order,
             restTimeSeconds: ex.restTimeSeconds,
             defaultSetsCount: ex.defaultSetsCount,
+            suggestedReps: ex.suggestedReps,
+            suggestedWeight: ex.suggestedWeight,
+            suggestedTime: ex.suggestedTime,
+            suggestedDistance: ex.suggestedDistance,
           });
         }
       }

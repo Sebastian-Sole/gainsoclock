@@ -8,8 +8,6 @@
  * passed in as a plain argument, including `now` (and `target`, where
  * relevant), so tests never need fake timers.
  */
-import { format } from 'date-fns';
-
 // --- Daily workout reminder (today vs. tomorrow) ---
 
 export type DailyReminderPlan =
@@ -17,23 +15,41 @@ export type DailyReminderPlan =
   | { kind: 'repeating-daily' };
 
 /**
+ * Whether any evidence says a workout happened today. Evidence sources:
+ * - `lastWorkoutLoggedDate`: stamped by this device when a workout finishes
+ *   in-app or a today-dated Apple Health workout is imported.
+ * - `logDates`: local `yyyy-MM-dd` start dates of history-store logs, which
+ *   also cover workouts synced in from other devices and edited/imported logs.
+ */
+export function hasWorkoutToday(args: {
+  todayStr: string;
+  lastWorkoutLoggedDate: string | null | undefined;
+  logDates: Iterable<string>;
+}): boolean {
+  if (args.lastWorkoutLoggedDate === args.todayStr) return true;
+  for (const date of args.logDates) {
+    if (date === args.todayStr) return true;
+  }
+  return false;
+}
+
+/**
  * Decide whether the daily workout reminder should fire as a repeating
  * DAILY trigger, or be suppressed for today and rescheduled as a one-shot
- * for tomorrow (when a workout was already logged today and today's
+ * for tomorrow (when a workout already happened today and today's
  * reminder time hasn't passed yet).
  */
 export function planDailyReminder(args: {
   now: Date;
   hour: number;
   minute: number;
-  lastWorkoutLoggedDate: string | null | undefined;
+  workedOutToday: boolean;
 }): DailyReminderPlan {
-  const { now, hour, minute, lastWorkoutLoggedDate } = args;
+  const { now, hour, minute, workedOutToday } = args;
 
-  const todayStr = format(now, 'yyyy-MM-dd');
   const reminderToday = new Date(now);
   reminderToday.setHours(hour, minute, 0, 0);
-  if (lastWorkoutLoggedDate === todayStr && now < reminderToday) {
+  if (workedOutToday && now < reminderToday) {
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(hour, minute, 0, 0);

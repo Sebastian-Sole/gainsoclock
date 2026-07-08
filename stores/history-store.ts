@@ -5,6 +5,7 @@ import { syncToConvex, getPendingClientIds, isQueueLoaded } from '@/lib/convex-s
 import { mergeQueueAware } from '@/lib/hydration-merge';
 import { api } from '@/convex/_generated/api';
 import type { WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
+import { resolveExerciseMetricsLoose } from '@/lib/metrics';
 import { format, startOfMonth, subMonths } from 'date-fns';
 
 function flattenSet(s: WorkoutSet) {
@@ -13,16 +14,20 @@ function flattenSet(s: WorkoutSet) {
     order: 0, // will be set by caller
     completed: s.completed,
     type: s.type,
-    ...('reps' in s && { reps: s.reps }),
-    ...('weight' in s && { weight: s.weight }),
-    ...('time' in s && { time: s.time }),
-    ...('distance' in s && { distance: s.distance }),
+    ...(s.reps !== undefined && { reps: s.reps }),
+    ...(s.weight !== undefined && { weight: s.weight }),
+    ...(s.time !== undefined && { time: s.time }),
+    ...(s.distance !== undefined && { distance: s.distance }),
+    ...(s.powerAvg !== undefined && { powerAvg: s.powerAvg }),
+    ...(s.heartRateAvg !== undefined && { heartRateAvg: s.heartRateAvg }),
+    ...(s.cadence !== undefined && { cadence: s.cadence }),
+    ...(s.calories !== undefined && { calories: s.calories }),
     ...(s.rpe !== undefined && { rpe: s.rpe }),
     ...(s.variant !== undefined && { variant: s.variant }),
-    ...('metric' in s && { metric: s.metric }),
-    ...('paceSeconds' in s && s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
-    ...('speed' in s && s.speed !== undefined && { speed: s.speed }),
-    ...('distanceUnit' in s && { distanceUnit: s.distanceUnit }),
+    ...(s.metric !== undefined && { metric: s.metric }),
+    ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
+    ...(s.speed !== undefined && { speed: s.speed }),
+    ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
   };
 }
 
@@ -71,6 +76,7 @@ interface HistoryState {
       exerciseClientId: string;
       name: string;
       type: string;
+      metrics?: string[];
       order: number;
       restTimeSeconds: number;
       sets: Array<{
@@ -81,6 +87,10 @@ interface HistoryState {
         weight?: number;
         time?: number;
         distance?: number;
+        powerAvg?: number;
+        heartRateAvg?: number;
+        cadence?: number;
+        calories?: number;
         rpe?: number;
         variant?: string;
         metric?: string;
@@ -129,6 +139,7 @@ export const useHistoryStore = create<HistoryState>()(
           exercises: log.exercises.map((e) => ({
             clientId: e.id,
             exerciseClientId: e.exerciseId,
+            metrics: e.metrics,
             order: e.order,
             restTimeSeconds: e.restTimeSeconds,
             sets: e.sets.map((s, i) => ({
@@ -154,6 +165,7 @@ export const useHistoryStore = create<HistoryState>()(
             exercises: exercises.map((e) => ({
               clientId: e.id,
               exerciseClientId: e.exerciseId,
+              metrics: e.metrics,
               order: e.order,
               restTimeSeconds: e.restTimeSeconds,
               sets: e.sets.map((s, i) => ({
@@ -211,16 +223,21 @@ export const useHistoryStore = create<HistoryState>()(
             exerciseId: e.exerciseClientId,
             name: e.name,
             type: e.type as WorkoutLogExercise['type'],
+            metrics: resolveExerciseMetricsLoose(e.type, e.metrics),
             order: e.order,
             restTimeSeconds: e.restTimeSeconds,
             sets: e.sets.map((s) => ({
               id: s.clientId,
               completed: s.completed,
               type: s.type,
-              ...('reps' in s && s.reps !== undefined && { reps: s.reps }),
-              ...('weight' in s && s.weight !== undefined && { weight: s.weight }),
-              ...('time' in s && s.time !== undefined && { time: s.time }),
-              ...('distance' in s && s.distance !== undefined && { distance: s.distance }),
+              ...(s.reps !== undefined && { reps: s.reps }),
+              ...(s.weight !== undefined && { weight: s.weight }),
+              ...(s.time !== undefined && { time: s.time }),
+              ...(s.distance !== undefined && { distance: s.distance }),
+              ...(s.powerAvg !== undefined && { powerAvg: s.powerAvg }),
+              ...(s.heartRateAvg !== undefined && { heartRateAvg: s.heartRateAvg }),
+              ...(s.cadence !== undefined && { cadence: s.cadence }),
+              ...(s.calories !== undefined && { calories: s.calories }),
               ...(s.rpe !== undefined && { rpe: s.rpe }),
               ...(s.variant !== undefined && { variant: s.variant }),
               ...(s.metric !== undefined && { metric: s.metric }),

@@ -23,6 +23,7 @@ function ex(exerciseId: string, sets: WorkoutSet[]): WorkoutLogExercise {
     exerciseId,
     name: exerciseId,
     type: 'reps_weight',
+    metrics: ['weight', 'reps'],
     order: 0,
     restTimeSeconds: 0,
     sets,

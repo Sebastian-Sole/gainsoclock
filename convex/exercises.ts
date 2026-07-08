@@ -1,7 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { exerciseTypeValidator } from "./validators";
+import { exerciseTypeValidator, metricIdValidator } from "./validators";
 
 export const list = query({
   args: {},
@@ -20,6 +20,7 @@ export const create = mutation({
     clientId: v.string(),
     name: v.string(),
     type: exerciseTypeValidator,
+    metrics: v.optional(v.array(metricIdValidator)),
     createdAt: v.string(),
   },
   handler: async (ctx, args) => {
@@ -46,6 +47,7 @@ export const bulkUpsert = mutation({
         clientId: v.string(),
         name: v.string(),
         type: exerciseTypeValidator,
+        metrics: v.optional(v.array(metricIdValidator)),
         createdAt: v.string(),
       })
     ),

@@ -1,5 +1,26 @@
 import { DefaultTheme, type Theme } from '@react-navigation/native';
 
+/**
+ * Theme token values for React Native props that can't take Tailwind classes
+ * (placeholderTextColor, SVG stroke/fill). Values mirror the CSS variables in
+ * global.css — change them together. Access per-scheme via
+ * hooks/use-token-colors.ts.
+ */
+export const TOKEN_COLORS = {
+  light: {
+    mutedForeground: 'hsl(12, 6.5%, 45%)',
+    chartProtein: 'hsl(217, 91%, 60%)',
+    chartCarbs: 'hsl(45, 93%, 47%)',
+    chartFat: 'hsl(0, 84%, 60%)',
+  },
+  dark: {
+    mutedForeground: 'hsl(24, 5%, 64%)',
+    chartProtein: 'hsl(217, 91%, 60%)',
+    chartCarbs: 'hsl(45, 93%, 47%)',
+    chartFat: 'hsl(0, 84%, 60%)',
+  },
+} as const;
+
 export const NAV_THEME = {
   light: {
     dark: false,

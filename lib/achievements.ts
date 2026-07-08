@@ -483,7 +483,9 @@ export function countWeightPrs(logs: WorkoutLog[]): number {
     const sessionBest = new Map<string, number>();
     for (const exercise of log.exercises) {
       for (const set of exercise.sets) {
-        if (!set.completed || set.type !== 'reps_weight') continue;
+        // Any set carrying a weight value counts toward weight PRs (strength or
+        // composed exercises that track weight).
+        if (!set.completed || set.weight === undefined) continue;
         const current = sessionBest.get(exercise.exerciseId);
         if (current === undefined || set.weight > current) {
           sessionBest.set(exercise.exerciseId, set.weight);
@@ -580,14 +582,14 @@ export function computeWorkoutSignals(
       exerciseIds.add(exercise.exerciseId);
       for (const set of exercise.sets) {
         if (!set.completed) continue;
-        if (set.type === 'reps_weight') {
-          const weightKg = (set.weight ?? 0) * factor;
-          const reps = set.reps ?? 0;
+        // Flat metric fields; interval 'rest' sub-sets contribute nothing.
+        if (set.type === 'intervals' && set.variant === 'rest') continue;
+        const reps = set.reps ?? 0;
+        sessionReps += reps;
+        if (set.weight !== undefined) {
+          const weightKg = set.weight * factor;
           sessionVolume += weightKg * reps;
-          sessionReps += reps;
           if (weightKg > s.maxSingleSetKg) s.maxSingleSetKg = weightKg;
-        } else if (set.type === 'reps_time' || set.type === 'reps_only') {
-          sessionReps += set.reps ?? 0;
         }
       }
     }
