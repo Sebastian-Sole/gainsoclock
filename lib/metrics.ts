@@ -189,6 +189,21 @@ export function getMetricSpec(id: MetricId): MetricSpec {
   return METRICS[id];
 }
 
+/**
+ * Unit override for metrics whose unit is a user preference (weight,
+ * distance). Returns undefined for metrics with a fixed or implied unit —
+ * callers fall back to the spec's `unit` or `columnLabel` as appropriate.
+ */
+export function metricUnitOverride(
+  id: MetricId,
+  weightUnit: string,
+  distanceUnit: string
+): string | undefined {
+  if (id === 'weight') return weightUnit;
+  if (id === 'distance') return distanceUnit;
+  return undefined;
+}
+
 export function metricSpecs(ids: MetricId[]): MetricSpec[] {
   return ids.map((id) => METRICS[id]);
 }
@@ -276,11 +291,23 @@ export function isExerciseType(t: string): t is ExerciseType {
   return (EXERCISE_TYPES as string[]).includes(t);
 }
 
-/** Keep only recognized metric ids from an untyped list (server hydration). */
+function isMetricId(m: string): m is MetricId {
+  return Object.prototype.hasOwnProperty.call(METRICS, m);
+}
+
+/** Keep only recognized metric ids from an untyped list (server hydration).
+ *  De-duped, order preserved — same behavior as convex/metricsMap.ts's copy
+ *  (guarded by lib/metrics-map-drift.test.ts). */
 export function coerceMetricIds(input: readonly string[] | undefined): MetricId[] {
-  return (input ?? []).filter((m): m is MetricId =>
-    Object.prototype.hasOwnProperty.call(METRICS, m)
-  );
+  const seen = new Set<string>();
+  const out: MetricId[] = [];
+  for (const m of input ?? []) {
+    if (isMetricId(m) && !seen.has(m)) {
+      seen.add(m);
+      out.push(m);
+    }
+  }
+  return out;
 }
 
 /**

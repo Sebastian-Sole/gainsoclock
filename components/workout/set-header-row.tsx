@@ -2,7 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import type { ExerciseType, MetricId } from '@/lib/types';
-import { METRICS, resolveExerciseMetrics } from '@/lib/metrics';
+import { METRICS, metricUnitOverride, resolveExerciseMetrics } from '@/lib/metrics';
 import { useSettingsStore } from '@/stores/settings-store';
 import { cn } from '@/lib/utils';
 
@@ -21,11 +21,8 @@ export function SetHeaderRow({ type, metrics }: SetHeaderRowProps) {
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
   const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
 
-  const columnLabel = (id: MetricId): string => {
-    if (id === 'weight') return weightUnit;
-    if (id === 'distance') return distanceUnit;
-    return METRICS[id].columnLabel;
-  };
+  const columnLabel = (id: MetricId): string =>
+    metricUnitOverride(id, weightUnit, distanceUnit) ?? METRICS[id].columnLabel;
 
   return (
     <View className="flex-row items-center gap-2 px-3 py-1">
