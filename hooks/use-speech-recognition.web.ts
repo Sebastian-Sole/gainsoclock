@@ -8,6 +8,7 @@ export interface SpeechRecognition {
   listening: boolean;
   start: () => Promise<void>;
   stop: () => void;
+  abort: () => void;
 }
 
 /**
@@ -24,5 +25,6 @@ export function useSpeechRecognition(
     listening: false,
     start: async () => {},
     stop: () => {},
+    abort: () => {},
   };
 }

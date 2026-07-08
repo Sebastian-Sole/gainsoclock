@@ -19,7 +19,8 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
   const isDark = colorScheme === 'dark';
-  const primaryColor = Colors[isDark ? 'dark' : 'light'].tint;
+  const palette = Colors[isDark ? 'dark' : 'light'];
+  const primaryColor = palette.tint;
   const canSend = text.trim().length > 0 && !disabled;
 
   // Snapshot of the field when dictation starts, so interim transcripts append
@@ -31,7 +32,11 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     listening,
     start,
     stop,
+    abort,
   } = useSpeechRecognition({
+    // `transcript` is the composed transcript of the whole dictation session
+    // (the hook accumulates finalized segments), so appending it to the
+    // mic-press snapshot always yields the full message.
     onResult: (transcript) => {
       const base = dictationBaseRef.current;
       setText((base ? `${base} ${transcript}` : transcript).slice(0, MAX_LENGTH));
@@ -43,13 +48,18 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           'Enable microphone and speech recognition for Fitbull in Settings to dictate messages.'
         );
       }
-      warningHaptic();
+      // 'no-speech' (user just paused) and 'aborted' (user stopped/sent) are
+      // normal outcomes, not failures — no error buzz for those.
+      if (code !== 'no-speech' && code !== 'aborted') warningHaptic();
     },
   });
 
   const handleSend = () => {
     if (!canSend) return;
-    if (listening) stop();
+    // Abort (not stop): stop() delivers a late final result that would
+    // repopulate the input after the clear below.
+    if (listening) abort();
+    dictationBaseRef.current = '';
     onSend(text);
     setText('');
   };
@@ -85,14 +95,20 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       {speechAvailable && (
         <Pressable
           onPress={handleMicPress}
-          disabled={disabled}
+          // Stay tappable while listening even if the input is disabled
+          // (assistant responding) — the user must always be able to stop
+          // the recording.
+          disabled={disabled && !listening}
           accessibilityRole="button"
           accessibilityLabel={listening ? 'Stop dictation' : 'Dictate message'}
-          accessibilityState={{ disabled: !!disabled, selected: listening }}
+          accessibilityState={{ disabled: !!disabled && !listening, selected: listening }}
           className="mb-0.5 h-11 w-11 items-center justify-center rounded-full"
-          style={{ backgroundColor: listening ? '#ef4444' : 'transparent' }}
+          style={{ backgroundColor: listening ? palette.destructive : 'transparent' }}
         >
-          <Mic size={20} color={listening ? '#fff' : isDark ? '#9ca3af' : '#6b7280'} />
+          <Mic
+            size={20}
+            color={listening ? palette.destructiveForeground : isDark ? '#9ca3af' : '#6b7280'}
+          />
         </Pressable>
       )}
       <Pressable
