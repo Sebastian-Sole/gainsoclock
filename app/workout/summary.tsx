@@ -7,14 +7,18 @@ import { ChevronLeft, Check, Plus, Dumbbell } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 
 import { useWorkoutStore } from '@/stores/workout-store';
+import { useSettingsStore } from '@/stores/settings-store';
 import { useFinishWorkout } from '@/hooks/use-finish-workout';
 import { formatDuration } from '@/lib/format';
+import { sessionTotals } from '@/lib/stats';
 import { cn } from '@/lib/utils';
 import { FocusGradient } from '@/components/workout/focus/focus-gradient';
 
 export default function WorkoutSummaryScreen() {
   const router = useRouter();
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
+  const weightUnit = useSettingsStore((s) => s.weightUnit);
+  const distanceUnit = useSettingsStore((s) => s.distanceUnit);
   const { finishWorkout, discardWorkout } = useFinishWorkout();
 
   if (!activeWorkout) return null;
@@ -24,15 +28,20 @@ export default function WorkoutSummaryScreen() {
   const doneSets = exercises.reduce((n, e) => n + e.sets.filter((s) => s.completed).length, 0);
   const remaining = totalSets - doneSets;
   const allDone = totalSets > 0 && remaining === 0;
-  const volume = exercises.reduce(
-    (v, e) =>
-      v +
-      e.sets.reduce(
-        (sv, s) => (s.completed && s.weight !== undefined && s.reps !== undefined ? sv + s.weight * s.reps : sv),
-        0
-      ),
-    0
-  );
+  // Third tile: volume for strength sessions (labeled with the user's unit —
+  // weights are stored in the display unit), otherwise the most meaningful
+  // total the session actually tracked.
+  const totals = sessionTotals(exercises);
+  const highlight =
+    totals.volume > 0
+      ? { value: Math.round(totals.volume).toLocaleString(), label: `${weightUnit} volume` }
+      : totals.distance > 0
+        ? { value: totals.distance.toLocaleString(), label: `${distanceUnit} distance` }
+        : totals.reps > 0
+          ? { value: totals.reps.toLocaleString(), label: 'reps' }
+          : totals.time > 0
+            ? { value: formatDuration(totals.time), label: 'exercise time' }
+            : { value: '0', label: `${weightUnit} volume` };
   const elapsed = activeWorkout.startedAt
     ? Math.floor((Date.now() - new Date(activeWorkout.startedAt).getTime()) / 1000)
     : 0;
@@ -83,10 +92,10 @@ export default function WorkoutSummaryScreen() {
             <Text className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">sets</Text>
           </View>
           <View className="flex-1 rounded-2xl border border-border bg-card p-4">
-            <Text className="text-2xl font-extrabold text-foreground">
-              {Math.round(volume).toLocaleString()}
+            <Text className="text-2xl font-extrabold text-foreground">{highlight.value}</Text>
+            <Text className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+              {highlight.label}
             </Text>
-            <Text className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">kg volume</Text>
           </View>
         </View>
 
