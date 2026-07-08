@@ -315,6 +315,81 @@ describe("convex-sync queue", () => {
     expect(sync.getPendingClientIds().has("live")).toBe(false);
   });
 
+  it("a live-sent mutation's clientId stays pending until the server acks", async () => {
+    goOnline();
+    let resolveMutation: (() => void) | undefined;
+    const mutation = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveMutation = resolve;
+        }),
+    );
+    const client = {
+      mutation,
+      connectionState: () => ({ isWebSocketConnected: true }),
+    } as unknown as ConvexReactClient;
+    sync.setConvexClient(client);
+
+    sync.syncToConvex(api.mealLogs.deleteMealLog, { clientId: "slow" });
+    await tick();
+
+    // Sent live but not yet committed: a hydration merge running now must
+    // still treat the record as pending or it clobbers the local edit with
+    // pre-mutation server data.
+    expect(mutation).toHaveBeenCalledTimes(1);
+    expect(sync.getPendingClientIds().has("slow")).toBe(true);
+
+    resolveMutation?.();
+    await tick();
+    expect(sync.getPendingClientIds().has("slow")).toBe(false);
+  });
+
+  it("a rejected live send keeps its clientId pending across the re-enqueue handoff", async () => {
+    goOnline();
+    const mutation = vi.fn(async () => {
+      throw new Error("network blip");
+    });
+    const client = {
+      mutation,
+      connectionState: () => ({ isWebSocketConnected: true }),
+    } as unknown as ConvexReactClient;
+    sync.setConvexClient(client);
+
+    sync.syncToConvex(api.mealLogs.deleteMealLog, { clientId: "retry" });
+    await tick();
+
+    // The failed send was re-enqueued; the id must still be pending (now via
+    // the durable queue) with no unprotected gap in between.
+    expect(sync.getPendingClientIds().has("retry")).toBe(true);
+    const queue = JSON.parse(storage.get("convex-sync-queue") as string) as Array<{
+      args: { clientId: string };
+    }>;
+    expect(queue).toHaveLength(1);
+    expect(queue[0].args.clientId).toBe("retry");
+  });
+
+  it("publishes Convex socket state into the network store for UI gating", async () => {
+    goOffline(); // NetInfo says offline throughout
+    expect(useNetworkStore.getState().socketConnected).toBe(null);
+
+    let notify: ((s: { isWebSocketConnected: boolean }) => void) | undefined;
+    const client = {
+      mutation: vi.fn(async () => undefined),
+      connectionState: () => ({ isWebSocketConnected: false }),
+      subscribeToConnectionState: (
+        cb: (s: { isWebSocketConnected: boolean }) => void,
+      ) => {
+        notify = cb;
+        return () => {};
+      },
+    } as unknown as ConvexReactClient;
+    sync.setConvexClient(client);
+    expect(useNetworkStore.getState().socketConnected).toBe(false);
+
+    notify?.({ isWebSocketConnected: true });
+    expect(useNetworkStore.getState().socketConnected).toBe(true);
+  });
+
   it("flushes the queue when the Convex socket connects, even if NetInfo never flips online", async () => {
     goOffline();
     sync.syncToConvex(api.mealLogs.deleteMealLog, { clientId: "q1" });

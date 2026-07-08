@@ -6,7 +6,7 @@ import {
 } from "convex/server";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "@/convex/_generated/api";
-import { useNetworkStore } from "@/stores/network-store";
+import { deriveIsOffline, useNetworkStore } from "@/stores/network-store";
 
 const QUEUE_KEY = "convex-sync-queue";
 
@@ -30,6 +30,31 @@ let mutexPromise: Promise<void> = Promise.resolve();
  * offline-created row for a server-side delete.
  */
 let inFlightClientIds = new Set<string>();
+
+/**
+ * Refcounts for clientIds sent on the live path (client.mutation direct),
+ * kept until the mutation promise settles. Separate from inFlightClientIds
+ * because flushSyncQueue wholesale replaces and clears that set — a live
+ * send racing a flush must not lose its protection. Refcounted rather than
+ * a Set so two concurrent live sends for the same record don't unprotect
+ * each other when the first one resolves.
+ */
+const liveClientIdCounts = new Map<string, number>();
+
+/** Mark a live-sent clientId pending; returns an idempotent release. */
+function trackLiveClientId(args: unknown): () => void {
+  const cid = (args as { clientId?: unknown })?.clientId;
+  if (typeof cid !== "string") return () => {};
+  liveClientIdCounts.set(cid, (liveClientIdCounts.get(cid) ?? 0) + 1);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const n = liveClientIdCounts.get(cid) ?? 0;
+    if (n <= 1) liveClientIdCounts.delete(cid);
+    else liveClientIdCounts.set(cid, n - 1);
+  };
+}
 
 /**
  * Acquire a simple async mutex. Every caller awaits the previous lock's
@@ -76,10 +101,14 @@ export function setConvexClient(client: ConvexReactClient) {
     let wasConnected = false;
     unsubscribeConnectionState = client.subscribeToConnectionState((state) => {
       const connected = state.isWebSocketConnected;
+      // Publish into the network store so UI gating (useNetwork().isOffline)
+      // follows the same socket-overrides-NetInfo rule this queue uses.
+      useNetworkStore.getState().setSocketConnected(connected);
       if (connected && !wasConnected) void flushSyncQueue();
       wasConnected = connected;
     });
   }
+  useNetworkStore.getState().setSocketConnected(isSocketConnected());
   if (isSocketConnected()) void flushSyncQueue();
 }
 
@@ -226,6 +255,7 @@ export async function clearDeadLetters(): Promise<void> {
  */
 export function getPendingClientIds(): Set<string> {
   const ids = new Set<string>(inFlightClientIds);
+  for (const cid of liveClientIdCounts.keys()) ids.add(cid);
   for (const item of memoryQueue) {
     const cid = (item.args as { clientId?: unknown })?.clientId;
     if (typeof cid === "string") ids.add(cid);
@@ -258,10 +288,13 @@ export function syncToConvex<M extends FunctionReference<"mutation">>(
   const { isConnected, isInternetReachable } = useNetworkStore.getState();
   // A live Convex socket overrides NetInfo: the simulator (and some real
   // networks) report isInternetReachable=false while the socket is healthy,
-  // which used to strand every mutation in the offline queue.
-  const isOffline =
-    !isSocketConnected() &&
-    (isConnected === false || isInternetReachable === false);
+  // which used to strand every mutation in the offline queue. Same rule the
+  // UI uses (deriveIsOffline), fed by the live socket check.
+  const isOffline = deriveIsOffline(
+    isSocketConnected(),
+    isConnected,
+    isInternetReachable,
+  );
 
   if (!convexClient || isOffline) {
     if (path) {
@@ -305,11 +338,25 @@ export function syncToConvex<M extends FunctionReference<"mutation">>(
       return;
     }
 
-    // Queue empty: safe to send live. On error, queue for retry (unchanged).
-    client.mutation(mutation, args).catch((err: unknown) => {
-      console.warn("[ConvexSync] Mutation failed, queueing for retry:", err);
-      if (path) void enqueue(path, args);
-    });
+    // Queue empty: safe to send live. Keep the clientId visible to
+    // getPendingClientIds() until the server acks — the Convex client
+    // buffers mutations in memory without rejecting, so without this a
+    // hydration merge racing the ack would treat the local record as
+    // unprotected and overwrite the edit with pre-mutation server data.
+    const release = trackLiveClientId(args);
+    client.mutation(mutation, args).then(
+      () => release(),
+      (err: unknown) => {
+        console.warn("[ConvexSync] Mutation failed, queueing for retry:", err);
+        if (path) {
+          // Stay protected until the retry is queued (and thus visible to
+          // getPendingClientIds via the queue scan), then release.
+          void enqueue(path, args).finally(release);
+        } else {
+          release();
+        }
+      },
+    );
   })();
 }
 
