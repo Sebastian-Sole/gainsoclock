@@ -1,7 +1,7 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { normalizeExerciseMetrics, type MetricId } from "./metricsMap";
+import { METRIC_IDS, normalizeExerciseMetrics, type MetricId } from "./metricsMap";
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -77,10 +77,32 @@ function validateExercise(
 ): void {
   const prefix = `${context}exercises[${index}]`;
   assertString(ex.name, `${prefix}.name`);
-  // `type` and `metrics` are both optional; normalizeExerciseMetrics resolves
-  // whatever combination the model provides (invalid metric ids are dropped).
+  // `type` and `metrics` are individually optional, but at least one must be
+  // provided and every metric id must be valid. Unknown ids throw (the error
+  // is surfaced back to the model for a retry) instead of being silently
+  // coerced away — coerceMetricIds dropping e.g. "watts" used to fall back to
+  // ["weight","reps"] and persist a cardio exercise as strength.
   if (ex.type !== undefined) assertExerciseType(ex.type, `${prefix}.type`);
-  if (ex.metrics !== undefined) assertArray(ex.metrics, `${prefix}.metrics`);
+  if (ex.metrics !== undefined) {
+    assertArray(ex.metrics, `${prefix}.metrics`);
+    for (const m of ex.metrics) {
+      if (typeof m !== "string" || !(METRIC_IDS as string[]).includes(m)) {
+        throw new Error(
+          `Invalid payload: "${prefix}.metrics" contains unknown metric id ${JSON.stringify(
+            m
+          )}. Valid ids: ${METRIC_IDS.join(", ")}.`
+        );
+      }
+    }
+  }
+  if (
+    ex.type === undefined &&
+    (!Array.isArray(ex.metrics) || ex.metrics.length === 0)
+  ) {
+    throw new Error(
+      `Invalid payload: "${prefix}" must provide "metrics" (non-empty) or a legacy "type".`
+    );
+  }
   assertNumber(ex.defaultSetsCount, `${prefix}.defaultSetsCount`);
   assertNumber(ex.restTimeSeconds, `${prefix}.restTimeSeconds`);
   assertOptionalNumber(ex.suggestedReps, `${prefix}.suggestedReps`);
