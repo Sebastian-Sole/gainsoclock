@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeAllStats } from "@/lib/stats";
+import { computeAllStats, sessionTotals } from "@/lib/stats";
 import type { WorkoutLog, WorkoutLogExercise, WorkoutSet } from "@/lib/types";
 
 // Characterization tests: pin CURRENT computeAllStats behavior over a fixture
@@ -159,6 +159,33 @@ describe("computeAllStats — per-type accumulation", () => {
     expect(s.maxTime?.value).toBe(120); // PB tracking still fires
     expect(s.maxDistance?.value).toBe(0.4);
   });
+
+  it("intervals: residual distance is NOT counted after switching to a non-distance metric", () => {
+    // The interval UI keeps every value field on the flat set; switching the
+    // effort metric (distance → pace/speed) must not leave the old distance
+    // feeding totals/PBs. Interval distance only counts when it is the
+    // selected metric.
+    const stale = exercise("stale", "Stale Interval", [
+      {
+        id: "sw",
+        type: "intervals",
+        variant: "work",
+        metric: "pace",
+        paceSeconds: 300,
+        time: 120,
+        distanceUnit: "km",
+        distance: 2.5, // residual from before the metric switch
+        completed: true,
+      },
+    ]);
+    const all = computeAllStats([log("logStale", "2026-06-10T09:00:00Z", 600, [stale])], NOW);
+    const s = all.exerciseStats.find((e) => e.exerciseName === "Stale Interval")!;
+    expect(s.totalDistance).toBe(0);
+    expect(s.maxDistance).toBeUndefined();
+    expect(all.totals.totalDistance).toBe(0);
+    // Non-distance fields are unaffected.
+    expect(s.totalTime).toBe(120);
+  });
 });
 
 describe("computeAllStats — totals", () => {
@@ -253,5 +280,54 @@ describe("computeAllStats — composed metrics exercises", () => {
     expect(s.maxWeight?.value).toBe(140);
     expect(s.maxVolume?.value).toBe(420);
     expect(all.totals.totalWeightLifted).toBe(420);
+  });
+});
+
+// sessionTotals: the summary-screen helper shares the aggregate stats'
+// exclusions (completed-only, rest intervals, stale interval distance).
+describe("sessionTotals", () => {
+  it("sums volume/distance/reps/time over completed sets with shared exclusions", () => {
+    const totals = sessionTotals([
+      {
+        sets: [
+          { id: "a", type: "metrics", weight: 100, reps: 5, completed: true },
+          { id: "b", type: "metrics", weight: 999, reps: 5, completed: false }, // not completed
+        ],
+      },
+      {
+        sets: [
+          { id: "c", type: "metrics", time: 600, distance: 4.2, completed: true },
+          {
+            id: "d",
+            type: "intervals",
+            variant: "rest", // rest sub-set contributes nothing
+            metric: "distance",
+            time: 30,
+            distanceUnit: "km",
+            distance: 1,
+            completed: true,
+          },
+          {
+            id: "e",
+            type: "intervals",
+            variant: "work",
+            metric: "pace", // residual distance not counted
+            paceSeconds: 300,
+            time: 120,
+            distanceUnit: "km",
+            distance: 2.5,
+            completed: true,
+          },
+        ],
+      },
+    ]);
+    expect(totals.volume).toBe(500);
+    expect(totals.distance).toBe(4.2);
+    expect(totals.reps).toBe(5);
+    expect(totals.time).toBe(720); // 600 + interval work 120
+  });
+
+  it("returns zeros for an empty session", () => {
+    expect(sessionTotals([])).toEqual({ volume: 0, distance: 0, reps: 0, time: 0 });
   });
 });

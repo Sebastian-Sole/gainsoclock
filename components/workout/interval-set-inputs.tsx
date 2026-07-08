@@ -93,7 +93,15 @@ export function IntervalSetInputs({ set, onUpdate }: IntervalSetInputsProps) {
   const handleMetric = (next: IntervalMetric) => {
     if (next === metric) return;
     lightHaptic();
-    onUpdate({ metric: next });
+    // Clear the previous metric's value: the flat set shape keeps every
+    // field, so a leftover distance/speed/pace from before the switch would
+    // otherwise persist and get counted by stats.
+    onUpdate({
+      metric: next,
+      paceSeconds: undefined,
+      distance: undefined,
+      speed: undefined,
+    });
   };
 
   return (
@@ -144,6 +152,7 @@ export function IntervalSetInputs({ set, onUpdate }: IntervalSetInputsProps) {
               onValueChange={(distance) => onUpdate({ distance })}
               placeholder="0"
               allowDecimals
+              accessibilityLabel="Distance"
               className="w-16"
             />
             <Text className="text-xs text-muted-foreground">{distanceUnit}</Text>
@@ -156,6 +165,7 @@ export function IntervalSetInputs({ set, onUpdate }: IntervalSetInputsProps) {
               onValueChange={(speed) => onUpdate({ speed })}
               placeholder="0"
               allowDecimals
+              accessibilityLabel="Speed"
               className="w-16"
             />
             <Text className="text-xs text-muted-foreground">
