@@ -1,7 +1,21 @@
 const { withInfoPlist } = require('expo/config-plugins');
 
-const MICROPHONE_USAGE =
+// Fallback only — the canonical string lives in app.json's
+// expo-speech-recognition plugin options (single source; read below).
+const MICROPHONE_USAGE_FALLBACK =
   'Fitbull uses the microphone so you can dictate messages to your AI coach instead of typing.';
+
+/** The microphonePermission string from app.json's expo-speech-recognition
+ *  plugin entry, so the two Info.plist writers can't drift apart. */
+function speechMicrophonePermission(config) {
+  for (const plugin of config.plugins ?? []) {
+    if (Array.isArray(plugin) && plugin[0] === 'expo-speech-recognition') {
+      const permission = plugin[1]?.microphonePermission;
+      if (typeof permission === 'string' && permission.length > 0) return permission;
+    }
+  }
+  return undefined;
+}
 
 /**
  * expo-camera and expo-image-picker are configured with `microphonePermission: false`,
@@ -17,8 +31,9 @@ const MICROPHONE_USAGE =
  * `microphonePermission: false` on purpose: those features don't record audio.
  */
 module.exports = function withMicrophoneUsage(config) {
+  const usage = speechMicrophonePermission(config) ?? MICROPHONE_USAGE_FALLBACK;
   return withInfoPlist(config, (cfg) => {
-    cfg.modResults.NSMicrophoneUsageDescription = MICROPHONE_USAGE;
+    cfg.modResults.NSMicrophoneUsageDescription = usage;
     return cfg;
   });
 };
