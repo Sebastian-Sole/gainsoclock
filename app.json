@@ -36,6 +36,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/with-microphone-usage",
       "expo-router",
       [
         "expo-image-picker",
@@ -76,7 +77,14 @@
       ],
       "expo-web-browser",
       "expo-notifications",
-      "@sentry/react-native"
+      "@sentry/react-native",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Fitbull uses the microphone so you can dictate messages to your AI coach instead of typing.",
+          "speechRecognitionPermission": "Fitbull uses speech recognition to turn your dictated messages into text for the AI coach."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -11,6 +11,9 @@ export const Colors = {
     icon: '#687076',
     tabIconDefault: '#687076',
     tabIconSelected: tintColorLight,
+    // Mirrors --destructive / --destructive-foreground in global.css.
+    destructive: 'hsl(0, 84.2%, 60.2%)',
+    destructiveForeground: 'hsl(0, 0%, 98%)',
   },
   dark: {
     text: '#f2f2f2',
@@ -19,6 +22,8 @@ export const Colors = {
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,
+    destructive: 'hsl(0, 72%, 51%)',
+    destructiveForeground: 'hsl(0, 0%, 98%)',
   },
 };
 
