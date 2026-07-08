@@ -4,14 +4,8 @@ import { Text } from '@/components/ui/text';
 import { Pencil } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { ProgressRing, useRingColors } from '@/components/shared/progress-ring';
+import { useTokenColors } from '@/hooks/use-token-colors';
 import type { Macros, NutritionGoals } from '@/lib/types';
-
-// Same hues as the chart tokens in global.css (chart-protein/carbs/fat).
-const MACRO_COLORS = {
-  protein: '#3b82f6',
-  carbs: '#eab308',
-  fat: '#ef4444',
-} as const;
 
 function MacroRing({
   label,
@@ -50,6 +44,7 @@ function MacroRing({
  */
 export function MacroProgress({ consumed, goals, onEditGoals }: MacroProgressProps) {
   const ring = useRingColors();
+  const tokens = useTokenColors();
   const remaining = Math.max(0, goals.calories - consumed.calories);
 
   return (
@@ -95,21 +90,21 @@ export function MacroProgress({ consumed, goals, onEditGoals }: MacroProgressPro
           label="Protein"
           value={consumed.protein}
           goal={goals.protein}
-          color={MACRO_COLORS.protein}
+          color={tokens.chartProtein}
           trackColor={ring.track}
         />
         <MacroRing
           label="Carbs"
           value={consumed.carbs}
           goal={goals.carbs}
-          color={MACRO_COLORS.carbs}
+          color={tokens.chartCarbs}
           trackColor={ring.track}
         />
         <MacroRing
           label="Fat"
           value={consumed.fat}
           goal={goals.fat}
-          color={MACRO_COLORS.fat}
+          color={tokens.chartFat}
           trackColor={ring.track}
         />
       </View>

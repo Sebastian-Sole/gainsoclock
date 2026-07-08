@@ -53,6 +53,7 @@ function MetricInput({
           placeholder="0"
           className="flex-1"
           allowDecimals={spec.inputKind === 'decimal'}
+          accessibilityLabel={`${spec.label}, set ${index + 1}`}
           testID={`set-${index}-${spec.id}`}
         />
       );

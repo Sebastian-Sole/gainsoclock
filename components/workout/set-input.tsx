@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { TextInput } from 'react-native';
+import { useNumericField } from '@/hooks/use-numeric-field';
+import { useTokenColors } from '@/hooks/use-token-colors';
 import { cn } from '@/lib/utils';
 
 interface SetInputProps {
@@ -8,46 +10,35 @@ interface SetInputProps {
   placeholder?: string;
   className?: string;
   allowDecimals?: boolean;
+  accessibilityLabel?: string;
   testID?: string;
 }
 
-export function SetInput({ value, onValueChange, placeholder, className, allowDecimals = false, testID }: SetInputProps) {
-  const [text, setText] = useState(value === 0 ? '' : String(value));
-
-  // Sync external value changes (e.g. bulk edit) into local text
-  useEffect(() => {
-    const display = value === 0 ? '' : String(value);
-    const normalized = text.replace(',', '.');
-    // Only sync if the numeric value actually changed (avoids clobbering "82." while typing)
-    if (parseFloat(normalized) !== value && !(/[.,]$/.test(text) && parseFloat(normalized) === value)) {
-      setText(display);
-    }
-  }, [value]);
-
-  const handleChange = (input: string) => {
-    if (allowDecimals) {
-      // Allow digits, one decimal separator (. or , for locales like Norwegian), and empty string
-      if (input !== '' && !/^\d*[.,]?\d*$/.test(input)) return;
-    } else {
-      // Integer only
-      if (input !== '' && !/^\d*$/.test(input)) return;
-    }
-    setText(input);
-    const num = parseFloat(input.replace(',', '.'));
-    onValueChange(isNaN(num) ? 0 : num);
-  };
+export function SetInput({
+  value,
+  onValueChange,
+  placeholder,
+  className,
+  allowDecimals = false,
+  accessibilityLabel,
+  testID,
+}: SetInputProps) {
+  const { text, onChangeText, onBlur } = useNumericField({
+    value,
+    allowDecimals,
+    onNumber: (n) => onValueChange(n ?? 0),
+  });
+  const colors = useTokenColors();
 
   return (
     <TextInput
       testID={testID}
       value={text}
-      onChangeText={handleChange}
-      onBlur={() => {
-        // Clean up display on blur (e.g. "82." -> "82")
-        setText(value === 0 ? '' : String(value));
-      }}
+      onChangeText={onChangeText}
+      onBlur={onBlur}
       placeholder={placeholder}
-      placeholderTextColor="#9ca3af"
+      placeholderTextColor={colors.mutedForeground}
+      accessibilityLabel={accessibilityLabel}
       keyboardType={allowDecimals ? 'decimal-pad' : 'number-pad'}
       className={cn(
         'h-9 min-w-[56px] rounded-md border border-input bg-background px-2 text-center text-foreground',

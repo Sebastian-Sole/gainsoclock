@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, Pressable, TextInput } from 'react-native';
+import { useNumericField } from '@/hooks/use-numeric-field';
+import { useTokenColors } from '@/hooks/use-token-colors';
 import { Text } from '@/components/ui/text';
 import { X, Info } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
@@ -8,6 +10,7 @@ import { MmSsInput } from '@/components/workout/interval-set-inputs';
 import type { Exercise, MetricId, WorkoutSet } from '@/lib/types';
 import {
   METRICS,
+  metricUnitOverride,
   metricUpdate,
   resolveExerciseMetrics,
   MAX_METRICS_PER_EXERCISE,
@@ -15,49 +18,40 @@ import {
 } from '@/lib/metrics';
 import { cn } from '@/lib/utils';
 
-/** Big numeric field with comma-decimal support (same parsing as SetInput).
- *  0 / undefined render blank ("—"); clearing stores undefined so the metric
- *  can be genuinely blank on this set. */
+/** Big numeric field sharing SetInput's comma-decimal machinery
+ *  (hooks/use-numeric-field). 0 / undefined render blank ("—"); clearing
+ *  stores undefined so the metric can be genuinely blank on this set. */
 function BigInput({
   value,
   onChange,
   allowDecimals,
   editable,
+  accessibilityLabel,
   testID,
 }: {
   value?: number;
   onChange: (v: number | undefined) => void;
   allowDecimals?: boolean;
   editable?: boolean;
+  accessibilityLabel: string;
   testID?: string;
 }) {
-  const display = value != null && value !== 0 ? String(value) : '';
-  const [text, setText] = useState(display);
-
-  useEffect(() => {
-    const disp = value != null && value !== 0 ? String(value) : '';
-    const norm = text.replace(',', '.');
-    if (parseFloat(norm) !== value && !(/[.,]$/.test(text) && parseFloat(norm) === value)) {
-      setText(disp);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
-  const handle = (input: string) => {
-    if (input !== '' && !(allowDecimals ? /^\d*[.,]?\d*$/ : /^\d*$/).test(input)) return;
-    setText(input);
-    const n = parseFloat(input.replace(',', '.'));
-    onChange(isNaN(n) ? undefined : n);
-  };
+  const { text, onChangeText, onBlur } = useNumericField({
+    value,
+    allowDecimals,
+    onNumber: (n) => onChange(n ?? undefined),
+  });
+  const colors = useTokenColors();
 
   return (
     <TextInput
       value={text}
       editable={editable}
-      onChangeText={handle}
-      onBlur={() => setText(value != null && value !== 0 ? String(value) : '')}
+      onChangeText={onChangeText}
+      onBlur={onBlur}
       placeholder="—"
-      placeholderTextColor="#9ca3af"
+      placeholderTextColor={colors.mutedForeground}
+      accessibilityLabel={accessibilityLabel}
       keyboardType={allowDecimals ? 'decimal-pad' : 'number-pad'}
       selectTextOnFocus
       className="min-w-[70px] text-right text-3xl font-extrabold text-foreground"
@@ -100,11 +94,8 @@ export function FocusSetCard({
     );
   }
 
-  const unitFor = (id: MetricId): string => {
-    if (id === 'weight') return weightUnit;
-    if (id === 'distance') return distanceUnit;
-    return METRICS[id].unit ?? '';
-  };
+  const unitFor = (id: MetricId): string =>
+    metricUnitOverride(id, weightUnit, distanceUnit) ?? METRICS[id].unit ?? '';
 
   const renderInput = (spec: MetricSpec) => {
     const value = set[spec.field];
@@ -143,6 +134,7 @@ export function FocusSetCard({
             onChange={change}
             allowDecimals={decimals}
             editable={editable}
+            accessibilityLabel={spec.label}
             testID={`focus-${spec.id}`}
           />
         </View>
