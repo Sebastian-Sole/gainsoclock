@@ -3,10 +3,11 @@ import { View, Pressable, TextInput } from 'react-native';
 import { useNumericField } from '@/hooks/use-numeric-field';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { Text } from '@/components/ui/text';
-import { X, Info } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
+import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { TimeInput } from '@/components/shared/time-input';
-import { MmSsInput } from '@/components/workout/interval-set-inputs';
+import { IntervalSetInputs, MmSsInput } from '@/components/workout/interval-set-inputs';
 import type { Exercise, MetricId, WorkoutSet } from '@/lib/types';
 import {
   METRICS,
@@ -53,6 +54,7 @@ function BigInput({
       placeholderTextColor={colors.mutedForeground}
       accessibilityLabel={accessibilityLabel}
       keyboardType={allowDecimals ? 'decimal-pad' : 'number-pad'}
+      inputAccessoryViewID={keyboardDoneAccessoryID}
       selectTextOnFocus
       className="min-w-[70px] text-right text-3xl font-extrabold text-foreground"
       testID={testID}
@@ -83,13 +85,13 @@ export function FocusSetCard({
 }: FocusSetCardProps) {
   const metrics = resolveExerciseMetrics(exercise.type, exercise.metrics);
 
+  // Intervals don't compose from the metric palette: one set is a whole
+  // interval — a work segment (effort + duration) and a rest segment — with
+  // its own editor.
   if (exercise.type === 'intervals') {
     return (
-      <View className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-4">
-        <Icon as={Info} size={18} className="text-muted-foreground" />
-        <Text className="flex-1 text-sm text-muted-foreground">
-          Interval exercises are logged in the classic workout view.
-        </Text>
+      <View className="flex-row">
+        <IntervalSetInputs set={set} onUpdate={onUpdate} editable={editable} />
       </View>
     );
   }

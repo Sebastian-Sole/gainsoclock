@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, FlatList, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, ChevronLeft, Search } from 'lucide-react-native';
@@ -319,13 +320,11 @@ export default function CreateExerciseScreen() {
           <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-name" className="flex-1">
             <Text className="mb-2 text-2xl font-bold">Exercise Name</Text>
             <Text className="mb-6 text-muted-foreground">Give your exercise a name</Text>
-            <TextInput
+            <Input
               value={name}
               onChangeText={setName}
               placeholder="e.g. Bench Press"
-              placeholderTextColor="#9ca3af"
               autoFocus
-              className="rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
             />
           </Animated.View>
         );

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
+import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { Text } from '@/components/ui/text';
 import { TimeInput } from '@/components/shared/time-input';
 import { SetInput } from './set-input';
@@ -10,11 +11,12 @@ import { cn } from '@/lib/utils';
 interface IntervalSetInputsProps {
   set: WorkoutSet;
   onUpdate: (updates: Partial<WorkoutSet>) => void;
+  editable?: boolean;
 }
 
-const METRICS: { value: IntervalMetric; label: string }[] = [
+const EFFORT_METRICS: { value: IntervalMetric; label: string }[] = [
   { value: 'pace', label: 'Pace' },
-  { value: 'distance', label: 'Dist' },
+  { value: 'distance', label: 'Distance' },
   { value: 'speed', label: 'Speed' },
 ];
 
@@ -23,7 +25,7 @@ function speedUnitLabel(distanceUnit: 'km' | 'mi') {
 }
 
 function paceUnitLabel(distanceUnit: 'km' | 'mi') {
-  return `/ ${distanceUnit}`;
+  return `min / ${distanceUnit}`;
 }
 
 export function MmSsInput({
@@ -54,8 +56,11 @@ export function MmSsInput({
     onValueChange(minutes * 60 + s);
   };
 
+  // text-[18px] sets font-size only. A Tailwind size class like `text-lg` would
+  // also inject line-height:28, which offsets the text vertically inside a
+  // fixed-height TextInput on iOS (same trap the Input primitive avoids).
   const fieldClass =
-    'h-9 w-12 rounded-md border border-input bg-background px-1 text-center text-foreground';
+    'h-11 w-14 rounded-md border border-input bg-background px-1 text-center text-[18px] text-foreground';
 
   return (
     <View className={cn('flex-row items-center gap-1', className)}>
@@ -65,17 +70,19 @@ export function MmSsInput({
         onFocus={() => setMinutesText(String(minutes))}
         onBlur={() => setMinutesText(null)}
         keyboardType="numeric"
+        inputAccessoryViewID={keyboardDoneAccessoryID}
         maxLength={2}
         selectTextOnFocus
         className={fieldClass}
       />
-      <Text className="text-xs text-muted-foreground">:</Text>
+      <Text className="text-base text-muted-foreground">:</Text>
       <TextInput
         value={secondsText ?? String(seconds).padStart(2, '0')}
         onChangeText={handleSeconds}
         onFocus={() => setSecondsText(String(seconds))}
         onBlur={() => setSecondsText(null)}
         keyboardType="numeric"
+        inputAccessoryViewID={keyboardDoneAccessoryID}
         maxLength={2}
         selectTextOnFocus
         className={fieldClass}
@@ -84,100 +91,125 @@ export function MmSsInput({
   );
 }
 
-export function IntervalSetInputs({ set, onUpdate }: IntervalSetInputsProps) {
-  // Interval sets are always created with these fields; default defensively
-  // since the flat WorkoutSet type makes them optional.
+/** Uppercase field caption shared by every row here. */
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Text className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      {children}
+    </Text>
+  );
+}
+
+/**
+ * One interval = one set: a WORK segment (an effort metric + its duration) and
+ * a REST segment (duration). Each control sits on its own labelled row so it's
+ * legible and easy to tap, rather than crammed onto a single line.
+ */
+export function IntervalSetInputs({ set, onUpdate, editable = true }: IntervalSetInputsProps) {
   const metric = set.metric ?? 'distance';
   const distanceUnit = set.distanceUnit ?? 'km';
 
   const handleMetric = (next: IntervalMetric) => {
     if (next === metric) return;
     lightHaptic();
-    // Clear the previous metric's value: the flat set shape keeps every
-    // field, so a leftover distance/speed/pace from before the switch would
-    // otherwise persist and get counted by stats.
-    onUpdate({
-      metric: next,
-      paceSeconds: undefined,
-      distance: undefined,
-      speed: undefined,
-    });
+    // Clear the previous metric's value: the flat set shape keeps every field,
+    // so a leftover distance/speed/pace from before the switch would otherwise
+    // persist and get counted by stats.
+    onUpdate({ metric: next, paceSeconds: undefined, distance: undefined, speed: undefined });
   };
 
   return (
-    <View className="flex-1 gap-2">
-      <View className="flex-row items-center gap-1">
-        {METRICS.map((m) => {
-          const selected = metric === m.value;
-          return (
-            <Pressable
-              key={m.value}
-              onPress={() => handleMetric(m.value)}
-              className={cn(
-                'h-7 rounded-md px-2',
-                selected ? 'bg-primary' : 'bg-secondary'
-              )}
-              accessibilityRole="button"
-              accessibilityLabel={`Metric: ${m.label}`}
-            >
-              <Text
-                className={cn(
-                  'text-xs font-semibold leading-7',
-                  selected ? 'text-primary-foreground' : 'text-foreground'
-                )}
-              >
-                {m.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <View className="flex-row items-center gap-2">
-        {metric === 'pace' && (
-          <View className="flex-row items-center gap-1">
-            <MmSsInput
-              value={set.paceSeconds ?? 0}
-              onValueChange={(paceSeconds) => onUpdate({ paceSeconds })}
-            />
-            <Text className="text-xs text-muted-foreground">
-              {paceUnitLabel(distanceUnit)}
+    <View className="flex-1 gap-4">
+      {/* WORK */}
+      <View className="rounded-2xl border border-border bg-card p-4">
+        <View className="mb-3 flex-row items-center gap-2">
+          <View className="rounded-full bg-primary px-2.5 py-1">
+            <Text className="text-[10px] font-bold uppercase tracking-wide text-primary-foreground">
+              Work
             </Text>
           </View>
+        </View>
+
+        <FieldLabel>Effort</FieldLabel>
+        <View className="mb-4 flex-row gap-2">
+          {EFFORT_METRICS.map((m) => {
+            const selected = metric === m.value;
+            return (
+              <Pressable
+                key={m.value}
+                onPress={() => handleMetric(m.value)}
+                disabled={!editable}
+                accessibilityRole="button"
+                accessibilityLabel={`Effort metric: ${m.label}`}
+                accessibilityState={{ selected }}
+                className={cn(
+                  'h-11 flex-1 items-center justify-center rounded-xl border',
+                  selected ? 'border-primary bg-accent' : 'border-border bg-background'
+                )}
+              >
+                <Text
+                  className={cn(
+                    'text-sm font-semibold',
+                    selected ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                >
+                  {m.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {metric === 'pace' && (
+          <>
+            <FieldLabel>Pace ({paceUnitLabel(distanceUnit)})</FieldLabel>
+            <MmSsInput value={set.paceSeconds ?? 0} onValueChange={(paceSeconds) => onUpdate({ paceSeconds })} />
+          </>
         )}
         {metric === 'distance' && (
-          <View className="flex-row items-center gap-1">
+          <>
+            <FieldLabel>Distance ({distanceUnit})</FieldLabel>
             <SetInput
               value={set.distance ?? 0}
               onValueChange={(distance) => onUpdate({ distance })}
               placeholder="0"
               allowDecimals
-              accessibilityLabel="Distance"
-              className="w-16"
+              accessibilityLabel="Work distance"
+              className="h-11 w-24 text-[18px]"
             />
-            <Text className="text-xs text-muted-foreground">{distanceUnit}</Text>
-          </View>
+          </>
         )}
         {metric === 'speed' && (
-          <View className="flex-row items-center gap-1">
+          <>
+            <FieldLabel>Speed ({speedUnitLabel(distanceUnit)})</FieldLabel>
             <SetInput
               value={set.speed ?? 0}
               onValueChange={(speed) => onUpdate({ speed })}
               placeholder="0"
               allowDecimals
-              accessibilityLabel="Speed"
-              className="w-16"
+              accessibilityLabel="Work speed"
+              className="h-11 w-24 text-[18px]"
             />
-            <Text className="text-xs text-muted-foreground">
-              {speedUnitLabel(distanceUnit)}
+          </>
+        )}
+
+        <View className="mt-4">
+          <FieldLabel>Duration</FieldLabel>
+          <TimeInput value={set.time ?? 0} onValueChange={(time) => onUpdate({ time })} />
+        </View>
+      </View>
+
+      {/* REST */}
+      <View className="rounded-2xl border border-border bg-card p-4">
+        <View className="mb-3 flex-row items-center gap-2">
+          <View className="rounded-full bg-secondary px-2.5 py-1">
+            <Text className="text-[10px] font-bold uppercase tracking-wide text-secondary-foreground">
+              Rest
             </Text>
           </View>
-        )}
-        <TimeInput
-          value={set.time ?? 0}
-          onValueChange={(time) => onUpdate({ time })}
-          className="flex-1"
-        />
+        </View>
+        <FieldLabel>Duration</FieldLabel>
+        <TimeInput value={set.restTime ?? 0} onValueChange={(restTime) => onUpdate({ restTime })} />
       </View>
     </View>
   );

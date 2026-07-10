@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import type { WorkoutLog, WorkoutLogExercise, Exercise, WorkoutSet } from '@/lib/types';
+import { normalizeIntervalSets } from '@/lib/defaults';
+import { MAX_METRICS_PER_EXERCISE, resolveExerciseMetrics } from '@/lib/metrics';
+import type { MetricId, WorkoutLog, WorkoutLogExercise, Exercise, WorkoutSet } from '@/lib/types';
 
 interface EditLogState {
   editingLog: WorkoutLog | null;
@@ -14,6 +16,9 @@ interface EditLogState {
   addExercise: (exercise: Exercise) => void;
   removeExercise: (exerciseId: string) => void;
   reorderExercises: (exercises: WorkoutLogExercise[]) => void;
+  moveExercise: (exerciseId: string, direction: 'up' | 'down') => void;
+  addExerciseMetric: (exerciseId: string, metricId: MetricId) => void;
+  removeExerciseMetric: (exerciseId: string, metricId: MetricId) => void;
 
   addSet: (exerciseId: string, set: WorkoutSet) => void;
   removeSet: (exerciseId: string, setId: string) => void;
@@ -32,7 +37,9 @@ export const useEditLogStore = create<EditLogState>()((set) => ({
         ...log,
         exercises: log.exercises.map((e) => ({
           ...e,
-          sets: e.sets.map((s) => ({ ...s })),
+          // Collapse any legacy work/rest interval pairs into single sets so
+          // the Focus logger renders them; a no-op for already-single data.
+          sets: normalizeIntervalSets(e.sets.map((s) => ({ ...s }))),
         })),
       },
     });
@@ -94,6 +101,53 @@ export const useEditLogStore = create<EditLogState>()((set) => ({
     set((state) => {
       if (!state.editingLog) return state;
       return { editingLog: { ...state.editingLog, exercises } };
+    }),
+
+  // The three below mirror workout-store so the Focus logger can drive either
+  // store. Keep them in step.
+  moveExercise: (exerciseId, direction) =>
+    set((state) => {
+      if (!state.editingLog) return state;
+      const list = [...state.editingLog.exercises];
+      const i = list.findIndex((e) => e.id === exerciseId);
+      const j = direction === 'up' ? i - 1 : i + 1;
+      if (i === -1 || j < 0 || j >= list.length) return state;
+      [list[i], list[j]] = [list[j], list[i]];
+      return { editingLog: { ...state.editingLog, exercises: list } };
+    }),
+
+  addExerciseMetric: (exerciseId, metricId) =>
+    set((state) => {
+      if (!state.editingLog) return state;
+      return {
+        editingLog: {
+          ...state.editingLog,
+          exercises: state.editingLog.exercises.map((e) => {
+            if (e.id !== exerciseId) return e;
+            const base = resolveExerciseMetrics(e.type, e.metrics);
+            if (base.includes(metricId) || base.length >= MAX_METRICS_PER_EXERCISE) {
+              return { ...e, metrics: base };
+            }
+            return { ...e, metrics: [...base, metricId] };
+          }),
+        },
+      };
+    }),
+
+  removeExerciseMetric: (exerciseId, metricId) =>
+    set((state) => {
+      if (!state.editingLog) return state;
+      return {
+        editingLog: {
+          ...state.editingLog,
+          exercises: state.editingLog.exercises.map((e) => {
+            if (e.id !== exerciseId) return e;
+            const base = resolveExerciseMetrics(e.type, e.metrics);
+            if (base.length <= 1) return { ...e, metrics: base };
+            return { ...e, metrics: base.filter((m) => m !== metricId) };
+          }),
+        },
+      };
     }),
 
   addSet: (exerciseId, newSet) =>

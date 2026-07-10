@@ -111,6 +111,7 @@ export default defineSchema({
     reps: v.optional(v.number()),
     weight: v.optional(v.number()),
     time: v.optional(v.number()),
+    restTime: v.optional(v.number()),
     distance: v.optional(v.number()),
     // Composed cardio/metric fields
     powerAvg: v.optional(v.number()),

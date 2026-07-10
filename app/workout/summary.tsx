@@ -9,9 +9,10 @@ import { Icon } from '@/components/ui/icon';
 import { useWorkoutStore } from '@/stores/workout-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useFinishWorkout } from '@/hooks/use-finish-workout';
-import { formatDuration } from '@/lib/format';
+import { formatDuration, exerciseTypeLabel } from '@/lib/format';
 import { sessionTotals } from '@/lib/stats';
 import { cn } from '@/lib/utils';
+import { SectionHeader } from '@/components/shared/section-header';
 import { FocusGradient } from '@/components/workout/focus/focus-gradient';
 
 export default function WorkoutSummaryScreen() {
@@ -100,6 +101,12 @@ export default function WorkoutSummaryScreen() {
         </View>
 
         {/* Per-exercise */}
+        <View className="mb-1 flex-row items-baseline justify-between">
+          <SectionHeader title="Exercise breakdown" className="mb-0" />
+          <Text className="text-sm text-muted-foreground">
+            {exercises.length} {exercises.length === 1 ? 'exercise' : 'exercises'}
+          </Text>
+        </View>
         <View className="gap-2">
           {exercises.map((e) => {
             const done = e.sets.filter((s) => s.completed).length;
@@ -114,7 +121,12 @@ export default function WorkoutSummaryScreen() {
                 >
                   {full ? <Check size={15} color="#fff" strokeWidth={3} /> : <Icon as={Dumbbell} size={14} className="text-muted-foreground" />}
                 </View>
-                <Text className="flex-1 font-medium text-foreground">{e.name}</Text>
+                <View className="flex-1">
+                  <Text className="font-medium text-foreground">{e.name}</Text>
+                  <Text className="text-xs text-muted-foreground">
+                    {exerciseTypeLabel(e.type, e.metrics)}
+                  </Text>
+                </View>
                 <Text className="font-mono text-xs text-muted-foreground">
                   {done}/{e.sets.length} sets
                 </Text>

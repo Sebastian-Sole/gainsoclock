@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput } from 'react-native';
+import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 
@@ -51,6 +52,7 @@ export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
         onFocus={() => setHoursText(String(hours))}
         onBlur={() => setHoursText(null)}
         keyboardType="numeric"
+        inputAccessoryViewID={keyboardDoneAccessoryID}
         className={fieldClass}
         maxLength={2}
         placeholder="0"
@@ -64,6 +66,7 @@ export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
         onFocus={() => setMinutesText(String(minutes))}
         onBlur={() => setMinutesText(null)}
         keyboardType="numeric"
+        inputAccessoryViewID={keyboardDoneAccessoryID}
         className={fieldClass}
         maxLength={2}
         selectTextOnFocus
@@ -75,6 +78,7 @@ export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
         onFocus={() => setSecondsText(String(seconds))}
         onBlur={() => setSecondsText(null)}
         keyboardType="numeric"
+        inputAccessoryViewID={keyboardDoneAccessoryID}
         className={fieldClass}
         maxLength={2}
         selectTextOnFocus

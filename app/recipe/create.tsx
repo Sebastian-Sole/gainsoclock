@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Icon } from '@/components/ui/icon';
 import { Plus, Trash2, ChevronDown, ChevronUp, Lock } from 'lucide-react-native';
@@ -242,13 +243,12 @@ export default function CreateRecipeScreen() {
         >
           {/* Title */}
           <Text className="mb-2 text-sm font-medium text-muted-foreground">TITLE</Text>
-          <TextInput
+          <Input
             value={title}
             onChangeText={setTitle}
             placeholder="e.g. High-Protein Chicken Bowl"
-            placeholderTextColor="#9ca3af"
             autoFocus={!isEditing}
-            className="mb-4 rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
+            className="mb-4"
           />
 
           {/* Description */}

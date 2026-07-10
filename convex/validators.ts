@@ -75,6 +75,7 @@ export const flatSetValidator = v.object({
   reps: v.optional(v.number()),
   weight: v.optional(v.number()),
   time: v.optional(v.number()),
+  restTime: v.optional(v.number()),
   distance: v.optional(v.number()),
   powerAvg: v.optional(v.number()),
   heartRateAvg: v.optional(v.number()),

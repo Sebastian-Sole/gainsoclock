@@ -18,6 +18,7 @@ type SetValues = {
   reps?: number;
   weight?: number;
   time?: number;
+  restTime?: number;
   distance?: number;
   powerAvg?: number;
   heartRateAvg?: number;
@@ -32,15 +33,17 @@ type SetValues = {
 };
 
 function setValueFields(s: SetValues & { type?: string }) {
-  // Defense-in-depth: interval sets must carry a variant — stats count a
-  // variant-less interval set as 'work', so make that explicit at the
-  // write/read boundary instead of leaving it implicit in malformed data.
+  // A single interval set (the current shape) carries `restTime` and no
+  // variant. Only genuinely legacy interval rows — no variant, no restTime —
+  // still get defaulted to 'work' so pre-migration data reads unchanged.
   const variant: "work" | "rest" | undefined =
-    s.variant ?? (s.type === "intervals" ? "work" : undefined);
+    s.variant ??
+    (s.type === "intervals" && s.restTime === undefined ? "work" : undefined);
   return {
     ...(s.reps !== undefined && { reps: s.reps }),
     ...(s.weight !== undefined && { weight: s.weight }),
     ...(s.time !== undefined && { time: s.time }),
+    ...(s.restTime !== undefined && { restTime: s.restTime }),
     ...(s.distance !== undefined && { distance: s.distance }),
     ...(s.powerAvg !== undefined && { powerAvg: s.powerAvg }),
     ...(s.heartRateAvg !== undefined && { heartRateAvg: s.heartRateAvg }),

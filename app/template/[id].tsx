@@ -1,4 +1,5 @@
 import { Text } from "@/components/ui/text";
+import { Input } from '@/components/ui/input';
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Plus, Trash2 } from "lucide-react-native";
 import { useColorScheme } from "nativewind";
@@ -9,7 +10,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  TextInput,
   View,
 } from "react-native";
 
@@ -89,12 +89,11 @@ export default function EditTemplateScreen() {
           <Text className="mb-2 text-sm font-medium text-muted-foreground">
             TEMPLATE NAME
           </Text>
-          <TextInput
+          <Input
             value={name}
             onChangeText={setName}
             placeholder="e.g. Push Day"
-            placeholderTextColor="#9ca3af"
-            className="mb-6 rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
+            className="mb-6"
           />
 
           <View className="mb-4 flex-row items-center justify-between">

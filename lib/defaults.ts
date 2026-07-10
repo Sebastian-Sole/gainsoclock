@@ -13,20 +13,51 @@ interface SuggestedValues {
   intervalDistanceUnit?: IntervalDistanceUnit;
 }
 
-function makeIntervalSet(
-  variant: 'work' | 'rest',
-  distanceUnit: IntervalDistanceUnit
-): WorkoutSet {
+const DEFAULT_WORK_SECONDS = 60;
+const DEFAULT_REST_SECONDS = 30;
+
+/** One interval = one set: a work segment (`time` + effort metric) and a rest
+ *  segment (`restTime`). Replaces the old two-row work/rest pair. */
+export function createIntervalSet(distanceUnit: IntervalDistanceUnit): WorkoutSet {
   return {
     id: generateId(),
     completed: false,
     type: 'intervals',
-    variant,
     metric: 'distance',
-    time: variant === 'work' ? 60 : 30,
+    time: DEFAULT_WORK_SECONDS,
+    restTime: DEFAULT_REST_SECONDS,
     distanceUnit,
     distance: 0,
   };
+}
+
+/**
+ * Collapse legacy interval data (adjacent 'work' + 'rest' rows) into single
+ * sets. Idempotent: sets already in the single-set shape (no `variant`) pass
+ * through untouched, so this is safe to run on every hydrate. A stray 'rest'
+ * with no preceding 'work', or a 'work' with no following 'rest', is kept as a
+ * lone work set (restTime 0) rather than dropped.
+ */
+export function normalizeIntervalSets(sets: WorkoutSet[]): WorkoutSet[] {
+  if (!sets.some((s) => s.variant)) return sets;
+  const out: WorkoutSet[] = [];
+  for (let i = 0; i < sets.length; i++) {
+    const s = sets[i];
+    if (s.type !== 'intervals') {
+      out.push(s);
+      continue;
+    }
+    if (s.variant === 'rest') {
+      // Orphaned rest (its work was already consumed, or none existed).
+      continue;
+    }
+    const next = sets[i + 1];
+    const restTime = next?.variant === 'rest' ? next.time ?? 0 : 0;
+    if (next?.variant === 'rest') i++; // consume the paired rest row
+    const { variant: _v, ...rest } = s;
+    out.push({ ...rest, restTime });
+  }
+  return out;
 }
 
 /** Legacy suggested-value override for a metric, if any. */
@@ -55,7 +86,7 @@ export function createDefaultSet(
   suggested?: SuggestedValues
 ): WorkoutSet {
   if (type === 'intervals') {
-    return makeIntervalSet('work', suggested?.intervalDistanceUnit ?? 'km');
+    return createIntervalSet(suggested?.intervalDistanceUnit ?? 'km');
   }
   const set: WorkoutSet = { id: generateId(), completed: false, type };
   for (const id of resolveExerciseMetrics(type, metrics)) {
@@ -74,17 +105,9 @@ export function createDefaultSets(
 ): WorkoutSet[] {
   if (type === 'intervals') {
     const unit = suggested?.intervalDistanceUnit ?? 'km';
-    return Array.from({ length: count }).flatMap(() => [
-      makeIntervalSet('work', unit),
-      makeIntervalSet('rest', unit),
-    ]);
+    return Array.from({ length: count }, () => createIntervalSet(unit));
   }
   return Array.from({ length: count }, () => createDefaultSet(type, metrics, suggested));
-}
-
-/** Add a single (work, rest) interval pair to an existing intervals exercise's sets. */
-export function createIntervalPair(distanceUnit: IntervalDistanceUnit): WorkoutSet[] {
-  return [makeIntervalSet('work', distanceUnit), makeIntervalSet('rest', distanceUnit)];
 }
 
 function getLogTimestamps(date: Date) {
