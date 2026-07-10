@@ -2,7 +2,7 @@
   "expo": {
     "name": "Fitbull",
     "slug": "fitbull",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "fitbull",
@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.soleinnovations.fitbull",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -29,7 +29,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.soleinnovations.fitbull",
-      "versionCode": 3
+      "versionCode": 4
     },
     "web": {
       "output": "static",
