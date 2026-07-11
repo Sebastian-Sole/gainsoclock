@@ -8,9 +8,11 @@ interface TimeInputProps {
   value: number; // in seconds
   onValueChange: (seconds: number) => void;
   className?: string;
+  /** Base label for screen readers; each field appends "hours"/"minutes"/"seconds". */
+  accessibilityLabel?: string;
 }
 
-export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
+export function TimeInput({ value, onValueChange, className, accessibilityLabel }: TimeInputProps) {
   const hours = Math.floor(value / 3600);
   const minutes = Math.floor((value % 3600) / 60);
   const seconds = value % 60;
@@ -43,6 +45,7 @@ export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
 
   const fieldClass =
     'flex-1 h-9 min-w-[28px] rounded-md border border-input bg-background px-1 text-center text-foreground';
+  const labelBase = accessibilityLabel ?? 'Time';
 
   return (
     <View className={cn('flex-row items-center gap-0.5', className)}>
@@ -51,6 +54,7 @@ export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
         onChangeText={handleHoursChange}
         onFocus={() => setHoursText(String(hours))}
         onBlur={() => setHoursText(null)}
+        accessibilityLabel={`${labelBase}, hours`}
         keyboardType="numeric"
         inputAccessoryViewID={keyboardDoneAccessoryID}
         className={fieldClass}
@@ -65,6 +69,7 @@ export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
         onChangeText={handleMinutesChange}
         onFocus={() => setMinutesText(String(minutes))}
         onBlur={() => setMinutesText(null)}
+        accessibilityLabel={`${labelBase}, minutes`}
         keyboardType="numeric"
         inputAccessoryViewID={keyboardDoneAccessoryID}
         className={fieldClass}
@@ -77,6 +82,7 @@ export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
         onChangeText={handleSecondsChange}
         onFocus={() => setSecondsText(String(seconds))}
         onBlur={() => setSecondsText(null)}
+        accessibilityLabel={`${labelBase}, seconds`}
         keyboardType="numeric"
         inputAccessoryViewID={keyboardDoneAccessoryID}
         className={fieldClass}
