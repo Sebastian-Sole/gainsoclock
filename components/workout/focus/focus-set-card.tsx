@@ -8,6 +8,8 @@ import { Icon } from '@/components/ui/icon';
 import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { TimeInput } from '@/components/shared/time-input';
 import { IntervalSetInputs, MmSsInput } from '@/components/workout/interval-set-inputs';
+import { RpeInput } from '@/components/workout/rpe-input';
+import { useSettingsStore } from '@/stores/settings-store';
 import type { Exercise, MetricId, WorkoutSet } from '@/lib/types';
 import {
   METRICS,
@@ -83,6 +85,7 @@ export function FocusSetCard({
   onAddMetric,
   onRemoveMetric,
 }: FocusSetCardProps) {
+  const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
   const metrics = resolveExerciseMetrics(exercise.type, exercise.metrics);
 
   // Intervals don't compose from the metric palette: one set is a whole
@@ -182,6 +185,27 @@ export function FocusSetCard({
           </View>
         );
       })}
+
+      {rpeEnabled && (
+        <View className="flex-row items-center gap-2 border-t border-border py-3">
+          <View style={{ width: 94 }}>
+            <Text className="text-base font-semibold text-foreground">RPE</Text>
+            <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              effort · 1–10
+            </Text>
+          </View>
+          <View className="flex-1 items-end">
+            <RpeInput
+              variant="focus"
+              value={set.rpe}
+              onValueChange={(rpe) => onUpdate({ rpe })}
+              disabled={!editable}
+            />
+          </View>
+          {/* spacer matching the remove-metric column so the control lines up */}
+          <View className="w-6" />
+        </View>
+      )}
 
       {metrics.length < MAX_METRICS_PER_EXERCISE && (
         <Pressable
