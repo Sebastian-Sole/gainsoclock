@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Dumbbell } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
@@ -49,6 +49,10 @@ function RestIndicator() {
 
 export default function ActiveWorkoutScreen() {
   const router = useRouter();
+
+  // Set when create.tsx dismisses back here after adding an exercise from the
+  // workout summary — the pager should open on the newly added exercise (#113).
+  const { focusExerciseId } = useLocalSearchParams<{ focusExerciseId?: string }>();
 
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
   const updateSet = useWorkoutStore((s) => s.updateSet);
@@ -182,6 +186,7 @@ export default function ActiveWorkoutScreen() {
           onAddExercise={() => router.push('/exercise/create?source=active')}
           onSetCompleted={handleSetCompleted}
           onAllComplete={() => router.push('/workout/summary')}
+          focusExerciseId={focusExerciseId}
         />
       </KeyboardAvoidingView>
 

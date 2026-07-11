@@ -43,6 +43,9 @@ export interface FocusLoggerProps {
   /** Advance to the next unlogged set after completing one. Off while editing. */
   autoAdvance?: boolean;
   completeLabel?: string;
+  /** Point the pager at this exercise (first set) when set/changed — e.g. after
+   *  adding an exercise from the workout summary (#113). */
+  focusExerciseId?: string;
 }
 
 /**
@@ -67,6 +70,7 @@ export function FocusLogger({
   onAllComplete,
   autoAdvance = true,
   completeLabel = 'Complete set',
+  focusExerciseId,
 }: FocusLoggerProps) {
   const ring = useRingColors();
 
@@ -96,6 +100,17 @@ export function FocusLogger({
   useEffect(() => {
     tx.value = -pageW;
   }, [pageW, safeSetIdx, safeExIdx, tx]);
+
+  // Jump to a caller-designated exercise (its first set) — e.g. one just added
+  // from the summary screen.
+  useEffect(() => {
+    if (!focusExerciseId) return;
+    const idx = exercisesRef.current.findIndex((e) => e.id === focusExerciseId);
+    if (idx !== -1) {
+      setExIdx(idx);
+      setSetIdx(0);
+    }
+  }, [focusExerciseId]);
 
   const commitPrev = useCallback(() => {
     lightHaptic();
