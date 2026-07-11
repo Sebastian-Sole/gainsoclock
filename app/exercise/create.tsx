@@ -12,6 +12,7 @@ import { MetricPicker } from '@/components/workout/metric-picker';
 import { RestTimerPresets } from '@/components/workout/rest-timer-presets';
 import { StepIndicator } from '@/components/shared/step-indicator';
 import { NumericInput } from '@/components/shared/numeric-input';
+import { TimeInput } from '@/components/shared/time-input';
 
 import type { Exercise, ExerciseType, ExerciseDefinition, IntervalDistanceUnit, MetricId, TemplateExercise } from '@/lib/types';
 import { createDefaultSets } from '@/lib/defaults';
@@ -33,6 +34,11 @@ const STEP_NAME = 2;
 const STEP_CONFIG = 3;
 const STEP_REST = 4;
 const TOTAL_STEPS = 5;
+
+// Suggested duration default bounds: short holds (planks, dead hangs) need
+// sub-minute values; max matches the previous 600-minute NumericInput cap.
+const MIN_SUGGESTED_DURATION_SECONDS = 5;
+const MAX_SUGGESTED_DURATION_SECONDS = 600 * 60;
 
 export default function CreateExerciseScreen() {
   const router = useRouter();
@@ -58,9 +64,9 @@ export default function CreateExerciseScreen() {
   const [repsCount, setRepsCount] = useState(userDefaultRepsCount);
   const [restTime, setRestTime] = useState(userDefaultRestTime);
   const [intervalUnit, setIntervalUnit] = useState<IntervalDistanceUnit>(userDistanceUnit);
-  // Template suggested defaults (duration captured in minutes, stored as seconds).
+  // Template suggested defaults (duration held directly in seconds, matching suggestedTime).
   const [suggestedWeight, setSuggestedWeight] = useState(20);
-  const [suggestedDurationMin, setSuggestedDurationMin] = useState(10);
+  const [suggestedDurationSeconds, setSuggestedDurationSeconds] = useState(600);
   const [suggestedDistance, setSuggestedDistance] = useState(5);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseDefinition | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -171,7 +177,7 @@ export default function CreateExerciseScreen() {
     const suggested = {
       ...(hasReps ? { suggestedReps: repsCount } : {}),
       ...(isTemplateFlow && hasWeight ? { suggestedWeight } : {}),
-      ...(isTemplateFlow && hasDuration ? { suggestedTime: suggestedDurationMin * 60 } : {}),
+      ...(isTemplateFlow && hasDuration ? { suggestedTime: suggestedDurationSeconds } : {}),
       ...(isTemplateFlow && hasDistance ? { suggestedDistance } : {}),
       ...(isIntervals ? { intervalDistanceUnit: intervalUnit } : {}),
     };
@@ -203,7 +209,7 @@ export default function CreateExerciseScreen() {
         defaultSetsCount: setsCount,
         ...(hasReps ? { suggestedReps: repsCount } : {}),
         ...(hasWeight ? { suggestedWeight } : {}),
-        ...(hasDuration ? { suggestedTime: suggestedDurationMin * 60 } : {}),
+        ...(hasDuration ? { suggestedTime: suggestedDurationSeconds } : {}),
         ...(hasDistance ? { suggestedDistance } : {}),
       };
       addTemplateExercise(templateExercise);
@@ -362,8 +368,15 @@ export default function CreateExerciseScreen() {
               )}
               {isTemplateFlow && hasDuration && (
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-base font-medium">Duration (min)</Text>
-                  <NumericInput value={suggestedDurationMin} onValueChange={setSuggestedDurationMin} min={1} max={600} label="suggested duration in minutes" />
+                  <Text className="text-base font-medium">Duration (h:mm:ss)</Text>
+                  <TimeInput
+                    value={suggestedDurationSeconds}
+                    onValueChange={(seconds) =>
+                      setSuggestedDurationSeconds(Math.min(MAX_SUGGESTED_DURATION_SECONDS, Math.max(MIN_SUGGESTED_DURATION_SECONDS, seconds)))
+                    }
+                    className="w-40"
+                    accessibilityLabel="suggested duration"
+                  />
                 </View>
               )}
               {isTemplateFlow && hasDistance && (

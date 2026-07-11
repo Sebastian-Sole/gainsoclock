@@ -7,9 +7,11 @@ interface TimeInputProps {
   value: number; // in seconds
   onValueChange: (seconds: number) => void;
   className?: string;
+  /** Base label for the three fields, e.g. "suggested duration" → "suggested duration minutes". */
+  accessibilityLabel?: string;
 }
 
-export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
+export function TimeInput({ value, onValueChange, className, accessibilityLabel }: TimeInputProps) {
   const hours = Math.floor(value / 3600);
   const minutes = Math.floor((value % 3600) / 60);
   const seconds = value % 60;
@@ -51,6 +53,7 @@ export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
         onFocus={() => setHoursText(String(hours))}
         onBlur={() => setHoursText(null)}
         keyboardType="numeric"
+        accessibilityLabel={accessibilityLabel ? `${accessibilityLabel} hours` : undefined}
         className={fieldClass}
         maxLength={2}
         placeholder="0"
@@ -64,6 +67,7 @@ export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
         onFocus={() => setMinutesText(String(minutes))}
         onBlur={() => setMinutesText(null)}
         keyboardType="numeric"
+        accessibilityLabel={accessibilityLabel ? `${accessibilityLabel} minutes` : undefined}
         className={fieldClass}
         maxLength={2}
         selectTextOnFocus
@@ -75,6 +79,7 @@ export function TimeInput({ value, onValueChange, className }: TimeInputProps) {
         onFocus={() => setSecondsText(String(seconds))}
         onBlur={() => setSecondsText(null)}
         keyboardType="numeric"
+        accessibilityLabel={accessibilityLabel ? `${accessibilityLabel} seconds` : undefined}
         className={fieldClass}
         maxLength={2}
         selectTextOnFocus
