@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Pressable, ScrollView } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -99,6 +99,20 @@ export default function ActiveWorkoutScreen() {
   useEffect(() => {
     if (!activeWorkout) router.dismissAll();
   }, [activeWorkout, router]);
+
+  // Point the pager at a specific exercise when asked to via params — e.g.
+  // after adding an exercise from the workout summary, create.tsx dismisses
+  // back here with `focusExerciseId` set to the newly added exercise.
+  const { focusExerciseId } = useLocalSearchParams<{ focusExerciseId?: string }>();
+  useEffect(() => {
+    if (!focusExerciseId) return;
+    const list = useWorkoutStore.getState().activeWorkout?.exercises ?? [];
+    const idx = list.findIndex((e) => e.id === focusExerciseId);
+    if (idx !== -1) {
+      setExIdx(idx);
+      setSetIdx(0);
+    }
+  }, [focusExerciseId]);
 
   const exercises = activeWorkout?.exercises ?? [];
   const safeExIdx = Math.min(exIdx, Math.max(0, exercises.length - 1));

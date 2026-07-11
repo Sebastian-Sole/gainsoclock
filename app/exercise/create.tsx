@@ -37,7 +37,7 @@ const TOTAL_STEPS = 5;
 export default function CreateExerciseScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { source } = useLocalSearchParams<{ source?: string }>();
+  const { source, origin } = useLocalSearchParams<{ source?: string; origin?: string }>();
   const isActiveWorkout = source === 'active';
   const addTemplateExercise = useTemplateCreateStore((s) => s.addExercise);
   const allExercises = useExerciseLibraryStore((s) => s.exercises);
@@ -188,6 +188,16 @@ export default function CreateExerciseScreen() {
       };
       if (isActiveWorkout) {
         useWorkoutStore.getState().addExercise(exercise);
+        if (origin === 'summary') {
+          // Added from the workout summary: `router.back()` would land back on
+          // the summary, so pop the summary too and drop into Focus mode
+          // positioned at the exercise that was just added.
+          router.dismissTo({
+            pathname: '/workout/active',
+            params: { focusExerciseId: exercise.id },
+          });
+          return;
+        }
       } else {
         useEditLogStore.getState().addExercise(exercise);
       }

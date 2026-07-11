@@ -127,7 +127,7 @@ export default function WorkoutSummaryScreen() {
       {/* CTAs */}
       <View className="gap-3 px-5 pb-2 pt-2">
         <Pressable
-          onPress={() => router.push('/exercise/create?source=active')}
+          onPress={() => router.push('/exercise/create?source=active&origin=summary')}
           accessibilityRole="button"
           accessibilityLabel="Add exercise"
           className="flex-row items-center justify-center gap-2 rounded-2xl border border-primary bg-accent py-4"
