@@ -44,9 +44,9 @@ export function PlanPreview({ data, collapsed }: PlanPreviewProps) {
     <View>
       <View className="flex-row items-center gap-2 mb-1 pb-2 border-b border-border">
         <Icon as={Calendar} size={16} className="text-primary" />
-        <Text className="font-semibold">Workout Plan</Text>
+        <Text className="font-semibold">New Workout Plan</Text>
       </View>
-      <Text className="text-sm font-medium mt-2">{data.name}</Text>
+      <Text className="text-base font-semibold mt-2">{data.name}</Text>
       {data.goal && (
         <Text className="text-xs text-muted-foreground mb-1">Goal: {data.goal}</Text>
       )}

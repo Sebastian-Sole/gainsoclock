@@ -95,12 +95,16 @@ function validateExercise(
       }
     }
   }
+  // A missing/empty metrics list with no legacy type to derive from would
+  // silently fall back to ["weight","reps"] in normalizeExerciseMetrics —
+  // persisting e.g. a running exercise as strength (issue #102 §4). Reject
+  // it here instead; the error surfaces on the approval card.
   if (
-    ex.type === undefined &&
+    (ex.type === undefined || ex.type === "metrics") &&
     (!Array.isArray(ex.metrics) || ex.metrics.length === 0)
   ) {
     throw new Error(
-      `Invalid payload: "${prefix}" must provide "metrics" (non-empty) or a legacy "type".`
+      `Invalid payload: "${prefix}" must provide a non-empty "metrics" array (or a legacy "type").`
     );
   }
   assertNumber(ex.defaultSetsCount, `${prefix}.defaultSetsCount`);
@@ -579,6 +583,23 @@ export const executeApproval = mutation({
     } else if (args.type === "create_plan") {
       // Validate
       const planData = validateCreatePlanPayload(data);
+
+      // Idempotency / dedup guard (issue #102): approving the same proposal
+      // twice (e.g. a retry after "Approval Failed", or a stale duplicate
+      // card from the same turn) must not save a second plan. A plan with
+      // the same name sourced from the same conversation is treated as this
+      // proposal having already been executed — succeed without inserting
+      // so the card still resolves to "approved".
+      const existingPlans = await ctx.db
+        .query("workoutPlans")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+      const alreadyCreated = existingPlans.some(
+        (p) =>
+          p.name === planData.name &&
+          p.sourceConversationClientId === args.conversationClientId
+      );
+      if (alreadyCreated) return;
 
       // Create templates first
       const templateNameToClientId = new Map<string, string>();
