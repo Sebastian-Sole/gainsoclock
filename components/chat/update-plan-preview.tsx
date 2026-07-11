@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { RefreshCw } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
+import { usePlanStore } from '@/stores/plan-store';
 
 interface DayUpdate {
   week: number;
@@ -36,6 +37,11 @@ interface UpdatePlanPreviewProps {
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export function UpdatePlanPreview({ data, collapsed }: UpdatePlanPreviewProps) {
+  // Resolve the target plan's name so the card says WHICH plan this updates
+  // (issue #102) — the payload only carries the plan's clientId.
+  const targetPlanName = usePlanStore(
+    (s) => s.plans.find((p) => p.id === data.planClientId)?.name
+  );
   const daysToUpdate = data.updates?.daysToUpdate ?? [];
   const newTemplates = data.updates?.newTemplates ?? [];
 
@@ -53,11 +59,15 @@ export function UpdatePlanPreview({ data, collapsed }: UpdatePlanPreviewProps) {
     <View>
       <View className="flex-row items-center gap-2 mb-1 pb-2 border-b border-border">
         <Icon as={RefreshCw} size={16} className="text-primary" />
-        <Text className="font-semibold">Plan Update</Text>
+        <Text className="font-semibold">Update Existing Plan</Text>
       </View>
 
+      <Text className="text-base font-semibold mt-2">
+        {targetPlanName ? `Updating "${targetPlanName}"` : 'Updating your plan'}
+      </Text>
+
       {data.updates?.name && (
-        <Text className="text-sm font-medium mt-2">New name: {data.updates.name}</Text>
+        <Text className="text-sm font-medium mt-0.5">New name: {data.updates.name}</Text>
       )}
       {!collapsed && data.updates?.description && (
         <Text className="text-xs text-muted-foreground mt-0.5">{data.updates.description}</Text>

@@ -40,6 +40,53 @@ function stripInlineJson(text: string): string {
   return cleaned.trim();
 }
 
+/**
+ * Chat history sent to OpenAI carries only message text — the tool calls
+ * behind approval cards are never replayed. Without a marker the model has
+ * no memory that it already proposed (or saved) a plan, which is the root
+ * cause of duplicate create_workout_plan proposals on follow-up questions
+ * (issue #102). Returns a compact bracketed note describing the proposal
+ * and its outcome, appended to the assistant message content.
+ */
+function approvalMarker(approval: {
+  type: string;
+  payload: string;
+  status: string;
+}): string {
+  const TYPE_LABELS: Record<string, string> = {
+    create_plan: "a new workout plan",
+    update_plan: "an update to the user's existing workout plan",
+    create_template: "a workout template",
+    create_recipe: "a recipe",
+    log_meal: "a meal log entry",
+    set_nutrition_goals: "new nutrition goals",
+  };
+  const label = TYPE_LABELS[approval.type] ?? "an action";
+
+  let name = "";
+  try {
+    const parsed: unknown = JSON.parse(approval.payload);
+    if (typeof parsed === "object" && parsed !== null) {
+      const obj = parsed as Record<string, unknown>;
+      const candidate = obj.name ?? obj.title;
+      if (typeof candidate === "string" && candidate.length > 0) {
+        name = ` "${candidate}"`;
+      }
+    }
+  } catch {
+    // Marker still communicates type + status without the name.
+  }
+
+  const outcome =
+    approval.status === "approved"
+      ? "the user approved it and it was saved"
+      : approval.status === "rejected"
+        ? "the user rejected it"
+        : "it is still awaiting the user's approval";
+
+  return `\n\n[Tool proposal: you proposed ${label}${name} via a tool call — ${outcome}.]`;
+}
+
 // Number of trailing (user+assistant) messages sent to OpenAI per request.
 // Keeps prompts well under the model context limit while preserving
 // session-scale memory; long-term memory lives in the user-context block,
@@ -59,7 +106,7 @@ const AI_EXERCISE_ITEM = {
       type: "array",
       items: { type: "string", enum: METRIC_IDS },
       description:
-        'Ordered metrics this exercise tracks (max 5), composed from the palette. Examples: strength ["weight","reps"]; bodyweight ["reps"]; running/rowing ["duration","distance","pace","heart_rate_avg"]; cycling ["duration","distance","speed","heart_rate_avg"]; watts bike ["duration","power_avg","distance","heart_rate_avg"]; timed hold ["duration"]. Provide this for every non-interval exercise.',
+        'Ordered metrics this exercise tracks (max 5), composed from the palette. Examples: strength ["weight","reps"]; bodyweight ["reps"]; running/rowing ["duration","distance","pace","heart_rate_avg"]; cycling ["duration","distance","speed","heart_rate_avg"]; watts bike ["duration","power_avg","distance","heart_rate_avg"]; timed hold ["duration"]. Required: must be non-empty for every non-interval exercise and match the movement (a run must NOT get ["weight","reps"]). For "intervals" exercises pass an empty array.',
     },
     type: {
       type: "string",
@@ -99,7 +146,7 @@ const AI_EXERCISE_ITEM = {
       description: "Suggested distance per set (distance-based exercises)",
     },
   },
-  required: ["name", "defaultSetsCount", "restTimeSeconds"],
+  required: ["name", "metrics", "defaultSetsCount", "restTimeSeconds"],
 } as const;
 
 const TOOLS: ChatCompletionTool[] = [
@@ -135,7 +182,7 @@ const TOOLS: ChatCompletionTool[] = [
     function: {
       name: "create_workout_plan",
       description:
-        "Create a multi-week workout plan with scheduled workouts. Include the templates array with full exercise details for each unique workout type.",
+        "Create a brand-new multi-week workout plan with scheduled workouts. Only for when the user wants a NEW plan — never for modifying a plan that already exists (use update_workout_plan for that). Call this at most ONCE per response. Include the templates array with full exercise details for each unique workout type.",
       parameters: {
         type: "object",
         properties: {
@@ -200,7 +247,7 @@ const TOOLS: ChatCompletionTool[] = [
     function: {
       name: "update_workout_plan",
       description:
-        "Update an existing workout plan. Can modify days, swap templates, or add notes.",
+        "Update the user's existing workout plan in place — modify or remove days, swap templates, rename, or add new templates. Use this whenever the user asks to change, tweak, extend, or fix a plan that already exists (its Plan ID is in the Active Plan section of the system prompt). This edits the existing plan; it never creates a second one.",
       parameters: {
         type: "object",
         properties: {
@@ -629,7 +676,10 @@ ${planSection}
 - For rest days in plans, omit the templateName field.
 - When the user asks to modify their existing plan, use the update_workout_plan tool with the plan's Plan ID (shown above in the Active Plan section). Reference existing template names exactly as they appear in the schedule. Only include newTemplates if you need to add workout types that don't already exist.
 - When a user says "my plan", "the plan", or similar, they mean the active plan. Use its Plan ID for updates.
-- NEVER create a new plan when the user is asking to modify an existing one. Use update_workout_plan instead.`;
+- NEVER create a new plan when the user is asking to modify an existing one. Use update_workout_plan instead.
+- The user has at most ONE plan under discussion at a time. If you already proposed a plan earlier in this conversation (see the [Tool proposal: ...] markers in the history), follow-up questions and change requests refer to THAT plan. Once approved it becomes the Active Plan above — modify it with update_workout_plan and its Plan ID. Do not propose another new plan.
+- Only call create_workout_plan when there is no plan under discussion, or when the user explicitly asks for a brand-new, separate plan (e.g. "make me a different plan", "start over"). Never call create_workout_plan more than once in a single response.
+- When you call update_workout_plan, briefly state in your text response which plan you are updating, by name.`;
 }
 
 // ── Main Chat Action ───────────────────────────────────────────
@@ -690,7 +740,10 @@ export const sendMessage = action({
       { role: "system", content: systemPrompt },
       ...recentHistory.map((m) => ({
         role: m.role as "user" | "assistant",
-        content: m.content,
+        content:
+          m.role === "assistant" && m.pendingApproval
+            ? m.content + approvalMarker(m.pendingApproval)
+            : m.content,
       })),
     ];
 
@@ -785,9 +838,27 @@ export const sendMessage = action({
       }
 
       // 7. Process completed stream
-      const toolCalls = Array.from(toolCallAccumulator.values()).filter(
+      const rawToolCalls = Array.from(toolCallAccumulator.values()).filter(
         (tc) => tc.id && tc.name,
       );
+
+      // Structural guard (issue #102): a single assistant turn may propose at
+      // most ONE new workout plan. The model occasionally emits several
+      // create_workout_plan calls in one response; each would become its own
+      // approval card and, once approved, its own saved plan. Keep the first
+      // and drop the rest — prompt rules alone are not a guardrail.
+      let sawCreatePlan = false;
+      const toolCalls = rawToolCalls.filter((tc) => {
+        if (tc.name !== "create_workout_plan") return true;
+        if (sawCreatePlan) {
+          console.error(
+            "[chat] dropped duplicate create_workout_plan tool call in a single turn",
+          );
+          return false;
+        }
+        sawCreatePlan = true;
+        return true;
+      });
 
       if (toolCalls.length > 0) {
         // Strip raw JSON that the model sometimes echoes as text content
