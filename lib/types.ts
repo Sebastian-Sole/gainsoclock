@@ -128,6 +128,7 @@ export interface ActiveWorkout {
   isRestTimerActive: boolean;
   restTimeRemaining: number;
   restTimerEndsAt?: number; // Unix ms timestamp — survives backgrounding
+  restTimerExerciseName?: string; // Shown in the rest-timer Live Activity
   planDayId?: string; // If started from a workout plan day
 }
 

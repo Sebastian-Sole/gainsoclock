@@ -99,7 +99,7 @@ export default function ActiveWorkoutScreen() {
 
   const handleSetCompleted = (exercise: Exercise) => {
     // 0 is an explicit "no rest timer" (same rule as the classic screen).
-    if (exercise.restTimeSeconds > 0) startRestTimer(exercise.restTimeSeconds);
+    if (exercise.restTimeSeconds > 0) startRestTimer(exercise.restTimeSeconds, exercise.name);
     setRewardTick((t) => t + 1);
   };
 
