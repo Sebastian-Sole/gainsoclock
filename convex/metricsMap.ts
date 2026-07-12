@@ -22,6 +22,7 @@ export const METRIC_IDS: MetricId[] = [
   "distance",
   "pace",
   "speed",
+  "incline",
   "power_avg",
   "heart_rate_avg",
   "cadence",

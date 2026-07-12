@@ -28,6 +28,7 @@ type SetValues = {
   metric?: "pace" | "distance" | "speed";
   paceSeconds?: number;
   speed?: number;
+  incline?: number;
   distanceUnit?: "km" | "mi";
 };
 
@@ -51,6 +52,7 @@ function setValueFields(s: SetValues & { type?: string }) {
     ...(s.metric !== undefined && { metric: s.metric }),
     ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
     ...(s.speed !== undefined && { speed: s.speed }),
+    ...(s.incline !== undefined && { incline: s.incline }),
     ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
   };
 }

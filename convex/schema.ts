@@ -125,6 +125,7 @@ export default defineSchema({
     ),
     paceSeconds: v.optional(v.number()),
     speed: v.optional(v.number()),
+    incline: v.optional(v.number()),
     distanceUnit: v.optional(v.union(v.literal("km"), v.literal("mi"))),
   })
     .index("by_workout_exercise", ["userId", "workoutLogExerciseClientId"])

@@ -7,6 +7,7 @@ import {
   coerceMetricIds,
   metricUpdate,
   isExerciseType,
+  derivePaceSeconds,
   EXERCISE_PRESETS,
 } from "@/lib/metrics";
 import type { MetricId } from "@/lib/types";
@@ -86,6 +87,28 @@ describe("metricUpdate", () => {
     expect(metricUpdate("time", 600)).toEqual({ time: 600 });
     expect(metricUpdate("paceSeconds", 330)).toEqual({ paceSeconds: 330 });
     expect(metricUpdate("heartRateAvg", 150)).toEqual({ heartRateAvg: 150 });
+    expect(metricUpdate("incline", 1.5)).toEqual({ incline: 1.5 });
+  });
+});
+
+describe("derivePaceSeconds", () => {
+  it("computes seconds per distance unit from duration and distance", () => {
+    // 30 min over 6 km = 300 s/km = 5:00/km
+    expect(derivePaceSeconds(["duration", "distance", "pace"], 1800, 6)).toBe(300);
+    // rounds to whole seconds
+    expect(derivePaceSeconds(["duration", "distance", "pace"], 1000, 3)).toBe(333);
+  });
+
+  it("returns undefined when pace is not tracked", () => {
+    expect(derivePaceSeconds(["duration", "distance"], 1800, 6)).toBeUndefined();
+  });
+
+  it("returns undefined when duration or distance is missing or zero", () => {
+    const m: MetricId[] = ["duration", "distance", "pace"];
+    expect(derivePaceSeconds(m, undefined, 6)).toBeUndefined();
+    expect(derivePaceSeconds(m, 1800, undefined)).toBeUndefined();
+    expect(derivePaceSeconds(m, 0, 6)).toBeUndefined();
+    expect(derivePaceSeconds(m, 1800, 0)).toBeUndefined();
   });
 });
 

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Pressable, ScrollView } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -56,6 +56,7 @@ function RestIndicator() {
 
 export default function ActiveWorkoutScreen() {
   const router = useRouter();
+  const { focusExerciseId } = useLocalSearchParams<{ focusExerciseId?: string }>();
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const ring = {
@@ -116,6 +117,19 @@ export default function ActiveWorkoutScreen() {
   useEffect(() => {
     tx.value = -pageW;
   }, [pageW, safeSetIdx, safeExIdx, tx]);
+
+  // Deep-link from the summary screen: focus a specific exercise, then clear
+  // the param so it doesn't re-trigger on later renders.
+  useEffect(() => {
+    if (!focusExerciseId) return;
+    const list = useWorkoutStore.getState().activeWorkout?.exercises ?? [];
+    const idx = list.findIndex((e) => e.id === focusExerciseId);
+    if (idx >= 0) {
+      setExIdx(idx);
+      setSetIdx(0);
+    }
+    router.setParams({ focusExerciseId: '' });
+  }, [focusExerciseId, router]);
 
   const commitPrev = useCallback(() => {
     lightHaptic();

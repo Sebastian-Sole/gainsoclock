@@ -59,7 +59,7 @@ const AI_EXERCISE_ITEM = {
       type: "array",
       items: { type: "string", enum: METRIC_IDS },
       description:
-        'Ordered metrics this exercise tracks (max 5), composed from the palette. Examples: strength ["weight","reps"]; bodyweight ["reps"]; running/rowing ["duration","distance","pace","heart_rate_avg"]; cycling ["duration","distance","speed","heart_rate_avg"]; watts bike ["duration","power_avg","distance","heart_rate_avg"]; timed hold ["duration"]. Provide this for every non-interval exercise.',
+        'Ordered metrics this exercise tracks (max 5), composed from the palette. Examples: strength ["weight","reps"]; bodyweight ["reps"]; running/rowing ["duration","distance","pace","heart_rate_avg"]; treadmill ["duration","distance","incline","pace"]; cycling ["duration","distance","speed","heart_rate_avg"]; watts bike ["duration","power_avg","distance","heart_rate_avg"]; timed hold ["duration"]. Provide this for every non-interval exercise.',
     },
     type: {
       type: "string",
@@ -624,7 +624,7 @@ ${planSection}
 - All data you create will require user approval before being saved. The user can reject and ask for changes.
 - Use the user's preferred units (${context.settings.weightUnit}, ${context.settings.distanceUnit}).
 - Be concise but helpful. Focus on actionable advice.
-- Every exercise you create should set type "metrics" and list the metrics it tracks (compose from weight, reps, duration, distance, pace, speed, power_avg, heart_rate_avg, cadence, calories; max 5). Reserve "intervals" for work/rest interval exercises.
+- Every exercise you create should set type "metrics" and list the metrics it tracks (compose from weight, reps, duration, distance, pace, speed, incline, power_avg, heart_rate_avg, cadence, calories; max 5). Reserve "intervals" for work/rest interval exercises.
 - For workout plans, use dayOfWeek values: 0=Sunday, 1=Monday, ..., 6=Saturday.
 - For rest days in plans, omit the templateName field.
 - When the user asks to modify their existing plan, use the update_workout_plan tool with the plan's Plan ID (shown above in the Active Plan section). Reference existing template names exactly as they appear in the schedule. Only include newTemplates if you need to add workout types that don't already exist.

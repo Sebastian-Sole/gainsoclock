@@ -22,6 +22,7 @@ export const metricIdValidator = v.union(
   v.literal("distance"),
   v.literal("pace"),
   v.literal("speed"),
+  v.literal("incline"),
   v.literal("power_avg"),
   v.literal("heart_rate_avg"),
   v.literal("cadence"),
@@ -55,6 +56,7 @@ export const workoutSetValidator = v.object({
   calories: v.optional(v.number()),
   speed: v.optional(v.number()),
   paceSeconds: v.optional(v.number()),
+  incline: v.optional(v.number()),
   metric: v.optional(intervalMetricValidator),
   distanceUnit: v.optional(distanceUnitValidator),
 });
@@ -87,6 +89,7 @@ export const flatSetValidator = v.object({
   metric: v.optional(intervalMetricValidator),
   paceSeconds: v.optional(v.number()),
   speed: v.optional(v.number()),
+  incline: v.optional(v.number()),
   distanceUnit: v.optional(distanceUnitValidator),
 });
 

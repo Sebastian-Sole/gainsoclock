@@ -25,7 +25,8 @@ export type MetricField =
   | 'cadence'
   | 'calories'
   | 'speed'
-  | 'paceSeconds';
+  | 'paceSeconds'
+  | 'incline';
 
 // How the value is entered in the set row.
 export type MetricInputKind =
@@ -143,6 +144,18 @@ export const METRICS: Record<MetricId, MetricSpec> = {
     prDirection: 'higher',
     defaultValue: 0,
   },
+  incline: {
+    id: 'incline',
+    label: 'Incline',
+    columnLabel: 'Incline',
+    unit: '%',
+    field: 'incline',
+    inputKind: 'decimal',
+    aggregation: 'avg',
+    prDirection: 'none',
+    defaultValue: 0,
+    step: 0.5,
+  },
   cadence: {
     id: 'cadence',
     label: 'Cadence',
@@ -176,6 +189,7 @@ export const METRIC_LIST: MetricSpec[] = [
   METRICS.distance,
   METRICS.pace,
   METRICS.speed,
+  METRICS.incline,
   METRICS.power_avg,
   METRICS.heart_rate_avg,
   METRICS.cadence,
@@ -214,6 +228,26 @@ export function readMetricValue(set: WorkoutSet, id: MetricId): number | undefin
 }
 
 /**
+ * Derived pace for an exercise that tracks pace alongside duration + distance:
+ * seconds per distance unit = duration ÷ distance. Returns undefined when pace
+ * isn't tracked or duration/distance is missing or zero, so callers leave any
+ * existing value alone rather than storing 0/Infinity.
+ *
+ * Pace is pre-filled from duration/distance edits but stays user-editable: an
+ * edit to pace itself is not a duration/distance change, so it isn't recomputed
+ * until the inputs change again.
+ */
+export function derivePaceSeconds(
+  metrics: MetricId[],
+  time: number | undefined,
+  distance: number | undefined
+): number | undefined {
+  if (!metrics.includes('pace')) return undefined;
+  if (!time || time <= 0 || !distance || distance <= 0) return undefined;
+  return Math.round(time / distance);
+}
+
+/**
  * A single-field WorkoutSet patch, typed exhaustively so callers avoid `as`
  * casts on a dynamic key. Used by the default-set factory and the set row.
  */
@@ -239,6 +273,8 @@ export function metricUpdate(field: MetricField, value: number | undefined): Par
       return { speed: value };
     case 'paceSeconds':
       return { paceSeconds: value };
+    case 'incline':
+      return { incline: value };
   }
 }
 
