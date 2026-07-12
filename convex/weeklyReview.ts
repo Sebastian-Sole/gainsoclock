@@ -340,6 +340,13 @@ async function buildWeekStats(
     )
     .collect();
 
+  // An external workout linked to a native log is the same session (issue
+  // #117) — it's already counted in workoutCount, so only unlinked rows
+  // count as separate external sessions.
+  const unlinkedExternalCount = externalWorkouts.filter(
+    (w) => w.linkedWorkoutLogClientId === undefined
+  ).length;
+
   // 5. Sleep / resting-HR averages for the week (max 7 rows).
   const metrics = await ctx.db
     .query("healthDailyMetrics")
@@ -373,7 +380,7 @@ async function buildWeekStats(
       totalSets,
       prCount,
       ...(planAdherencePct !== undefined && { planAdherencePct }),
-      externalWorkoutCount: externalWorkouts.length,
+      externalWorkoutCount: unlinkedExternalCount,
       ...(avgSleepHours !== undefined && { avgSleepHours }),
       ...(avgRestingHr !== undefined && { avgRestingHr }),
     },

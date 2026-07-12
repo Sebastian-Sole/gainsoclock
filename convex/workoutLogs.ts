@@ -1,7 +1,10 @@
 import { query, mutation } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import type { Id } from "./_generated/dataModel";
 import { flatSetValidator, metricIdValidator } from "./validators";
+import { bestMatchingExternal } from "./workoutOverlap";
 
 const exercisePayload = v.object({
   clientId: v.string(),
@@ -56,6 +59,46 @@ function setValueFields(s: SetValues & { type?: string }) {
     ...(s.speed !== undefined && { speed: s.speed }),
     ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
   };
+}
+
+// Bounds for the external-workout candidate lookup when a native log syncs
+// (issue #117, reverse direction of convex/healthData.ts link matching).
+const LINK_WINDOW_MS = 24 * 60 * 60 * 1000;
+const MAX_LINK_CANDIDATES = 50;
+
+// After a native log is inserted, link the best-overlapping external workout
+// that isn't already linked or user-dismissed. Covers the "watch workout
+// imported before the Fitbull log synced" ordering; the opposite ordering is
+// handled in healthData.upsertExternalWorkouts.
+async function linkOverlappingExternalWorkout(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  log: { clientId: string; startedAt: string; completedAt: string }
+) {
+  const startMs = Date.parse(log.startedAt);
+  const endMs = Date.parse(log.completedAt);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return;
+
+  const candidates = await ctx.db
+    .query("externalWorkouts")
+    .withIndex("by_user_startedAt", (q) =>
+      q
+        .eq("userId", userId)
+        .gte("startedAt", startMs - LINK_WINDOW_MS)
+        .lte("startedAt", endMs + LINK_WINDOW_MS)
+    )
+    .take(MAX_LINK_CANDIDATES);
+
+  const best = bestMatchingExternal(
+    log,
+    candidates.filter(
+      (w) =>
+        w.linkedWorkoutLogClientId === undefined && w.linkDismissed !== true
+    )
+  );
+  if (best) {
+    await ctx.db.patch(best._id, { linkedWorkoutLogClientId: log.clientId });
+  }
 }
 
 // Lightweight list: only workout metadata, no exercise/set joins.
@@ -235,6 +278,13 @@ export const create = mutation({
       }
     }
 
+    // Dedup against an already-imported watch recording of this session.
+    await linkOverlappingExternalWorkout(ctx, userId, {
+      clientId: args.clientId,
+      startedAt: args.startedAt,
+      completedAt: args.completedAt,
+    });
+
     return logId;
   },
 });
@@ -274,6 +324,21 @@ export const remove = mutation({
           await ctx.db.delete(s._id);
         }
         await ctx.db.delete(ex._id);
+      }
+
+      // Clear dedup links so the watch recording resurfaces as its own
+      // entry instead of pointing at a deleted log (issue #117). Not marked
+      // dismissed — a future re-import may legitimately re-match.
+      const linkedExternals = await ctx.db
+        .query("externalWorkouts")
+        .withIndex("by_user_linkedLog", (q) =>
+          q
+            .eq("userId", userId)
+            .eq("linkedWorkoutLogClientId", args.clientId)
+        )
+        .collect();
+      for (const w of linkedExternals) {
+        await ctx.db.patch(w._id, { linkedWorkoutLogClientId: undefined });
       }
 
       await ctx.db.delete(log._id);
@@ -437,6 +502,14 @@ export const bulkUpsert = mutation({
             });
           }
         }
+
+        // Same dedup pass as `create` — bulk restores must not resurrect
+        // duplicate watch entries (issue #117).
+        await linkOverlappingExternalWorkout(ctx, userId, {
+          clientId: log.clientId,
+          startedAt: log.startedAt,
+          completedAt: log.completedAt,
+        });
       }
     }
   },
