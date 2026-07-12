@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  formatMetricValue,
   parseLocaleNumber,
   parseWeightKg,
   parseHeightCm,
@@ -102,5 +103,23 @@ describe("parseAgeYears (integer, bounds 16-100, inclusive)", () => {
 
   it("non-integer (16.5) -> null (integerOnly rejects fractional age)", () => {
     expect(parseAgeYears("16.5")).toBeNull();
+  });
+});
+
+describe("formatMetricValue (stats charts / PB rows)", () => {
+  it("routes unit-preference metrics through user units", () => {
+    expect(formatMetricValue("weight", 92.46, "kg", "km")).toBe("92.5 kg");
+    expect(formatMetricValue("distance", 4.24, "kg", "mi")).toBe("4.2 mi");
+    expect(formatMetricValue("speed", 12.34, "kg", "km")).toBe("12.3 km/h");
+    expect(formatMetricValue("pace", 330, "kg", "km")).toBe("5:30 /km");
+  });
+
+  it("formats duration as m:ss and integer metrics with their fixed unit", () => {
+    expect(formatMetricValue("duration", 90.4, "kg", "km")).toBe("1:30");
+    expect(formatMetricValue("reps", 12.6, "kg", "km")).toBe("13 reps");
+    expect(formatMetricValue("power_avg", 219.5, "kg", "km")).toBe("220 W");
+    expect(formatMetricValue("heart_rate_avg", 149.6, "kg", "km")).toBe("150 bpm");
+    expect(formatMetricValue("cadence", 27.2, "kg", "km")).toBe("27 spm");
+    expect(formatMetricValue("calories", 54.5, "kg", "km")).toBe("55 kcal");
   });
 });

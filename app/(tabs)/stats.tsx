@@ -2,7 +2,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { isSameMonth, isToday } from 'date-fns';
 import { ChartNoAxesCombined } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 import { Icon } from '@/components/ui/icon';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -15,7 +14,6 @@ import { ExercisesTab } from '@/components/stats/exercises-tab';
 import { HistoryTab } from '@/components/stats/history-tab';
 import { OverviewTab } from '@/components/stats/overview-tab';
 import { RecordsTab } from '@/components/stats/records-tab';
-import { Colors } from '@/constants/theme';
 import { useStats } from '@/hooks/use-stats';
 import type { DateRangeFilter } from '@/lib/stats';
 import { useHistoryStore } from '@/stores/history-store';
@@ -24,9 +22,6 @@ import { useSettingsStore } from '@/stores/settings-store';
 const DEFAULT_FILTER: DateRangeFilter = { preset: 'all', from: null, to: null };
 
 export default function StatsScreen() {
-  const { colorScheme } = useColorScheme();
-  const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
-
   const [dateFilter, setDateFilter] = useState<DateRangeFilter>(DEFAULT_FILTER);
   const [activeTab, setActiveTab] = useState('history');
 
@@ -144,6 +139,7 @@ export default function StatsScreen() {
                     exerciseStats={stats.exerciseStats}
                     weightUnit={weightUnit}
                     distanceUnit={distanceUnit}
+                    dateFilter={stableFilter}
                   />
                 </View>
               </ScrollView>
