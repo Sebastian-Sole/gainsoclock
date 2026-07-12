@@ -5,9 +5,11 @@ import {
   mutation,
   internalQuery,
   internalMutation,
+  internalAction,
 } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { bestMatchingLog } from "./workoutOverlap";
 
 // Batch caps keep mutation payloads/write volume bounded (Convex limits).
@@ -182,6 +184,91 @@ export const backfillWorkoutLinks = internalMutation({
       linked,
       isDone: page.isDone,
       continueCursor: page.continueCursor,
+    };
+  },
+});
+
+// One page of user ids, for the all-users backfill driver below.
+export const usersPage = internalQuery({
+  args: {
+    cursor: v.optional(v.string()),
+    numItems: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("users")
+      .paginate({ cursor: args.cursor ?? null, numItems: args.numItems });
+    return {
+      userIds: page.page.map((u) => u._id),
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
+  },
+});
+
+// All-users driver for backfillWorkoutLinks (issue #117): pages through the
+// users table and drains the per-user backfill for each. Users without
+// external workouts cost one empty page read, so it's safe to run over the
+// whole user base. Idempotent for the same reason the per-user one is.
+// Bounded to `usersPerRun` users per invocation to stay well inside action
+// limits — loop from the CLI until isDone:
+//   npx convex run healthData:backfillAllWorkoutLinks '{}' --prod
+//   npx convex run healthData:backfillAllWorkoutLinks \
+//     '{"usersCursor":"<continueCursor>"}' --prod
+export const backfillAllWorkoutLinks = internalAction({
+  args: {
+    usersCursor: v.optional(v.string()),
+    usersPerRun: v.optional(v.number()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    usersProcessed: number;
+    usersWithLinks: number;
+    linked: number;
+    isDone: boolean;
+    continueCursor: string;
+  }> => {
+    const numItems = Math.min(Math.max(args.usersPerRun ?? 50, 1), 200);
+    // Explicit annotation: same-module internal.* references otherwise make
+    // the function's type circular (TS7022).
+    const users: {
+      userIds: Id<"users">[];
+      isDone: boolean;
+      continueCursor: string;
+    } = await ctx.runQuery(internal.healthData.usersPage, {
+      cursor: args.usersCursor,
+      numItems,
+    });
+
+    let usersWithLinks = 0;
+    let linked = 0;
+    for (const userId of users.userIds) {
+      let cursor: string | undefined;
+      let linkedForUser = 0;
+      do {
+        const result: {
+          linked: number;
+          isDone: boolean;
+          continueCursor: string;
+        } = await ctx.runMutation(internal.healthData.backfillWorkoutLinks, {
+          userId,
+          cursor,
+        });
+        linkedForUser += result.linked;
+        cursor = result.isDone ? undefined : result.continueCursor;
+      } while (cursor !== undefined);
+      if (linkedForUser > 0) usersWithLinks++;
+      linked += linkedForUser;
+    }
+
+    return {
+      usersProcessed: users.userIds.length,
+      usersWithLinks,
+      linked,
+      isDone: users.isDone,
+      continueCursor: users.continueCursor,
     };
   },
 });
