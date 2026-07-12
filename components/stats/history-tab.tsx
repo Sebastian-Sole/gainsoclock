@@ -28,6 +28,16 @@ type DayEntry =
   | { kind: 'log'; startedAt: number; log: WorkoutLog }
   | { kind: 'external'; startedAt: number; workout: ExternalWorkout };
 
+/**
+ * An external workout linked to a native log (issue #117) renders merged into
+ * that log's card instead of as a standalone entry. The link only collapses
+ * the pair when the target log is actually loaded — if the log is missing
+ * (deleted elsewhere, outside the fetched range), the external still shows.
+ */
+function isMergedExternal(w: ExternalWorkout, logIds: Set<string>): boolean {
+  return w.linkedWorkoutLogClientId !== undefined && logIds.has(w.linkedWorkoutLogClientId);
+}
+
 export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelectDate }: HistoryTabProps) {
   const { colorScheme } = useColorScheme();
   const primaryColor = Colors[colorScheme === 'dark' ? 'dark' : 'light'].tint;
@@ -41,6 +51,22 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
 
   // [] while loading / signed out / import off — never blocks local history.
   const externalWorkouts = useExternalWorkouts(currentMonth);
+
+  const logIds = useMemo(() => new Set(logs.map((l) => l.id)), [logs]);
+
+  const linkedExternalByLogId = useMemo(() => {
+    const map = new Map<string, ExternalWorkout>();
+    externalWorkouts.forEach((w) => {
+      if (
+        w.linkedWorkoutLogClientId !== undefined &&
+        logIds.has(w.linkedWorkoutLogClientId) &&
+        !map.has(w.linkedWorkoutLogClientId)
+      ) {
+        map.set(w.linkedWorkoutLogClientId, w);
+      }
+    });
+    return map;
+  }, [externalWorkouts, logIds]);
 
   const workoutDates = useMemo(() => {
     const dates = new Set<string>();
@@ -58,10 +84,13 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
   const externalWorkoutDates = useMemo(() => {
     const dates = new Set<string>();
     externalWorkouts.forEach((w) => {
+      // Merged externals are represented by their linked log's marker; a day
+      // whose externals are all merged gets no separate external dot.
+      if (isMergedExternal(w, logIds)) return;
       dates.add(format(new Date(w.startedAt), 'yyyy-MM-dd'));
     });
     return dates;
-  }, [externalWorkouts]);
+  }, [externalWorkouts, logIds]);
 
   const entriesForSelectedDate = useMemo(() => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -72,12 +101,13 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
       }
     });
     externalWorkouts.forEach((workout) => {
+      if (isMergedExternal(workout, logIds)) return;
       if (format(new Date(workout.startedAt), 'yyyy-MM-dd') === dateStr) {
         entries.push({ kind: 'external', startedAt: workout.startedAt, workout });
       }
     });
     return entries.sort((a, b) => a.startedAt - b.startedAt);
-  }, [selectedDate, logs, externalWorkouts]);
+  }, [selectedDate, logs, externalWorkouts, logIds]);
 
   const hasFitbullLog = entriesForSelectedDate.some((e) => e.kind === 'log');
 
@@ -146,7 +176,11 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
         <>
           {entriesForSelectedDate.map((entry) =>
             entry.kind === 'log' ? (
-              <WorkoutLogCard key={entry.log.id} log={entry.log} />
+              <WorkoutLogCard
+                key={entry.log.id}
+                log={entry.log}
+                linkedExternal={linkedExternalByLogId.get(entry.log.id)}
+              />
             ) : (
               <ExternalWorkoutCard key={entry.workout._id} workout={entry.workout} />
             )

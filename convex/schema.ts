@@ -390,9 +390,16 @@ export default defineSchema({
     activeEnergyKcal: v.optional(v.number()),
     distanceMeters: v.optional(v.number()),
     avgHeartRateBpm: v.optional(v.number()),
+    // Dedup link to the native workoutLogs row covering the same session
+    // (issue #117). Set server-side by the time-overlap matcher in
+    // convex/workoutOverlap.ts; cleared when the linked log is deleted.
+    linkedWorkoutLogClientId: v.optional(v.string()),
+    // User chose "Show separately" — suppresses auto re-matching for this row.
+    linkDismissed: v.optional(v.boolean()),
   })
     .index("by_user_uuid", ["userId", "healthKitUuid"])
-    .index("by_user_startedAt", ["userId", "startedAt"]),
+    .index("by_user_startedAt", ["userId", "startedAt"])
+    .index("by_user_linkedLog", ["userId", "linkedWorkoutLogClientId"]),
 
   // Daily health metrics from HealthKit — one row per user per local day
   healthDailyMetrics: defineTable({
