@@ -176,6 +176,13 @@ export const ingredientValidator = v.object({
   macros: v.optional(macrosValidator),
 });
 
+// Saved ingredient library (per-user, per-100g macros)
+export const ingredientSourceValidator = v.union(
+  v.literal("barcode"),
+  v.literal("photo"),
+  v.literal("manual")
+);
+
 // Week start day validator
 export const weekStartDayValidator = v.union(
   v.literal("monday"),

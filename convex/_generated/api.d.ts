@@ -27,6 +27,7 @@ import type * as exercises from "../exercises.js";
 import type * as fitnessMetrics from "../fitnessMetrics.js";
 import type * as healthData from "../healthData.js";
 import type * as http from "../http.js";
+import type * as ingredients from "../ingredients.js";
 import type * as mealLogs from "../mealLogs.js";
 import type * as metricsMap from "../metricsMap.js";
 import type * as migrations from "../migrations.js";
@@ -76,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   fitnessMetrics: typeof fitnessMetrics;
   healthData: typeof healthData;
   http: typeof http;
+  ingredients: typeof ingredients;
   mealLogs: typeof mealLogs;
   metricsMap: typeof metricsMap;
   migrations: typeof migrations;

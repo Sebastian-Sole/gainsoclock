@@ -222,6 +222,21 @@ export interface Macros {
   fat: number;
 }
 
+// Saved ingredient library (mirrors convex/validators.ts
+// ingredientSourceValidator and the `ingredients` table)
+export type IngredientSource = 'barcode' | 'photo' | 'manual';
+
+export interface SavedIngredient {
+  id: string; // clientId
+  name: string;
+  per100g: Macros;
+  servingSizeG?: number;
+  barcode?: string;
+  imageUrl?: string;
+  source: IngredientSource;
+  createdAt: string;
+}
+
 export interface Recipe {
   id: string; // clientId
   title: string;

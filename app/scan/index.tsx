@@ -14,7 +14,9 @@ import { Text } from '@/components/ui/text';
 import { LogMealModal } from '@/components/nutrition/log-meal-modal';
 import { parseLocaleNumber } from '@/lib/format';
 import { lightHaptic } from '@/lib/haptics';
+import { scalePer100gMacros } from '@/lib/ingredient-macros';
 import { cn } from '@/lib/utils';
+import { useIngredientStore } from '@/stores/ingredient-store';
 import { useMealLogStore } from '@/stores/meal-log-store';
 import type { Macros } from '@/lib/types';
 
@@ -55,12 +57,14 @@ export default function ScanScreen() {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const addMeal = useMealLogStore((s) => s.addMeal);
+  const addIngredient = useIngredientStore((s) => s.addIngredient);
   const lookupBarcode = useAction(api.barcode.lookupBarcode);
 
   const [state, setState] = useState<ScanState>({ kind: 'scanning' });
   const [torchOn, setTorchOn] = useState(false);
   const [grams, setGrams] = useState('100');
   const [showManualModal, setShowManualModal] = useState(false);
+  const [ingredientSaved, setIngredientSaved] = useState(false);
 
   // Debounce bookkeeping — refs (not state) because the scanner callback
   // fires many times per second and this must not trigger re-renders.
@@ -82,6 +86,7 @@ export default function ScanScreen() {
       .then((result: LookupResult) => {
         if (result.status === 'ok') {
           setGrams(String(result.product.servingSizeG ?? 100));
+          setIngredientSaved(false);
           setState({ kind: 'found', code: data, product: result.product });
         } else if (result.status === 'not_found') {
           setState({ kind: 'not_found', code: data });
@@ -96,19 +101,27 @@ export default function ScanScreen() {
 
   const resumeScanning = () => {
     busyRef.current = false;
+    setIngredientSaved(false);
     setState({ kind: 'scanning' });
   };
 
-  const computeMacros = (product: BarcodeProduct): Macros | null => {
-    const g = parseLocaleNumber(grams);
-    if (g === null || g <= 0) return null;
-    const factor = g / 100;
-    return {
-      calories: Math.round(product.per100g.calories * factor),
-      protein: Math.round(product.per100g.protein * factor),
-      carbs: Math.round(product.per100g.carbs * factor),
-      fat: Math.round(product.per100g.fat * factor),
-    };
+  const computeMacros = (product: BarcodeProduct): Macros | null =>
+    scalePer100gMacros(product.per100g, parseLocaleNumber(grams));
+
+  const handleSaveIngredient = () => {
+    if (state.kind !== 'found' || ingredientSaved) return;
+
+    addIngredient({
+      name: state.product.title,
+      per100g: state.product.per100g,
+      servingSizeG: state.product.servingSizeG,
+      barcode: state.code,
+      imageUrl: state.product.imageUrl,
+      source: 'barcode',
+    });
+
+    lightHaptic();
+    setIngredientSaved(true);
   };
 
   const handleLog = () => {
@@ -284,7 +297,33 @@ export default function ScanScreen() {
                 ))}
               </View>
 
-              <View className="mt-4 flex-row gap-3">
+              <Pressable
+                onPress={handleSaveIngredient}
+                disabled={ingredientSaved}
+                className={cn(
+                  'mt-4 items-center rounded-xl py-4',
+                  ingredientSaved ? 'bg-primary/30' : 'bg-primary',
+                )}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  ingredientSaved
+                    ? 'Ingredient saved to library'
+                    : 'Save this product as an ingredient'
+                }
+                accessibilityState={{ disabled: ingredientSaved }}
+                testID="scan-save-ingredient"
+              >
+                <Text
+                  className={cn(
+                    'font-medium',
+                    ingredientSaved ? 'text-primary-foreground/50' : 'text-primary-foreground',
+                  )}
+                >
+                  {ingredientSaved ? 'Saved to Library' : 'Save Ingredient'}
+                </Text>
+              </Pressable>
+
+              <View className="mt-3 flex-row gap-3">
                 <Pressable
                   onPress={resumeScanning}
                   className="flex-1 items-center rounded-xl border border-border py-4"
@@ -298,8 +337,8 @@ export default function ScanScreen() {
                   onPress={handleLog}
                   disabled={!macroPreview}
                   className={cn(
-                    'flex-1 items-center rounded-xl py-4',
-                    macroPreview ? 'bg-primary' : 'bg-primary/30',
+                    'flex-1 items-center rounded-xl border py-4',
+                    macroPreview ? 'border-primary' : 'border-border',
                   )}
                   accessibilityRole="button"
                   accessibilityLabel="Log this product"
@@ -307,10 +346,7 @@ export default function ScanScreen() {
                   testID="scan-log-button"
                 >
                   <Text
-                    className={cn(
-                      'font-medium',
-                      macroPreview ? 'text-primary-foreground' : 'text-primary-foreground/50',
-                    )}
+                    className={cn('font-medium', macroPreview ? 'text-primary' : 'text-muted-foreground')}
                   >
                     Log It
                   </Text>
