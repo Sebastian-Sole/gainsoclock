@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, ScrollView, Pressable, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useRouter } from 'expo-router';
@@ -7,8 +7,10 @@ import { CheckCircle, Clock, Dumbbell, Target, Heart } from 'lucide-react-native
 import { Icon } from '@/components/ui/icon';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
+import { ConfettiBurst } from '@/components/workout/confetti-burst';
 import { useHistoryStore } from '@/stores/history-store';
 import { formatDuration, exerciseTypeLabel } from '@/lib/format';
+import { successHaptic } from '@/lib/haptics';
 import { useSettingsStore } from '@/stores/settings-store';
 
 export default function WorkoutCompleteScreen() {
@@ -16,8 +18,15 @@ export default function WorkoutCompleteScreen() {
 
   const logs = useHistoryStore((s) => s.logs);
   const lastLog = logs[0];
+  const hasLog = lastLog !== undefined;
   const weightUnit = useSettingsStore((s) => s.weightUnit);
   const healthKitEnabled = useSettingsStore((s) => s.healthKitEnabled);
+
+  // One-shot celebration haptic on mount. Fires regardless of Reduce Motion —
+  // when motion is reduced the haptic + fades ARE the celebration.
+  useEffect(() => {
+    if (hasLog) successHaptic();
+  }, [hasLog]);
 
   if (!lastLog) {
     return (
@@ -120,6 +129,9 @@ export default function WorkoutCompleteScreen() {
           <Text className="font-semibold text-primary-foreground">Done</Text>
         </Pressable>
       </View>
+
+      {/* One-shot celebration overlay (pointer-events none; self-unmounts) */}
+      <ConfettiBurst />
     </SafeAreaView>
   );
 }
