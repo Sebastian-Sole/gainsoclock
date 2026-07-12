@@ -38,12 +38,16 @@ export interface WorkoutSet {
   id: string;
   completed: boolean;
   type: ExerciseType;
+  // Legacy: intervals used to be stored as two sets (a 'work' then a 'rest'
+  // row). They're now a single set with `time` = work and `restTime` = rest.
+  // Kept optional so pre-migration data still parses; new sets never set it.
   variant?: 'work' | 'rest';
   rpe?: number; // 1-10, only when rpeEnabled
   // Metric values — present when the exercise tracks that metric.
   reps?: number;
   weight?: number;
-  time?: number; // duration, seconds
+  time?: number; // duration, seconds (for intervals: the WORK segment)
+  restTime?: number; // intervals-only: the REST segment, seconds
   distance?: number;
   powerAvg?: number; // average watts
   heartRateAvg?: number; // average bpm
@@ -124,6 +128,7 @@ export interface ActiveWorkout {
   isRestTimerActive: boolean;
   restTimeRemaining: number;
   restTimerEndsAt?: number; // Unix ms timestamp — survives backgrounding
+  restTimerExerciseName?: string; // Shown in the rest-timer Live Activity
   planDayId?: string; // If started from a workout plan day
 }
 
@@ -216,6 +221,21 @@ export interface Macros {
   protein: number;
   carbs: number;
   fat: number;
+}
+
+// Saved ingredient library (mirrors convex/validators.ts
+// ingredientSourceValidator and the `ingredients` table)
+export type IngredientSource = 'barcode' | 'photo' | 'manual';
+
+export interface SavedIngredient {
+  id: string; // clientId
+  name: string;
+  per100g: Macros;
+  servingSizeG?: number;
+  barcode?: string;
+  imageUrl?: string;
+  source: IngredientSource;
+  createdAt: string;
 }
 
 export interface Recipe {

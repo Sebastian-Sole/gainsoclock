@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Pressable, TextInput, Keyboard } from 'react-native';
+import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { Minus, Plus } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { cn } from '@/lib/utils';
@@ -78,6 +79,7 @@ export function NumericInput({
         onChangeText={handleChange}
         onBlur={handleBlur}
         keyboardType="number-pad"
+        inputAccessoryViewID={keyboardDoneAccessoryID}
         accessibilityLabel={label}
         className="min-w-[48px] rounded-md border border-input bg-background px-2 py-1 text-center text-foreground"
       />

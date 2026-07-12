@@ -8,6 +8,9 @@ interface RpeInputProps {
   value?: number;
   onValueChange: (rpe: number | undefined) => void;
   disabled?: boolean;
+  /** 'compact' is the legacy set-row chip; 'focus' matches the Focus Mode
+   *  set card's big-value visual language (44pt touch target). */
+  variant?: 'compact' | 'focus';
 }
 
 const RPE_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
@@ -19,7 +22,7 @@ function rpeColor(value: number): string {
   return 'bg-red-500';
 }
 
-export function RpeInput({ value, onValueChange, disabled }: RpeInputProps) {
+export function RpeInput({ value, onValueChange, disabled, variant = 'compact' }: RpeInputProps) {
   const [open, setOpen] = useState(false);
 
   const handleSelect = (rpe: number) => {
@@ -35,18 +38,23 @@ export function RpeInput({ value, onValueChange, disabled }: RpeInputProps) {
         disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel={value ? `RPE ${value}` : 'Set RPE'}
+        accessibilityHint="Opens the rate of perceived exertion picker"
         className={cn(
-          'h-9 min-w-[40px] items-center justify-center rounded-md border border-input px-2',
-          value !== undefined && rpeColor(value)
+          'items-center justify-center border',
+          variant === 'compact'
+            ? 'h-9 min-w-[40px] rounded-md border-input px-2'
+            : 'h-11 min-w-[56px] rounded-xl border-border bg-card px-3',
+          value !== undefined && cn(rpeColor(value), 'border-transparent')
         )}
       >
         <Text
           className={cn(
-            'text-xs font-semibold',
+            'font-semibold',
+            variant === 'compact' ? 'text-xs' : 'text-xl font-extrabold',
             value !== undefined ? 'text-white' : 'text-muted-foreground'
           )}
         >
-          {value !== undefined ? value : 'RPE'}
+          {value !== undefined ? value : variant === 'compact' ? 'RPE' : '—'}
         </Text>
       </Pressable>
 

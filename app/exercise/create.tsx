@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, FlatList, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, ChevronLeft, Search } from 'lucide-react-native';
@@ -12,6 +13,7 @@ import { MetricPicker } from '@/components/workout/metric-picker';
 import { RestTimerPresets } from '@/components/workout/rest-timer-presets';
 import { StepIndicator } from '@/components/shared/step-indicator';
 import { NumericInput } from '@/components/shared/numeric-input';
+import { TimeInput } from '@/components/shared/time-input';
 
 import type { Exercise, ExerciseType, ExerciseDefinition, IntervalDistanceUnit, MetricId, TemplateExercise } from '@/lib/types';
 import { createDefaultSets } from '@/lib/defaults';
@@ -34,10 +36,15 @@ const STEP_CONFIG = 3;
 const STEP_REST = 4;
 const TOTAL_STEPS = 5;
 
+// Suggested duration default bounds: short holds (planks, dead hangs) need
+// sub-minute values; max matches the previous 600-minute NumericInput cap.
+const MIN_SUGGESTED_DURATION_SECONDS = 5;
+const MAX_SUGGESTED_DURATION_SECONDS = 600 * 60;
+
 export default function CreateExerciseScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { source } = useLocalSearchParams<{ source?: string }>();
+  const { source, origin } = useLocalSearchParams<{ source?: string; origin?: string }>();
   const isActiveWorkout = source === 'active';
   const addTemplateExercise = useTemplateCreateStore((s) => s.addExercise);
   const allExercises = useExerciseLibraryStore((s) => s.exercises);
@@ -58,9 +65,9 @@ export default function CreateExerciseScreen() {
   const [repsCount, setRepsCount] = useState(userDefaultRepsCount);
   const [restTime, setRestTime] = useState(userDefaultRestTime);
   const [intervalUnit, setIntervalUnit] = useState<IntervalDistanceUnit>(userDistanceUnit);
-  // Template suggested defaults (duration captured in minutes, stored as seconds).
+  // Template suggested defaults (duration held directly in seconds, matching suggestedTime).
   const [suggestedWeight, setSuggestedWeight] = useState(20);
-  const [suggestedDurationMin, setSuggestedDurationMin] = useState(10);
+  const [suggestedDurationSeconds, setSuggestedDurationSeconds] = useState(600);
   const [suggestedDistance, setSuggestedDistance] = useState(5);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseDefinition | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -171,7 +178,7 @@ export default function CreateExerciseScreen() {
     const suggested = {
       ...(hasReps ? { suggestedReps: repsCount } : {}),
       ...(isTemplateFlow && hasWeight ? { suggestedWeight } : {}),
-      ...(isTemplateFlow && hasDuration ? { suggestedTime: suggestedDurationMin * 60 } : {}),
+      ...(isTemplateFlow && hasDuration ? { suggestedTime: suggestedDurationSeconds } : {}),
       ...(isTemplateFlow && hasDistance ? { suggestedDistance } : {}),
       ...(isIntervals ? { intervalDistanceUnit: intervalUnit } : {}),
     };
@@ -188,6 +195,16 @@ export default function CreateExerciseScreen() {
       };
       if (isActiveWorkout) {
         useWorkoutStore.getState().addExercise(exercise);
+        if (origin === 'summary') {
+          // Added from the workout summary: `router.back()` would land back on
+          // the summary, so pop the summary too and drop into Focus mode
+          // positioned at the exercise that was just added.
+          router.dismissTo({
+            pathname: '/workout/active',
+            params: { focusExerciseId: exercise.id },
+          });
+          return;
+        }
       } else {
         useEditLogStore.getState().addExercise(exercise);
       }
@@ -203,7 +220,7 @@ export default function CreateExerciseScreen() {
         defaultSetsCount: setsCount,
         ...(hasReps ? { suggestedReps: repsCount } : {}),
         ...(hasWeight ? { suggestedWeight } : {}),
-        ...(hasDuration ? { suggestedTime: suggestedDurationMin * 60 } : {}),
+        ...(hasDuration ? { suggestedTime: suggestedDurationSeconds } : {}),
         ...(hasDistance ? { suggestedDistance } : {}),
       };
       addTemplateExercise(templateExercise);
@@ -319,13 +336,11 @@ export default function CreateExerciseScreen() {
           <Animated.View entering={FadeInRight} exiting={FadeOutLeft} key="step-name" className="flex-1">
             <Text className="mb-2 text-2xl font-bold">Exercise Name</Text>
             <Text className="mb-6 text-muted-foreground">Give your exercise a name</Text>
-            <TextInput
+            <Input
               value={name}
               onChangeText={setName}
               placeholder="e.g. Bench Press"
-              placeholderTextColor="#9ca3af"
               autoFocus
-              className="rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
             />
           </Animated.View>
         );
@@ -362,8 +377,15 @@ export default function CreateExerciseScreen() {
               )}
               {isTemplateFlow && hasDuration && (
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-base font-medium">Duration (min)</Text>
-                  <NumericInput value={suggestedDurationMin} onValueChange={setSuggestedDurationMin} min={1} max={600} label="suggested duration in minutes" />
+                  <Text className="text-base font-medium">Duration (h:mm:ss)</Text>
+                  <TimeInput
+                    value={suggestedDurationSeconds}
+                    onValueChange={(seconds) =>
+                      setSuggestedDurationSeconds(Math.min(MAX_SUGGESTED_DURATION_SECONDS, Math.max(MIN_SUGGESTED_DURATION_SECONDS, seconds)))
+                    }
+                    className="w-40"
+                    accessibilityLabel="suggested duration"
+                  />
                 </View>
               )}
               {isTemplateFlow && hasDistance && (

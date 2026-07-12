@@ -10,6 +10,7 @@
 // or labs reads here without a matching plist + review update.
 import { Platform } from 'react-native';
 import { useSettingsStore } from '@/stores/settings-store';
+import { resolveHealthSourceName } from '@/lib/health-source';
 import type { WorkoutLog } from '@/lib/types';
 import type {
   QuantityTypeIdentifier,
@@ -356,11 +357,11 @@ export async function queryExternalWorkouts(
   const results: ExternalWorkoutSample[] = [];
   for (const workout of workouts) {
     try {
-      let sourceName = 'Apple Health';
-      let sourceBundleId: string | undefined;
       const source = workout.sourceRevision?.source;
-      if (source?.name) sourceName = source.name;
-      if (source?.bundleIdentifier) sourceBundleId = source.bundleIdentifier;
+      const sourceBundleId = source?.bundleIdentifier || undefined;
+      // HealthKit sometimes reports the internal placeholder "SourceProxy"
+      // as the source name; sanitize before persisting (issue #105).
+      const sourceName = resolveHealthSourceName(source?.name, sourceBundleId);
 
       // Drop self-authored samples: written by this app, or stamped with our
       // HKExternalUUID metadata at write time.

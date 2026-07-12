@@ -1,0 +1,543 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Pressable, ScrollView } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { ChevronDown, ChevronUp, MoreHorizontal, Plus, Trash2 } from 'lucide-react-native';
+
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
+import { FocusSetCard } from '@/components/workout/focus/focus-set-card';
+import { ProgressRing, useRingColors } from '@/components/shared/progress-ring';
+import { lightHaptic, mediumHaptic, successHaptic } from '@/lib/haptics';
+import { MAX_METRICS_PER_EXERCISE, METRIC_LIST, resolveExerciseMetrics } from '@/lib/metrics';
+import type { Exercise, MetricId, WorkoutSet } from '@/lib/types';
+import { cn } from '@/lib/utils';
+
+export interface FocusLoggerProps {
+  /** WorkoutLogExercise is structurally a superset of Exercise, so the edit
+   *  screen can pass its own exercises straight through. */
+  exercises: Exercise[];
+  weightUnit: string;
+  distanceUnit: string;
+
+  onUpdateSet: (exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => void;
+  onToggleSetComplete: (exerciseId: string, setId: string) => void;
+  /** The caller adds the set(s) — intervals need a work/rest pair. */
+  onAddSet: (exercise: Exercise) => void;
+  onRemoveSet: (exerciseId: string, setId: string) => void;
+  onRemoveExercise: (exerciseId: string) => void;
+  onMoveExercise: (exerciseId: string, direction: 'up' | 'down') => void;
+  onAddMetric: (exerciseId: string, metricId: MetricId) => void;
+  onRemoveMetric: (exerciseId: string, metricId: MetricId) => void;
+  onAddExercise: () => void;
+
+  /** Fired when a set flips to complete — the active logger starts its rest timer. */
+  onSetCompleted?: (exercise: Exercise) => void;
+  /** Fired once every set is complete — the active logger routes to the summary. */
+  onAllComplete?: () => void;
+  /** Advance to the next unlogged set after completing one. Off while editing. */
+  autoAdvance?: boolean;
+  completeLabel?: string;
+  /** Point the pager at this exercise (first set) when set/changed — e.g. after
+   *  adding an exercise from the workout summary (#113). */
+  focusExerciseId?: string;
+}
+
+/**
+ * The one-set-at-a-time swipeable logger. Shared by the active workout and the
+ * edit-log screen so both look and behave identically; the screens supply their
+ * own chrome (top bar, gradient, save/finish) around it.
+ */
+export function FocusLogger({
+  exercises,
+  weightUnit,
+  distanceUnit,
+  onUpdateSet,
+  onToggleSetComplete,
+  onAddSet,
+  onRemoveSet,
+  onRemoveExercise,
+  onMoveExercise,
+  onAddMetric,
+  onRemoveMetric,
+  onAddExercise,
+  onSetCompleted,
+  onAllComplete,
+  autoAdvance = true,
+  completeLabel = 'Complete set',
+  focusExerciseId,
+}: FocusLoggerProps) {
+  const ring = useRingColors();
+
+  const [exIdx, setExIdx] = useState(0);
+  const [setIdx, setSetIdx] = useState(0);
+  const [showAddMetric, setShowAddMetric] = useState(false);
+  const [showExMenu, setShowExMenu] = useState(false);
+  const [pageW, setPageW] = useState(0);
+  const tx = useSharedValue(0);
+
+  const safeExIdx = Math.min(exIdx, Math.max(0, exercises.length - 1));
+  const exercise = exercises[safeExIdx];
+  const sets = exercise?.sets ?? [];
+  const safeSetIdx = Math.min(setIdx, Math.max(0, sets.length - 1));
+
+  const prevSet = sets[safeSetIdx - 1];
+  const curSet = sets[safeSetIdx];
+  const nextSet = sets[safeSetIdx + 1];
+  const hasPrev = !!prevSet;
+  const hasNext = !!nextSet;
+
+  // advanceAfterComplete runs on a timer, after the store has moved on — read
+  // the latest exercises from a ref rather than the closed-over prop.
+  const exercisesRef = useRef(exercises);
+  exercisesRef.current = exercises;
+
+  useEffect(() => {
+    tx.value = -pageW;
+  }, [pageW, safeSetIdx, safeExIdx, tx]);
+
+  // Jump to a caller-designated exercise (its first set) — e.g. one just added
+  // from the summary screen.
+  useEffect(() => {
+    if (!focusExerciseId) return;
+    const idx = exercisesRef.current.findIndex((e) => e.id === focusExerciseId);
+    if (idx !== -1) {
+      setExIdx(idx);
+      setSetIdx(0);
+    }
+  }, [focusExerciseId]);
+
+  const commitPrev = useCallback(() => {
+    lightHaptic();
+    setSetIdx((i) => Math.max(0, i - 1));
+    tx.value = -pageW;
+  }, [pageW, tx]);
+  const commitNext = useCallback(() => {
+    lightHaptic();
+    setSetIdx((i) => Math.min(sets.length - 1, i + 1));
+    tx.value = -pageW;
+  }, [pageW, sets.length, tx]);
+
+  const pan = Gesture.Pan()
+    .activeOffsetX([-16, 16])
+    .onUpdate((e) => {
+      'worklet';
+      let base = -pageW + e.translationX;
+      if ((!hasPrev && e.translationX > 0) || (!hasNext && e.translationX < 0)) {
+        base = -pageW + e.translationX * 0.28; // rubber-band at the ends
+      }
+      tx.value = base;
+    })
+    .onEnd((e) => {
+      'worklet';
+      const threshold = pageW * 0.22;
+      if (e.translationX < -threshold && hasNext) {
+        tx.value = withTiming(-2 * pageW, { duration: 190 }, (f) => {
+          if (f) runOnJS(commitNext)();
+        });
+      } else if (e.translationX > threshold && hasPrev) {
+        tx.value = withTiming(0, { duration: 190 }, (f) => {
+          if (f) runOnJS(commitPrev)();
+        });
+      } else {
+        tx.value = withTiming(-pageW, { duration: 170 });
+      }
+    });
+
+  const rowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
+
+  const goToSet = (i: number) => setSetIdx(Math.max(0, Math.min(i, sets.length - 1)));
+  const selectExercise = (i: number) => {
+    lightHaptic();
+    setExIdx(i);
+    setSetIdx(0);
+  };
+
+  const advanceAfterComplete = useCallback(() => {
+    const list = exercisesRef.current;
+    const ex = list[safeExIdx];
+    if (!ex) return;
+    const nextInEx = ex.sets.findIndex((s) => !s.completed);
+    if (nextInEx !== -1) {
+      setSetIdx(nextInEx);
+      return;
+    }
+    const after = list.findIndex((e, i) => i > safeExIdx && e.sets.some((s) => !s.completed));
+    const any = list.findIndex((e) => e.sets.some((s) => !s.completed));
+    const target = after !== -1 ? after : any;
+    if (target !== -1) {
+      lightHaptic();
+      setExIdx(target);
+      setSetIdx(Math.max(0, list[target].sets.findIndex((s) => !s.completed)));
+      return;
+    }
+    onAllComplete?.();
+  }, [safeExIdx, onAllComplete]);
+
+  const handleComplete = () => {
+    if (!exercise || !curSet) return;
+    if (!curSet.completed) {
+      onToggleSetComplete(exercise.id, curSet.id);
+      successHaptic();
+      onSetCompleted?.(exercise);
+    } else if (!autoAdvance) {
+      // Editing: the CTA is a toggle, so a second press un-logs the set.
+      onToggleSetComplete(exercise.id, curSet.id);
+      lightHaptic();
+      return;
+    }
+    if (autoAdvance) setTimeout(advanceAfterComplete, 360);
+  };
+
+  const handleAddSet = () => {
+    if (!exercise) return;
+    mediumHaptic();
+    onAddSet(exercise);
+    setSetIdx(sets.length);
+  };
+
+  const handleRemoveSet = () => {
+    if (!exercise || sets.length <= 1 || !curSet) return;
+    mediumHaptic();
+    onRemoveSet(exercise.id, curSet.id);
+    setSetIdx((i) => Math.max(0, Math.min(i, sets.length - 2)));
+  };
+
+  const handleMoveExercise = (direction: 'up' | 'down') => {
+    if (!exercise) return;
+    lightHaptic();
+    onMoveExercise(exercise.id, direction);
+    setExIdx((i) => (direction === 'up' ? Math.max(0, i - 1) : Math.min(exercises.length - 1, i + 1)));
+    setShowExMenu(false);
+  };
+
+  const handleRemoveExercise = () => {
+    if (!exercise || exercises.length <= 1) {
+      setShowExMenu(false);
+      return;
+    }
+    mediumHaptic();
+    onRemoveExercise(exercise.id);
+    setExIdx((i) => Math.max(0, Math.min(i, exercises.length - 2)));
+    setSetIdx(0);
+    setShowExMenu(false);
+  };
+
+  if (!exercise) return null;
+
+  const totalSets = exercises.reduce((n, e) => n + e.sets.length, 0);
+  const doneSets = exercises.reduce((n, e) => n + e.sets.filter((s) => s.completed).length, 0);
+  const metrics = resolveExerciseMetrics(exercise.type, exercise.metrics);
+  const addableMetrics = METRIC_LIST.filter((spec) => !metrics.includes(spec.id));
+
+  const renderPage = (pageSet: WorkoutSet | undefined, key: string, editable: boolean) => (
+    <ScrollView
+      key={key}
+      style={{ width: pageW }}
+      contentContainerClassName="px-5 pb-6"
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      showsVerticalScrollIndicator={false}
+    >
+      {pageSet ? (
+        <FocusSetCard
+          exercise={exercise}
+          set={pageSet}
+          weightUnit={weightUnit}
+          distanceUnit={distanceUnit}
+          editable={editable}
+          onUpdate={(updates) => onUpdateSet(exercise.id, pageSet.id, updates)}
+          onAddMetric={() => setShowAddMetric(true)}
+          onRemoveMetric={(m) => onRemoveMetric(exercise.id, m)}
+        />
+      ) : null}
+    </ScrollView>
+  );
+
+  return (
+    <>
+      {/* Session progress */}
+      <View className="flex-row items-center gap-2 px-4 pb-1">
+        <ProgressRing
+          progress={totalSets ? doneSets / totalSets : 0}
+          size={22}
+          strokeWidth={3}
+          color={ring.good}
+          trackColor={ring.track}
+        />
+        <Text className="text-xs text-muted-foreground">
+          <Text className="font-semibold text-foreground">{doneSets}</Text> / {totalSets} sets logged
+        </Text>
+      </View>
+
+      {/* Exercise pills */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        style={{ flexGrow: 0 }}
+        contentContainerClassName="items-center gap-2 px-4 py-2"
+      >
+        {exercises.map((e, i) => {
+          const p = e.sets.length ? e.sets.filter((s) => s.completed).length / e.sets.length : 0;
+          const selected = i === safeExIdx;
+          return (
+            <Pressable
+              key={e.id}
+              onPress={() => selectExercise(i)}
+              accessibilityRole="button"
+              accessibilityLabel={e.name}
+              accessibilityState={{ selected }}
+              className={cn(
+                'flex-row items-center gap-2 rounded-full border py-2 pl-2 pr-3.5',
+                selected ? 'border-primary bg-accent' : 'border-border bg-card'
+              )}
+            >
+              <ProgressRing
+                progress={p}
+                size={18}
+                strokeWidth={3}
+                color={p >= 1 ? ring.good : ring.primary}
+                trackColor={ring.track}
+              />
+              <Text
+                className={cn(
+                  'text-sm font-semibold',
+                  selected ? 'text-foreground' : 'text-muted-foreground'
+                )}
+              >
+                {e.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+        <Pressable
+          onPress={onAddExercise}
+          accessibilityRole="button"
+          accessibilityLabel="Add exercise"
+          testID="workout-add-exercise"
+          className="flex-row items-center gap-1 rounded-full border border-border bg-card px-3.5 py-2"
+        >
+          <Icon as={Plus} size={14} className="text-primary" />
+          <Text className="text-sm font-semibold text-primary">Exercise</Text>
+        </Pressable>
+      </ScrollView>
+
+      {/* Exercise header */}
+      <View className="flex-row items-center justify-between px-5 pb-1 pt-1">
+        <Text className="text-sm text-muted-foreground">
+          {exercise.name} ·{' '}
+          {exercise.type === 'intervals' ? 'intervals' : `${metrics.length} metrics`}
+        </Text>
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            onPress={handleRemoveSet}
+            disabled={sets.length <= 1}
+            accessibilityRole="button"
+            accessibilityLabel="Remove this set"
+            className="h-7 w-8 items-center justify-center rounded-lg border border-border"
+          >
+            <Icon
+              as={Trash2}
+              size={13}
+              className={cn('text-muted-foreground', sets.length <= 1 && 'opacity-30')}
+            />
+          </Pressable>
+          <Pressable
+            onPress={() => setShowExMenu(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Reorder or remove exercise"
+            className="h-7 w-8 items-center justify-center rounded-lg border border-border"
+          >
+            <Icon as={MoreHorizontal} size={16} className="text-muted-foreground" />
+          </Pressable>
+        </View>
+      </View>
+
+      <View className="flex-row items-baseline gap-2 px-5 pb-2">
+        <Text className="text-2xl font-extrabold text-foreground">Set {safeSetIdx + 1}</Text>
+        <Text className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
+          of {sets.length}
+        </Text>
+      </View>
+
+      {/* Swipeable set pager */}
+      <View className="flex-1 overflow-hidden" onLayout={(e) => setPageW(e.nativeEvent.layout.width)}>
+        {pageW > 0 && (
+          <GestureDetector gesture={pan}>
+            <Animated.View style={[{ width: pageW * 3, flexDirection: 'row' }, rowStyle]}>
+              {renderPage(prevSet, `prev-${prevSet?.id ?? 'x'}`, false)}
+              {renderPage(curSet, `cur-${curSet?.id ?? 'x'}`, true)}
+              {renderPage(nextSet, `next-${nextSet?.id ?? 'x'}`, false)}
+            </Animated.View>
+          </GestureDetector>
+        )}
+      </View>
+
+      {/* Set dots */}
+      <View className="flex-row flex-wrap items-center justify-center gap-2 px-4 py-2">
+        {sets.map((s, i) => {
+          const st = s.completed ? 'done' : i === safeSetIdx ? 'cur' : 'todo';
+          return (
+            <Pressable
+              key={s.id}
+              onPress={() => {
+                lightHaptic();
+                goToSet(i);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Set ${i + 1}${s.completed ? ', logged' : ''}`}
+              className={cn(
+                'h-6 w-6 items-center justify-center rounded-full border',
+                st === 'done' && 'border-green-500 bg-green-500',
+                st === 'cur' && 'border-primary',
+                st === 'todo' && 'border-border'
+              )}
+            >
+              <Text
+                className={cn(
+                  'font-mono text-[10px]',
+                  st === 'done' && 'text-white',
+                  st === 'cur' && 'text-primary',
+                  st === 'todo' && 'text-muted-foreground'
+                )}
+              >
+                {s.completed ? '✓' : i + 1}
+              </Text>
+            </Pressable>
+          );
+        })}
+        <Pressable
+          onPress={handleAddSet}
+          accessibilityRole="button"
+          accessibilityLabel="Add set"
+          className="h-6 w-6 items-center justify-center rounded-full border border-dashed border-primary"
+        >
+          <Icon as={Plus} size={12} className="text-primary" />
+        </Pressable>
+      </View>
+
+      {/* CTA */}
+      <View className="px-5 pb-2 pt-1">
+        <Pressable
+          onPress={handleComplete}
+          accessibilityRole="button"
+          accessibilityLabel={curSet?.completed ? 'Next set' : completeLabel}
+          testID="focus-complete-set"
+          className={cn(
+            'h-14 items-center justify-center rounded-2xl',
+            curSet?.completed ? 'border border-green-500 bg-card' : 'bg-primary'
+          )}
+        >
+          <Text
+            className={cn(
+              'text-base font-bold',
+              curSet?.completed ? 'text-green-500' : 'text-primary-foreground'
+            )}
+          >
+            {curSet?.completed ? 'Set logged ✓' : completeLabel}
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Add-metric sheet */}
+      {showAddMetric && (
+        <View className="absolute inset-0" style={{ zIndex: 60 }}>
+          <Pressable className="absolute inset-0 bg-black/50" onPress={() => setShowAddMetric(false)} />
+          <View className="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-border bg-card px-5 pb-10 pt-4">
+            <View className="mb-3 h-1 w-9 self-center rounded-full bg-border" />
+            <Text className="text-base font-bold text-foreground">Track another metric</Text>
+            <Text className="mb-3 text-xs text-muted-foreground">
+              Adds it to every set of {exercise.name} · leave it blank where it doesn&apos;t apply.
+            </Text>
+            {addableMetrics.length === 0 ? (
+              <Text className="py-4 text-sm text-muted-foreground">
+                {metrics.length >= MAX_METRICS_PER_EXERCISE
+                  ? `That's the ${MAX_METRICS_PER_EXERCISE}-metric limit — remove one first.`
+                  : 'Every metric is already tracked.'}
+              </Text>
+            ) : (
+              <View className="flex-row flex-wrap gap-2">
+                {addableMetrics.map((spec) => (
+                  <Pressable
+                    key={spec.id}
+                    onPress={() => {
+                      lightHaptic();
+                      onAddMetric(exercise.id, spec.id);
+                      setShowAddMetric(false);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add ${spec.label}`}
+                    className="rounded-xl border border-border bg-secondary px-3.5 py-2.5"
+                  >
+                    <Text className="text-sm font-semibold text-foreground">{spec.label}</Text>
+                    {spec.unit ? (
+                      <Text className="font-mono text-[10px] uppercase text-muted-foreground">
+                        {spec.unit}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Exercise options sheet */}
+      {showExMenu && (
+        <View className="absolute inset-0" style={{ zIndex: 60 }}>
+          <Pressable className="absolute inset-0 bg-black/50" onPress={() => setShowExMenu(false)} />
+          <View className="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-border bg-card px-5 pb-10 pt-4">
+            <View className="mb-3 h-1 w-9 self-center rounded-full bg-border" />
+            <Text className="mb-3 text-base font-bold text-foreground">{exercise.name}</Text>
+            <Pressable
+              onPress={() => handleMoveExercise('up')}
+              disabled={safeExIdx === 0}
+              accessibilityRole="button"
+              accessibilityLabel="Move exercise earlier"
+              className={cn(
+                'flex-row items-center gap-3 rounded-xl border border-border px-4 py-3',
+                safeExIdx === 0 && 'opacity-40'
+              )}
+            >
+              <Icon as={ChevronUp} size={18} className="text-foreground" />
+              <Text className="font-semibold text-foreground">Move earlier</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => handleMoveExercise('down')}
+              disabled={safeExIdx === exercises.length - 1}
+              accessibilityRole="button"
+              accessibilityLabel="Move exercise later"
+              className={cn(
+                'mt-2 flex-row items-center gap-3 rounded-xl border border-border px-4 py-3',
+                safeExIdx === exercises.length - 1 && 'opacity-40'
+              )}
+            >
+              <Icon as={ChevronDown} size={18} className="text-foreground" />
+              <Text className="font-semibold text-foreground">Move later</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleRemoveExercise}
+              disabled={exercises.length <= 1}
+              accessibilityRole="button"
+              accessibilityLabel="Remove exercise"
+              className={cn(
+                'mt-2 flex-row items-center gap-3 rounded-xl border border-border px-4 py-3',
+                exercises.length <= 1 && 'opacity-40'
+              )}
+            >
+              <Icon as={Trash2} size={18} className="text-destructive" />
+              <Text className="font-semibold text-destructive">Remove exercise</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+    </>
+  );
+}

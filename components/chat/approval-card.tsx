@@ -27,6 +27,17 @@ interface ApprovalCardProps {
   conversationClientId: string;
 }
 
+// Type-aware confirmation labels so the user can tell WHAT just happened —
+// especially "created a new plan" vs "updated the existing plan" (issue #102).
+const APPROVED_LABELS: Record<string, string> = {
+  create_template: 'Template saved',
+  create_plan: 'New plan created',
+  update_plan: 'Existing plan updated',
+  create_recipe: 'Recipe saved',
+  log_meal: 'Meal logged',
+  set_nutrition_goals: 'Nutrition goals updated',
+};
+
 export function ApprovalCard({ messageId, approval, conversationClientId }: ApprovalCardProps) {
   const approveAction = useMutation(api.chat.approveAction);
   const rejectAction = useMutation(api.chat.rejectAction);
@@ -36,6 +47,12 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
   const { colorScheme } = useColorScheme();
 
   const payload = JSON.parse(approval.payload);
+  const payloadName: string | undefined =
+    typeof payload?.name === 'string' && payload.name.length > 0
+      ? payload.name
+      : typeof payload?.title === 'string' && payload.title.length > 0
+        ? payload.title
+        : undefined;
   const isPending = approval.status === 'pending';
   const isApproved = approval.status === 'approved';
   const isRejected = approval.status === 'rejected';
@@ -136,7 +153,9 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
         {isApproved && (
           <View className="flex-row items-center justify-center gap-2 border-t border-border bg-green-500/10 py-2">
             <Icon as={Check} size={14} className="text-green-500" />
-            <Text className="text-xs font-medium text-green-500">Approved & Saved</Text>
+            <Text className="text-xs font-medium text-green-500">
+              {APPROVED_LABELS[approval.type] ?? 'Approved & Saved'}
+            </Text>
           </View>
         )}
 
@@ -152,7 +171,9 @@ export function ApprovalCard({ messageId, approval, conversationClientId }: Appr
       <Modal visible={detailOpen} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView className="flex-1 bg-background">
           <View className="flex-row items-center justify-between border-b border-border px-4 py-3">
-            <Text className="text-lg font-bold">Details</Text>
+            <Text className="flex-1 text-lg font-bold" numberOfLines={1}>
+              {payloadName ?? 'Details'}
+            </Text>
             <Pressable onPress={() => setDetailOpen(false)} className="p-1">
               <Icon as={X} size={24} className="text-foreground" />
             </Pressable>

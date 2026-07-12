@@ -7,6 +7,7 @@ import { useHistoryStore } from "@/stores/history-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useExerciseLibraryStore } from "@/stores/exercise-library-store";
 import { useRecipeStore } from "@/stores/recipe-store";
+import { useIngredientStore } from "@/stores/ingredient-store";
 import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useSubscriptionStore } from "@/stores/subscription-store";
 import { usePlanStore } from "@/stores/plan-store";
@@ -75,6 +76,7 @@ function SyncEngine() {
   );
   const settings = useQuery(api.settings.get);
   const recipes = useQuery(api.recipes.listRecipes);
+  const ingredientLibrary = useQuery(api.ingredients.list);
   const nutritionGoals = useQuery(api.nutritionGoals.get);
   const subscription = useQuery(api.subscriptions.getSubscriptionState);
   const plans = useQuery(api.plans.listPlans);
@@ -195,6 +197,12 @@ function SyncEngine() {
     if (recipes === undefined) return;
     useRecipeStore.getState().hydrateFromServer(recipes);
   }, [recipes]);
+
+  // Hydrate ingredient library from server
+  useEffect(() => {
+    if (ingredientLibrary === undefined) return;
+    useIngredientStore.getState().hydrateFromServer(ingredientLibrary);
+  }, [ingredientLibrary]);
 
   // Hydrate nutrition goals from server
   useEffect(() => {

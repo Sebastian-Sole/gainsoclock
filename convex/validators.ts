@@ -75,6 +75,7 @@ export const flatSetValidator = v.object({
   reps: v.optional(v.number()),
   weight: v.optional(v.number()),
   time: v.optional(v.number()),
+  restTime: v.optional(v.number()),
   distance: v.optional(v.number()),
   powerAvg: v.optional(v.number()),
   heartRateAvg: v.optional(v.number()),
@@ -174,6 +175,13 @@ export const ingredientValidator = v.object({
   unit: v.optional(v.string()),
   macros: v.optional(macrosValidator),
 });
+
+// Saved ingredient library (per-user, per-100g macros)
+export const ingredientSourceValidator = v.union(
+  v.literal("barcode"),
+  v.literal("photo"),
+  v.literal("manual")
+);
 
 // Week start day validator
 export const weekStartDayValidator = v.union(

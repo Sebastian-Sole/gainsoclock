@@ -9,12 +9,16 @@ import {
   View,
 } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Icon } from '@/components/ui/icon';
-import { Plus, Trash2, ChevronDown, ChevronUp, Lock } from 'lucide-react-native';
+import { Plus, Trash2, ChevronDown, ChevronUp, Lock, BookOpen } from 'lucide-react-native';
+import { capture } from '@/lib/analytics';
 import { lightHaptic } from '@/lib/haptics';
 import { useRecipeStore } from '@/stores/recipe-store';
-import type { Ingredient, Macros } from '@/lib/types';
+import { IngredientLibraryModal } from '@/components/nutrition/ingredient-library-modal';
+import { scalePer100gMacros } from '@/lib/ingredient-macros';
+import type { Ingredient, Macros, SavedIngredient } from '@/lib/types';
 import { parseLocaleNumber } from '@/lib/format';
 
 const SOURCE_TAGS = ['AI Generated', 'User Created'];
@@ -52,6 +56,7 @@ export default function CreateRecipeScreen() {
   const [prepTime, setPrepTime] = useState('');
   const [cookTime, setCookTime] = useState('');
   const [tags, setTags] = useState('');
+  const [showLibraryPicker, setShowLibraryPicker] = useState(false);
 
   // Raw text for macro fields while they're being edited, keyed by
   // `${ingredientKey}:${field}`. Macros are stored as numbers, which can't
@@ -153,6 +158,13 @@ export default function CreateRecipeScreen() {
       updateRecipe(params.recipeId, recipeData);
     } else {
       addRecipe(recipeData);
+      capture({
+        name: 'recipe_created',
+        props: {
+          ingredientCount: cleanIngredients.length,
+          hasMacros: calculatedMacros !== undefined,
+        },
+      });
     }
 
     lightHaptic();
@@ -207,6 +219,27 @@ export default function CreateRecipeScreen() {
     setIngredients((prev) => [...prev, emptyIngredient()]);
   };
 
+  // Insert a row from the saved ingredient library: absolute macros for the
+  // amount used, computed from the library's per-100g values.
+  const addIngredientFromLibrary = (saved: SavedIngredient, grams: number) => {
+    const macros = scalePer100gMacros(saved.per100g, grams);
+    const row: IngredientDraft = {
+      key: nextKey(),
+      name: saved.name,
+      amount: String(grams),
+      unit: 'g',
+      macros: macros ?? undefined,
+      showMacros: !!macros,
+    };
+    setIngredients((prev) => {
+      // Replace a single untouched empty row (the initial placeholder).
+      if (prev.length === 1 && !prev[0].name.trim() && !prev[0].amount.trim()) {
+        return [row];
+      }
+      return [...prev, row];
+    });
+  };
+
   const addInstructionStep = () => {
     lightHaptic();
     setInstructions((prev) => [...prev, '']);
@@ -242,13 +275,12 @@ export default function CreateRecipeScreen() {
         >
           {/* Title */}
           <Text className="mb-2 text-sm font-medium text-muted-foreground">TITLE</Text>
-          <TextInput
+          <Input
             value={title}
             onChangeText={setTitle}
             placeholder="e.g. High-Protein Chicken Bowl"
-            placeholderTextColor="#9ca3af"
             autoFocus={!isEditing}
-            className="mb-4 rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
+            className="mb-4"
           />
 
           {/* Description */}
@@ -429,13 +461,31 @@ export default function CreateRecipeScreen() {
             </View>
           )}
 
-          <Pressable
-            onPress={addIngredientRow}
-            className="mb-4 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-3"
-          >
-            <Icon as={Plus} size={18} className="text-primary" />
-            <Text className="font-medium text-primary">Add Ingredient</Text>
-          </Pressable>
+          <View className="mb-4 flex-row gap-2">
+            <Pressable
+              onPress={addIngredientRow}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-3"
+              accessibilityRole="button"
+              accessibilityLabel="Add empty ingredient row"
+              testID="recipe-add-ingredient"
+            >
+              <Icon as={Plus} size={18} className="text-primary" />
+              <Text className="font-medium text-primary">Add Ingredient</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                lightHaptic();
+                setShowLibraryPicker(true);
+              }}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-3"
+              accessibilityRole="button"
+              accessibilityLabel="Add ingredient from saved library"
+              testID="recipe-add-from-library"
+            >
+              <Icon as={BookOpen} size={18} className="text-primary" />
+              <Text className="font-medium text-primary">From Library</Text>
+            </Pressable>
+          </View>
 
           {/* Auto-calculated macros */}
           {calculatedMacros && (
@@ -544,6 +594,12 @@ export default function CreateRecipeScreen() {
 
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <IngredientLibraryModal
+        visible={showLibraryPicker}
+        onClose={() => setShowLibraryPicker(false)}
+        onPick={addIngredientFromLibrary}
+      />
     </>
   );
 }

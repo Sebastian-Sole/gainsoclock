@@ -14,8 +14,10 @@ import {
   schedulePostWorkoutNotification,
   rescheduleReminderAfterWorkout,
   cancelStreakRiskNotification,
+  cancelRestTimerNotification,
 } from '@/lib/notifications';
 import { successHaptic } from '@/lib/haptics';
+import { endRestActivity } from '@/lib/live-activity';
 import type { WorkoutLog, WorkoutLogExercise } from '@/lib/types';
 
 // How long to wait for AI workout feedback before falling back to the static
@@ -36,6 +38,13 @@ export function useFinishWorkout() {
   const generateWorkoutFeedback = useAction(api.workoutFeedback.generateFeedback);
 
   const finishWorkout = useCallback(() => {
+    // Cancel the rest-timer notification deterministically. Relying on the
+    // isActive effect in use-rest-timer.ts races with the navigation below,
+    // which unmounts the hook before endWorkout() flips isActive (#100).
+    // Cancelling a non-existent notification is a no-op, so this is safe.
+    // Same reasoning for the rest-timer Live Activity (Dynamic Island).
+    cancelRestTimerNotification();
+    endRestActivity();
     // Read (don't clear) so the summary/logger keep rendering content until the
     // route swaps — clearing first blanks them out (black) mid-transition.
     const workout = useWorkoutStore.getState().activeWorkout;
@@ -135,6 +144,10 @@ export function useFinishWorkout() {
   }, [addLog, generateWorkoutFeedback, router]);
 
   const discardWorkout = useCallback(() => {
+    // Same as finishWorkout: cancel before navigating so the OS notification
+    // and Live Activity can't outlive the workout (#100).
+    cancelRestTimerNotification();
+    endRestActivity();
     // Collapse to the logger first (still has content), then clear — the
     // logger's no-workout guard dismisses the modal out to the tabs. Clearing
     // before navigating would blank the summary/logger mid-transition (black).

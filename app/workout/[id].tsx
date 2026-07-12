@@ -1,25 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Pressable, Alert, TextInput, Platform } from 'react-native';
+import { View, Pressable, Alert, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, X, ChevronUp, ChevronDown } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Dumbbell, X } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { Icon } from '@/components/ui/icon';
-import Animated, { FadeInDown, FadeOutDown, Layout } from 'react-native-reanimated';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 
-import { SetRow } from '@/components/workout/set-row';
-import { SetHeaderRow } from '@/components/workout/set-header-row';
+import { FocusLogger } from '@/components/workout/focus/focus-logger';
+import { FocusGradient } from '@/components/workout/focus/focus-gradient';
 import { useEditLogStore } from '@/stores/edit-log-store';
 import { useHistoryStore } from '@/stores/history-store';
 import { useSettingsStore } from '@/stores/settings-store';
-import { createDefaultSet, createEmptyLog, createIntervalPair, createLogFromTemplate } from '@/lib/defaults';
-import { lightHaptic, mediumHaptic, successHaptic } from '@/lib/haptics';
 import { useTemplateStore } from '@/stores/template-store';
-import type { WorkoutLogExercise, WorkoutSet } from '@/lib/types';
+import { createDefaultSet, createEmptyLog, createIntervalSet, createLogFromTemplate } from '@/lib/defaults';
+import { generateId } from '@/lib/id';
+import { successHaptic } from '@/lib/haptics';
+import type { Exercise, WorkoutSet } from '@/lib/types';
 
 export default function EditLogScreen() {
   const { id, date, templateId } = useLocalSearchParams<{ id: string; date?: string; templateId?: string }>();
@@ -34,7 +34,7 @@ export default function EditLogScreen() {
   const updateLog = useHistoryStore((s) => s.updateLog);
   const addLog = useHistoryStore((s) => s.addLog);
   const originalLog = isNewLog ? undefined : logs.find((l) => l.id === id);
-  const template = useTemplateStore((s) => templateId ? s.templates.find((t) => t.id === templateId) : undefined);
+  const template = useTemplateStore((s) => (templateId ? s.templates.find((t) => t.id === templateId) : undefined));
 
   const editingLog = useEditLogStore((s) => s.editingLog);
   const loadLog = useEditLogStore((s) => s.loadLog);
@@ -42,24 +42,16 @@ export default function EditLogScreen() {
   const setTemplateName = useEditLogStore((s) => s.setTemplateName);
   const setStartedAt = useEditLogStore((s) => s.setStartedAt);
   const setCompletedAt = useEditLogStore((s) => s.setCompletedAt);
-  const addExercise = useEditLogStore((s) => s.addExercise);
   const removeExercise = useEditLogStore((s) => s.removeExercise);
-  const reorderExercises = useEditLogStore((s) => s.reorderExercises);
+  const moveExercise = useEditLogStore((s) => s.moveExercise);
+  const addExerciseMetric = useEditLogStore((s) => s.addExerciseMetric);
+  const removeExerciseMetric = useEditLogStore((s) => s.removeExerciseMetric);
   const addSet = useEditLogStore((s) => s.addSet);
   const removeSet = useEditLogStore((s) => s.removeSet);
   const updateSet = useEditLogStore((s) => s.updateSet);
-  const updateSetsFromIndex = useEditLogStore((s) => s.updateSetsFromIndex);
   const toggleSetComplete = useEditLogStore((s) => s.toggleSetComplete);
 
-  // "Apply to all below" prompt — shown when user edits any set
-  const [applyAllPrompt, setApplyAllPrompt] = useState<{
-    exerciseId: string;
-    setIndex: number;
-    field: string;
-    value: number;
-    label: string;
-  } | null>(null);
-
+  const [showDetails, setShowDetails] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showCompletedPicker, setShowCompletedPicker] = useState(false);
   const [startPickerMode, setStartPickerMode] = useState<'date' | 'time'>('date');
@@ -68,11 +60,7 @@ export default function EditLogScreen() {
   useEffect(() => {
     if (isNewLog) {
       const targetDate = date ? new Date(date) : new Date();
-      if (template) {
-        loadLog(createLogFromTemplate(targetDate, template));
-      } else {
-        loadLog(createEmptyLog(targetDate));
-      }
+      loadLog(template ? createLogFromTemplate(targetDate, template) : createEmptyLog(targetDate));
     } else if (originalLog) {
       loadLog(originalLog);
     }
@@ -84,9 +72,7 @@ export default function EditLogScreen() {
     const duration = Math.max(
       0,
       Math.round(
-        (new Date(editingLog.completedAt).getTime() -
-          new Date(editingLog.startedAt).getTime()) /
-          1000
+        (new Date(editingLog.completedAt).getTime() - new Date(editingLog.startedAt).getTime()) / 1000
       )
     );
     const logData = {
@@ -141,40 +127,27 @@ export default function EditLogScreen() {
     saveLog();
   };
 
-  const handleAddSet = (exercise: WorkoutLogExercise) => {
+  const handleAddSet = (exercise: Exercise) => {
     if (exercise.type === 'intervals') {
       const lastSet = exercise.sets[exercise.sets.length - 1];
-      const [work, rest] = createIntervalPair(lastSet?.distanceUnit ?? 'km');
-      addSet(exercise.id, work);
-      addSet(exercise.id, rest);
+      addSet(exercise.id, createIntervalSet(lastSet?.distanceUnit ?? 'km'));
       return;
     }
-    const newSet = createDefaultSet(exercise.type, exercise.metrics);
+    const last = exercise.sets[exercise.sets.length - 1];
+    const newSet: WorkoutSet = last
+      ? { ...last, id: generateId(), completed: false }
+      : createDefaultSet(exercise.type, exercise.metrics);
     addSet(exercise.id, newSet);
   };
 
-  const handleMoveExercise = (index: number, direction: 'up' | 'down') => {
-    if (!editingLog) return;
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= editingLog.exercises.length) return;
-    const exercises = [...editingLog.exercises];
-    [exercises[index], exercises[targetIndex]] = [exercises[targetIndex], exercises[index]];
-    reorderExercises(exercises);
-    mediumHaptic();
-  };
-
-  const handleAddExercise = () => {
-    router.push('/exercise/create?source=edit-log');
-  };
-
-  const handleStartDateChange = (_: DateTimePickerEvent, date?: Date) => {
+  const handleStartDateChange = (_: DateTimePickerEvent, picked?: Date) => {
     if (Platform.OS === 'android') setShowStartPicker(false);
-    if (date && editingLog) {
-      if (date.getTime() > new Date(editingLog.completedAt).getTime()) {
+    if (picked && editingLog) {
+      if (picked.getTime() > new Date(editingLog.completedAt).getTime()) {
         Alert.alert('Invalid Time', 'Start time cannot be after end time.');
         return;
       }
-      setStartedAt(date.toISOString());
+      setStartedAt(picked.toISOString());
       if (Platform.OS === 'android' && startPickerMode === 'date') {
         setStartPickerMode('time');
         setShowStartPicker(true);
@@ -182,19 +155,26 @@ export default function EditLogScreen() {
     }
   };
 
-  const handleCompletedDateChange = (_: DateTimePickerEvent, date?: Date) => {
+  const handleCompletedDateChange = (_: DateTimePickerEvent, picked?: Date) => {
     if (Platform.OS === 'android') setShowCompletedPicker(false);
-    if (date && editingLog) {
-      if (date.getTime() < new Date(editingLog.startedAt).getTime()) {
+    if (picked && editingLog) {
+      if (picked.getTime() < new Date(editingLog.startedAt).getTime()) {
         Alert.alert('Invalid Time', 'End time cannot be before start time.');
         return;
       }
-      setCompletedAt(date.toISOString());
+      setCompletedAt(picked.toISOString());
       if (Platform.OS === 'android' && completedPickerMode === 'date') {
         setCompletedPickerMode('time');
         setShowCompletedPicker(true);
       }
     }
+  };
+
+  const confirmCancel = () => {
+    Alert.alert('Discard Workout?', 'This workout has not been saved yet.', [
+      { text: 'Keep Editing', style: 'cancel' },
+      { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+    ]);
   };
 
   if (!editingLog && !isNewLog) {
@@ -207,262 +187,167 @@ export default function EditLogScreen() {
 
   if (!editingLog) return null;
 
-  const totalSets = editingLog.exercises.reduce((t, e) => t + e.sets.length, 0);
-  const completedSets = editingLog.exercises.reduce(
-    (t, e) => t + e.sets.filter((s) => s.completed).length,
-    0
-  );
+  const exercises = editingLog.exercises;
+  const startedLabel = format(new Date(editingLog.startedAt), 'MMM d, yyyy h:mm a');
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: isNewLog ? 'Log Workout' : 'Edit Workout',
-          headerLeft: isNewLog
-            ? () => (
-                <Pressable
-                  onPress={() => {
-                    Alert.alert('Discard Workout?', 'This workout has not been saved yet.', [
-                      { text: 'Keep Editing', style: 'cancel' },
-                      {
-                        text: 'Discard',
-                        style: 'destructive',
-                        onPress: () => router.back(),
-                      },
-                    ]);
-                  }}
-                >
-                  <Text className="text-base text-primary">Cancel</Text>
-                </Pressable>
-              )
-            : undefined,
-          headerRight: () => (
-            <Pressable onPress={handleSave}>
-              <Text className="text-base font-semibold text-primary">Save</Text>
+      {/* No native header: it would paint an opaque band over the top glow.
+          A custom bar lets FocusGradient bleed from the true top, matching
+          the active logger. */}
+      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']} testID="workout-edit-screen">
+        <FocusGradient />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+          {/* Top bar */}
+          <View className="flex-row items-center gap-3 px-4 pb-1 pt-1">
+            <Pressable
+              onPress={isNewLog ? confirmCancel : () => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel={isNewLog ? 'Discard workout' : 'Back'}
+              className="h-9 w-9 items-center justify-center rounded-xl border border-border"
+            >
+              <Icon as={X} size={18} className="text-muted-foreground" />
             </Pressable>
-          ),
-        }}
-      />
-      <ScrollView
-        className="flex-1 bg-background"
-        contentContainerClassName="px-4 pb-32"
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
-      >
-        {/* Workout Name */}
-        <Text className="mb-2 mt-4 text-sm font-medium text-muted-foreground">
-          WORKOUT NAME
-        </Text>
-        <TextInput
-          value={editingLog.templateName}
-          onChangeText={setTemplateName}
-          placeholder="e.g. Push Day"
-          placeholderTextColor="#9ca3af"
-          className="mb-6 rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
-        />
-
-        {/* Date/Time */}
-        <Text className="mb-2 text-sm font-medium text-muted-foreground">
-          STARTED AT
-        </Text>
-        <Pressable
-          onPress={() => {
-            setStartPickerMode('date');
-            setShowStartPicker(true);
-          }}
-          className="mb-4 rounded-xl border border-input bg-card px-4 py-4"
-        >
-          <Text className="text-base text-foreground">
-            {format(new Date(editingLog.startedAt), 'MMM d, yyyy h:mm a')}
-          </Text>
-        </Pressable>
-        {showStartPicker && (
-          <View className="mb-4">
-            <DateTimePicker
-              value={new Date(editingLog.startedAt)}
-              mode={Platform.OS === 'ios' ? 'datetime' : startPickerMode}
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleStartDateChange}
-              themeVariant={isDark ? 'dark' : 'light'}
-            />
-            {Platform.OS === 'ios' && (
-              <Pressable
-                onPress={() => setShowStartPicker(false)}
-                className="mt-2 items-center"
-              >
-                <Text className="text-sm font-medium text-primary">Done</Text>
-              </Pressable>
-            )}
+            <Text className="text-base font-semibold text-foreground">
+              {isNewLog ? 'Log Workout' : 'Edit Workout'}
+            </Text>
+            <Pressable
+              onPress={handleSave}
+              accessibilityRole="button"
+              accessibilityLabel="Save workout"
+              testID="edit-workout-save"
+              className="ml-auto rounded-lg bg-primary px-4 py-1.5"
+            >
+              <Text className="text-xs font-semibold text-primary-foreground">Save</Text>
+            </Pressable>
           </View>
-        )}
 
-        <Text className="mb-2 text-sm font-medium text-muted-foreground">
-          COMPLETED AT
-        </Text>
-        <Pressable
-          onPress={() => {
-            setCompletedPickerMode('date');
-            setShowCompletedPicker(true);
-          }}
-          className="mb-6 rounded-xl border border-input bg-card px-4 py-4"
-        >
-          <Text className="text-base text-foreground">
-            {format(new Date(editingLog.completedAt), 'MMM d, yyyy h:mm a')}
-          </Text>
-        </Pressable>
-        {showCompletedPicker && (
-          <View className="mb-6">
-            <DateTimePicker
-              value={new Date(editingLog.completedAt)}
-              mode={Platform.OS === 'ios' ? 'datetime' : completedPickerMode}
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleCompletedDateChange}
-              themeVariant={isDark ? 'dark' : 'light'}
-            />
-            {Platform.OS === 'ios' && (
-              <Pressable
-                onPress={() => setShowCompletedPicker(false)}
-                className="mt-2 items-center"
-              >
-                <Text className="text-sm font-medium text-primary">Done</Text>
-              </Pressable>
-            )}
-          </View>
-        )}
-
-        {/* Exercises */}
-        <View className="mb-4 flex-row items-center justify-between">
-          <Text className="text-sm font-medium text-muted-foreground">
-            EXERCISES
-          </Text>
-          <Badge variant="secondary">
-            <Text className="text-xs">{completedSets}/{totalSets} sets</Text>
-          </Badge>
-        </View>
-
-        {editingLog.exercises.map((exercise, exerciseIndex) => (
-          <View key={exercise.id} className="mt-4">
-            {/* Exercise Header */}
-            <View className="mb-2 flex-row items-center justify-between">
-              <View className="flex-1 flex-row items-center gap-1">
-                <View className="items-center justify-center">
-                  <Pressable
-                    onPress={() => handleMoveExercise(exerciseIndex, 'up')}
-                    disabled={exerciseIndex === 0}
-                    className="h-6 w-6 items-center justify-center"
-                    style={{ opacity: exerciseIndex === 0 ? 0.25 : 1 }}
-                  >
-                    <Icon as={ChevronUp} size={14} className="text-foreground" />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => handleMoveExercise(exerciseIndex, 'down')}
-                    disabled={exerciseIndex === editingLog.exercises.length - 1}
-                    className="h-6 w-6 items-center justify-center"
-                    style={{ opacity: exerciseIndex === editingLog.exercises.length - 1 ? 0.25 : 1 }}
-                  >
-                    <Icon as={ChevronDown} size={14} className="text-foreground" />
-                  </Pressable>
-                </View>
-                <Text className="flex-1 text-base font-semibold" numberOfLines={1}>{exercise.name}</Text>
-              </View>
-              <View className="flex-row items-center gap-1">
-                <Pressable
-                  onPress={() => handleAddSet(exercise)}
-                  className="h-8 w-8 items-center justify-center rounded-md bg-secondary"
-                >
-                  <Icon as={Plus} size={14} className="text-foreground" />
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    Alert.alert('Remove Exercise', `Remove ${exercise.name}?`, [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Remove',
-                        style: 'destructive',
-                        onPress: () => removeExercise(exercise.id),
-                      },
-                    ]);
-                  }}
-                  className="h-8 w-8 items-center justify-center"
-                >
-                  <Icon as={X} size={14} className="text-destructive" />
-                </Pressable>
-              </View>
+          {/* Details — collapsed by default so the logger stays the focus. */}
+          <Pressable
+            onPress={() => setShowDetails((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={showDetails ? 'Hide workout details' : 'Show workout details'}
+            accessibilityState={{ expanded: showDetails }}
+            className="flex-row items-center gap-2 px-4 py-2"
+          >
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                {editingLog.templateName || 'Untitled workout'}
+              </Text>
+              <Text className="text-xs text-muted-foreground">{startedLabel}</Text>
             </View>
+            <Icon as={showDetails ? ChevronUp : ChevronDown} size={18} className="text-muted-foreground" />
+          </Pressable>
 
-            {/* Column headers */}
-            <SetHeaderRow type={exercise.type} metrics={exercise.metrics} />
+          {showDetails && (
+            <ScrollView className="max-h-[340px]" contentContainerClassName="px-4 pb-3" keyboardShouldPersistTaps="handled">
+              <Text className="mb-2 text-sm font-medium text-muted-foreground">WORKOUT NAME</Text>
+              <Input
+                value={editingLog.templateName}
+                onChangeText={setTemplateName}
+                placeholder="e.g. Push Day"
+                className="mb-4"
+              />
 
-            {/* Set rows */}
-            <Animated.View className="gap-1">
-              {exercise.sets.map((set, setIndex) => (
-                <Animated.View key={set.id} layout={Layout.duration(200)}>
-                  <SetRow
-                    set={set}
-                    metrics={exercise.metrics}
-                    index={setIndex}
-                    onUpdate={(updates) => {
-                      updateSet(exercise.id, set.id, updates);
-                      // Show "Apply to all below" when editing a set that has sets after it
-                      if (setIndex >= exercise.sets.length - 1) return;
-                      if ('weight' in updates && updates.weight !== undefined) {
-                        setApplyAllPrompt({ exerciseId: exercise.id, setIndex, field: 'weight', value: updates.weight, label: `${updates.weight} ${weightUnit}` });
-                      } else if ('reps' in updates && updates.reps !== undefined) {
-                        setApplyAllPrompt({ exerciseId: exercise.id, setIndex, field: 'reps', value: updates.reps, label: `${updates.reps} reps` });
-                      } else if ('distance' in updates && updates.distance !== undefined) {
-                        setApplyAllPrompt({ exerciseId: exercise.id, setIndex, field: 'distance', value: updates.distance, label: `${updates.distance} ${distanceUnit}` });
-                      }
-                    }}
-                    onToggleComplete={() => {
-                      toggleSetComplete(exercise.id, set.id);
-                      lightHaptic();
-                    }}
-                    onRemove={() => removeSet(exercise.id, set.id)}
+              <Text className="mb-2 text-sm font-medium text-muted-foreground">STARTED AT</Text>
+              <Pressable
+                onPress={() => {
+                  setStartPickerMode('date');
+                  setShowStartPicker(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Change start time"
+                className="mb-4 h-14 justify-center rounded-xl border border-input bg-card px-4"
+              >
+                <Text className="text-base text-foreground">{startedLabel}</Text>
+              </Pressable>
+              {showStartPicker && (
+                <View className="mb-4">
+                  <DateTimePicker
+                    value={new Date(editingLog.startedAt)}
+                    mode={Platform.OS === 'ios' ? 'datetime' : startPickerMode}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={handleStartDateChange}
+                    themeVariant={isDark ? 'dark' : 'light'}
                   />
-                  {applyAllPrompt?.exerciseId === exercise.id && applyAllPrompt.setIndex === setIndex && (
-                    <Animated.View
-                      entering={FadeInDown.duration(200)}
-                      exiting={FadeOutDown.duration(150)}
-                      layout={Layout.duration(200)}
-                      className="mx-3 my-1 flex-row items-center rounded-lg border border-primary bg-primary/10"
-                    >
-                      <Pressable
-                        onPress={() => {
-                          updateSetsFromIndex(exercise.id, applyAllPrompt.setIndex, { [applyAllPrompt.field]: applyAllPrompt.value } as Partial<WorkoutSet>);
-                          setApplyAllPrompt(null);
-                        }}
-                        className="flex-1 items-center py-2"
-                      >
-                        <Text className="text-sm font-semibold text-primary">
-                          Apply {applyAllPrompt.label} to all sets below
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => setApplyAllPrompt(null)}
-                        className="aspect-square items-center justify-center self-stretch"
-                        style={{ minWidth: 40 }}
-                      >
-                        <Icon as={X} size={14} className="text-primary" />
-                      </Pressable>
-                    </Animated.View>
+                  {Platform.OS === 'ios' && (
+                    <Pressable onPress={() => setShowStartPicker(false)} className="mt-2 items-center">
+                      <Text className="text-sm font-medium text-primary">Done</Text>
+                    </Pressable>
                   )}
-                </Animated.View>
-              ))}
-            </Animated.View>
-          </View>
-        ))}
+                </View>
+              )}
 
-        {/* Add Exercise Button */}
-        <Pressable
-          onPress={handleAddExercise}
-          className="mt-6 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-4"
-        >
-          <Icon as={Plus} size={20} className="text-primary" />
-          <Text className="font-medium text-primary">Add Exercise</Text>
-        </Pressable>
-      </ScrollView>
+              <Text className="mb-2 text-sm font-medium text-muted-foreground">COMPLETED AT</Text>
+              <Pressable
+                onPress={() => {
+                  setCompletedPickerMode('date');
+                  setShowCompletedPicker(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Change end time"
+                className="mb-2 h-14 justify-center rounded-xl border border-input bg-card px-4"
+              >
+                <Text className="text-base text-foreground">
+                  {format(new Date(editingLog.completedAt), 'MMM d, yyyy h:mm a')}
+                </Text>
+              </Pressable>
+              {showCompletedPicker && (
+                <View className="mb-2">
+                  <DateTimePicker
+                    value={new Date(editingLog.completedAt)}
+                    mode={Platform.OS === 'ios' ? 'datetime' : completedPickerMode}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={handleCompletedDateChange}
+                    themeVariant={isDark ? 'dark' : 'light'}
+                  />
+                  {Platform.OS === 'ios' && (
+                    <Pressable onPress={() => setShowCompletedPicker(false)} className="mt-2 items-center">
+                      <Text className="text-sm font-medium text-primary">Done</Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
+            </ScrollView>
+          )}
 
+          {exercises.length === 0 ? (
+            <View className="flex-1 items-center justify-center gap-4 px-8">
+              <Icon as={Dumbbell} size={40} className="text-muted-foreground" />
+              <Text className="text-center text-lg font-semibold text-foreground">No exercises</Text>
+              <Text className="text-center text-sm text-muted-foreground">Add an exercise to start logging.</Text>
+              <Pressable
+                onPress={() => router.push('/exercise/create?source=edit-log')}
+                accessibilityRole="button"
+                accessibilityLabel="Add exercise"
+                className="mt-2 rounded-xl bg-primary px-6 py-3"
+              >
+                <Text className="font-semibold text-primary-foreground">Add exercise</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <FocusLogger
+              exercises={exercises}
+              weightUnit={weightUnit}
+              distanceUnit={distanceUnit}
+              onUpdateSet={updateSet}
+              onToggleSetComplete={toggleSetComplete}
+              onAddSet={handleAddSet}
+              onRemoveSet={removeSet}
+              onRemoveExercise={removeExercise}
+              onMoveExercise={moveExercise}
+              onAddMetric={addExerciseMetric}
+              onRemoveMetric={removeExerciseMetric}
+              onAddExercise={() => router.push('/exercise/create?source=edit-log')}
+              // Editing an existing log: the CTA toggles the set instead of
+              // marching to the next one, and there's no "workout finished".
+              autoAdvance={false}
+              completeLabel="Mark set logged"
+            />
+          )}
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </>
   );
 }

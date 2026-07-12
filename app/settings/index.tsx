@@ -49,8 +49,7 @@ import { useHealthKit } from "@/hooks/use-healthkit";
 import { logOutPurchases, usePurchases } from "@/hooks/use-purchases";
 import { requestHealthImportPermissions } from "@/lib/healthkit";
 import { NumericInput } from "@/components/shared/numeric-input";
-import { REST_TIME_PRESETS } from "@/lib/constants";
-import { formatTime } from "@/lib/format";
+import { RestTimerPresets } from "@/components/workout/rest-timer-presets";
 import { cn } from "@/lib/utils";
 import { cancelAllNotifications } from "@/lib/notifications";
 import { useExerciseLibraryStore } from "@/stores/exercise-library-store";
@@ -415,30 +414,11 @@ export default function SettingsScreen() {
             <Icon as={Timer} size={20} className="text-primary" />
             <Text className="flex-1 font-medium">Rest Time</Text>
           </View>
-          <View className="mt-3 flex-row flex-wrap gap-2">
-            {REST_TIME_PRESETS.map((seconds) => (
-              <Pressable
-                key={seconds}
-                onPress={() => setDefaultRestTime(seconds)}
-                className={cn(
-                  "rounded-lg px-4 py-2",
-                  defaultRestTime === seconds
-                    ? "bg-primary"
-                    : "border border-border",
-                )}
-              >
-                <Text
-                  className={cn(
-                    "text-sm font-medium",
-                    defaultRestTime === seconds
-                      ? "text-primary-foreground"
-                      : "text-foreground",
-                  )}
-                >
-                  {formatTime(seconds)}
-                </Text>
-              </Pressable>
-            ))}
+          <View className="mt-3">
+            <RestTimerPresets
+              selected={defaultRestTime}
+              onSelect={setDefaultRestTime}
+            />
           </View>
         </View>
 

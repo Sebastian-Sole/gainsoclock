@@ -8,6 +8,7 @@ import {
   Keyboard,
   Platform,
 } from 'react-native';
+import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { Text } from '@/components/ui/text';
 import { X, Check } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
@@ -168,6 +169,7 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
             placeholder="e.g. 30"
             placeholderTextColor="#9ca3af"
             keyboardType="numeric"
+            inputAccessoryViewID={keyboardDoneAccessoryID}
             className="rounded-xl border border-input bg-card px-4 py-3 text-foreground"
           />
 
@@ -184,6 +186,7 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
                 placeholder="e.g. 500"
                 placeholderTextColor="#9ca3af"
                 keyboardType="numeric"
+                inputAccessoryViewID={keyboardDoneAccessoryID}
                 className="rounded-xl border border-input bg-card px-4 py-3 text-foreground"
               />
             </View>
@@ -198,6 +201,7 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
                   placeholder="e.g. 20"
                   placeholderTextColor="#9ca3af"
                   keyboardType="numeric"
+                  inputAccessoryViewID={keyboardDoneAccessoryID}
                   className="rounded-xl border border-input bg-card px-3 py-3 text-foreground"
                 />
               </View>
@@ -211,6 +215,7 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
                   placeholder="e.g. 50"
                   placeholderTextColor="#9ca3af"
                   keyboardType="numeric"
+                  inputAccessoryViewID={keyboardDoneAccessoryID}
                   className="rounded-xl border border-input bg-card px-3 py-3 text-foreground"
                 />
               </View>
@@ -224,6 +229,7 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
                   placeholder="e.g. 20"
                   placeholderTextColor="#9ca3af"
                   keyboardType="numeric"
+                  inputAccessoryViewID={keyboardDoneAccessoryID}
                   className="rounded-xl border border-input bg-card px-3 py-3 text-foreground"
                 />
               </View>

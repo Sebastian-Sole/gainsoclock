@@ -26,8 +26,9 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
       }
       return;
     }
+    const host = process.env.EXPO_PUBLIC_POSTHOG_HOST;
     const handle = InteractionManager.runAfterInteractions(() => {
-      void initPostHog({ apiKey });
+      void initPostHog({ apiKey, ...(host ? { host } : {}) });
     });
     return () => handle.cancel();
   }, []);

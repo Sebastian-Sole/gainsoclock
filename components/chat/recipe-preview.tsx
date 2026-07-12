@@ -7,7 +7,7 @@ import { Icon } from '@/components/ui/icon';
 interface RecipePreviewData {
   title: string;
   description: string;
-  ingredients: Array<{ name: string; amount: string; unit?: string }>;
+  ingredients: { name: string; amount: string; unit?: string }[];
   instructions: string[];
   macros: { calories: number; protein: number; carbs: number; fat: number };
   prepTimeMinutes?: number;

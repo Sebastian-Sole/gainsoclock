@@ -2,7 +2,7 @@
   "expo": {
     "name": "Fitbull",
     "slug": "fitbull",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "fitbull",
@@ -11,13 +11,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.soleinnovations.fitbull",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSHealthShareUsageDescription": "Fitbull reads your workouts from other apps and devices, plus your sleep, heart rate, heart-rate variability, steps, weight, height, and body-fat percentage from Apple Health to show a unified training timeline and personalize your coaching. We never read cycle-tracking or clinical data.",
         "NSHealthUpdateUsageDescription": "Fitbull writes your completed strength workouts and estimated active energy to Apple Health so they count toward your Fitness rings."
-      }
+      },
+      "appleTeamId": "UR644ZFFAK"
     },
     "android": {
       "adaptiveIcon": {
@@ -29,7 +30,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.soleinnovations.fitbull",
-      "versionCode": 3
+      "versionCode": 4
     },
     "web": {
       "output": "static",
@@ -77,6 +78,7 @@
       ],
       "expo-web-browser",
       "expo-notifications",
+      "expo-live-activity",
       "@sentry/react-native",
       [
         "expo-speech-recognition",
