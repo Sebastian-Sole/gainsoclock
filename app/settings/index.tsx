@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   Timer,
   Trash2,
+  Upload,
   UserX,
   Vibrate,
   Weight,
@@ -693,6 +694,23 @@ export default function SettingsScreen() {
               <Text className="font-medium">Import Data</Text>
               <Text className="text-sm text-muted-foreground">
                 Import workouts from other apps
+              </Text>
+            </View>
+            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
+          </Pressable>
+          <Separator />
+          <Pressable
+            onPress={() => router.push("/settings/export-data")}
+            className="flex-row items-center gap-3 px-4 py-4"
+            accessibilityRole="button"
+            accessibilityLabel="Export my data"
+            testID="settings-export-data"
+          >
+            <Icon as={Upload} size={20} className="text-primary" />
+            <View className="flex-1">
+              <Text className="font-medium">Export My Data</Text>
+              <Text className="text-sm text-muted-foreground">
+                Save everything as a JSON file
               </Text>
             </View>
             <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
