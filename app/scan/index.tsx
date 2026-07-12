@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, TextInput, View } from 'react-native';
+import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { useAction } from 'convex/react';
@@ -265,6 +266,7 @@ export default function ScanScreen() {
                 placeholder="100"
                 placeholderTextColor="#9ca3af"
                 keyboardType="decimal-pad"
+                inputAccessoryViewID={keyboardDoneAccessoryID}
                 accessibilityLabel="Quantity in grams"
                 testID="scan-quantity-input"
                 className="rounded-xl border border-input bg-card px-4 py-3 text-[18px] text-foreground"

@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import * as ImagePicker from 'expo-image-picker';
 import { useAction, useMutation } from 'convex/react';
 import { Camera, Images, Sparkles, TriangleAlert, UtensilsCrossed, X } from 'lucide-react-native';
@@ -346,6 +347,7 @@ export function PhotoMealSheet({ visible, onClose, date }: PhotoMealSheetProps) 
                     placeholder="0"
                     placeholderTextColor="#9ca3af"
                     keyboardType="decimal-pad"
+                    inputAccessoryViewID={keyboardDoneAccessoryID}
                     accessibilityLabel={input.label}
                     testID={input.testID}
                     className="rounded-xl border border-input bg-card px-3 py-3 text-foreground text-center"
