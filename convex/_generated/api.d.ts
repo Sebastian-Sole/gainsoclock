@@ -19,6 +19,7 @@ import type * as chatActions from "../chatActions.js";
 import type * as chatInternal from "../chatInternal.js";
 import type * as cronRunner from "../cronRunner.js";
 import type * as crons from "../crons.js";
+import type * as dataExport from "../dataExport.js";
 import type * as email from "../email.js";
 import type * as errorBoundary from "../errorBoundary.js";
 import type * as errorReporting from "../errorReporting.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   chatInternal: typeof chatInternal;
   cronRunner: typeof cronRunner;
   crons: typeof crons;
+  dataExport: typeof dataExport;
   email: typeof email;
   errorBoundary: typeof errorBoundary;
   errorReporting: typeof errorReporting;
