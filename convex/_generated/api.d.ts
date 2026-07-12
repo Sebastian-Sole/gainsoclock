@@ -50,6 +50,7 @@ import type * as validators from "../validators.js";
 import type * as weeklyReview from "../weeklyReview.js";
 import type * as workoutFeedback from "../workoutFeedback.js";
 import type * as workoutLogs from "../workoutLogs.js";
+import type * as workoutOverlap from "../workoutOverlap.js";
 
 import type {
   ApiFromModules,
@@ -100,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   weeklyReview: typeof weeklyReview;
   workoutFeedback: typeof workoutFeedback;
   workoutLogs: typeof workoutLogs;
+  workoutOverlap: typeof workoutOverlap;
 }>;
 
 /**

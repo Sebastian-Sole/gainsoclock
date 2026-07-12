@@ -110,7 +110,13 @@ export type AnalyticsEvent =
   | { name: "achievement_unlocked"; props: { achievementId: string } }
   | { name: "notification_opened"; props: { identifier: string } }
   | { name: "review_opened"; props: { hadExistingReview: boolean } }
-  | { name: `activation_gate_${string}`; props: Record<string, never> };
+  | { name: `activation_gate_${string}`; props: Record<string, never> }
+  | { name: "ai_coach_message_sent"; props: Record<string, never> }
+  | { name: "barcode_scanned"; props: { found: boolean } }
+  | {
+      name: "recipe_created";
+      props: { ingredientCount: number; hasMacros: boolean };
+    };
 
 // --- HealthKit firewall -----------------------------------------------------
 

@@ -16,7 +16,7 @@ interface DayUpdate {
 
 interface NewTemplate {
   name: string;
-  exercises: Array<{ name: string; type?: string }>;
+  exercises: { name: string; type?: string }[];
 }
 
 interface UpdatePlanPayload {

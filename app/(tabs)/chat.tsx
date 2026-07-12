@@ -78,6 +78,7 @@ function ChatScreenContent() {
 
   const handleSendFromEmpty = useCallback(
     async (content: string) => {
+      capture({ name: 'ai_coach_message_sent', props: {} });
       const clientId = await createConversation();
       pendingMessageRef.current = { conversationId: clientId, content };
       setActiveConversationId(clientId);
@@ -167,6 +168,7 @@ function ActiveChatView({
   const { messages, sendMessage, isSending, isStreaming } = useChat(conversationId);
   const handleSend = useCallback(
     async (content: string) => {
+      capture({ name: 'ai_coach_message_sent', props: {} });
       await sendMessage(content);
     },
     [sendMessage]

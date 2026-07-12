@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Icon } from '@/components/ui/icon';
 import { Plus, Trash2, ChevronDown, ChevronUp, Lock, BookOpen } from 'lucide-react-native';
+import { capture } from '@/lib/analytics';
 import { lightHaptic } from '@/lib/haptics';
 import { useRecipeStore } from '@/stores/recipe-store';
 import { IngredientLibraryModal } from '@/components/nutrition/ingredient-library-modal';
@@ -157,6 +158,13 @@ export default function CreateRecipeScreen() {
       updateRecipe(params.recipeId, recipeData);
     } else {
       addRecipe(recipeData);
+      capture({
+        name: 'recipe_created',
+        props: {
+          ingredientCount: cleanIngredients.length,
+          hasMacros: calculatedMacros !== undefined,
+        },
+      });
     }
 
     lightHaptic();

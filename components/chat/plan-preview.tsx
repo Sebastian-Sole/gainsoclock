@@ -10,16 +10,16 @@ interface PlanPreviewData {
   description: string;
   goal?: string;
   durationWeeks: number;
-  days: Array<{
+  days: {
     week: number;
     dayOfWeek: number;
     templateName?: string;
     label?: string;
-  }>;
-  templates: Array<{
+  }[];
+  templates: {
     name: string;
-    exercises: Array<{ name: string }>;
-  }>;
+    exercises: { name: string }[];
+  }[];
 }
 
 interface PlanPreviewProps {

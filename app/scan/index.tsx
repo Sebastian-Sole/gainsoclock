@@ -16,6 +16,7 @@ import { parseLocaleNumber } from '@/lib/format';
 import { lightHaptic } from '@/lib/haptics';
 import { scalePer100gMacros } from '@/lib/ingredient-macros';
 import { cn } from '@/lib/utils';
+import { capture } from '@/lib/analytics';
 import { useIngredientStore } from '@/stores/ingredient-store';
 import { useMealLogStore } from '@/stores/meal-log-store';
 import type { Macros } from '@/lib/types';
@@ -85,10 +86,12 @@ export default function ScanScreen() {
     lookupBarcode({ code: data })
       .then((result: LookupResult) => {
         if (result.status === 'ok') {
+          capture({ name: 'barcode_scanned', props: { found: true } });
           setGrams(String(result.product.servingSizeG ?? 100));
           setIngredientSaved(false);
           setState({ kind: 'found', code: data, product: result.product });
         } else if (result.status === 'not_found') {
+          capture({ name: 'barcode_scanned', props: { found: false } });
           setState({ kind: 'not_found', code: data });
         } else {
           setState({ kind: 'error', code: data });
