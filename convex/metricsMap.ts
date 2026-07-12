@@ -8,16 +8,22 @@ import { metricIdValidator, exerciseTypeValidator } from "./validators";
 export type MetricId = Infer<typeof metricIdValidator>;
 export type ExerciseType = Infer<typeof exerciseTypeValidator>;
 
-/** All metric ids. Kept in lockstep with metricIdValidator / lib/metrics.ts. */
+/**
+ * All metric ids, in palette display order. Kept in lockstep with
+ * metricIdValidator and lib/metrics.ts `METRIC_LIST`. Order is significant: this
+ * array becomes the JSON-schema `enum` the AI model composes `metrics` from, so
+ * it must mirror the client palette (weight before reps) to keep AI-created
+ * exercises ordered the same as manually-created ones.
+ */
 export const METRIC_IDS: MetricId[] = [
-  "reps",
   "weight",
+  "reps",
   "duration",
   "distance",
-  "power_avg",
-  "heart_rate_avg",
   "pace",
   "speed",
+  "power_avg",
+  "heart_rate_avg",
   "cadence",
   "calories",
 ];

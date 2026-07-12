@@ -80,14 +80,14 @@ const AI_EXERCISE_ITEM = {
       type: "number",
       description: "Rest between sets in seconds",
     },
-    suggestedReps: {
-      type: "number",
-      description: "Suggested reps per set based on user history and goals",
-    },
     suggestedWeight: {
       type: "number",
       description:
         "Suggested weight per set in the user's preferred unit, based on history",
+    },
+    suggestedReps: {
+      type: "number",
+      description: "Suggested reps per set based on user history and goals",
     },
     suggestedTime: {
       type: "number",
