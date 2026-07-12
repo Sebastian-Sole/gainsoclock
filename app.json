@@ -17,7 +17,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSHealthShareUsageDescription": "Fitbull reads your workouts from other apps and devices, plus your sleep, heart rate, heart-rate variability, steps, weight, height, and body-fat percentage from Apple Health to show a unified training timeline and personalize your coaching. We never read cycle-tracking or clinical data.",
         "NSHealthUpdateUsageDescription": "Fitbull writes your completed strength workouts and estimated active energy to Apple Health so they count toward your Fitness rings."
-      }
+      },
+      "appleTeamId": "UR644ZFFAK"
     },
     "android": {
       "adaptiveIcon": {
