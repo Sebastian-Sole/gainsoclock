@@ -77,6 +77,7 @@
       ],
       "expo-web-browser",
       "expo-notifications",
+      "expo-live-activity",
       "@sentry/react-native",
       [
         "expo-speech-recognition",

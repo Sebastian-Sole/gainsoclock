@@ -51,9 +51,14 @@ if (appVersionCode !== appBuild) {
 }
 
 // --- pbxproj: every config must carry the same values, matching app.json ---
+// Values may be quoted (`MARKETING_VERSION = "1.1.1";`) — the expo-live-activity
+// prebuild plugin writes the LiveActivity extension target's settings quoted,
+// while Expo's template writes the app target's unquoted. Both are equivalent
+// in pbxproj, so strip surrounding quotes before comparing.
+const unquote = (s) => s.replace(/^"(.*)"$/, "$1");
 const pbx = readFileSync(PBXPROJ, "utf8");
-const marketing = [...pbx.matchAll(/MARKETING_VERSION = ([^;]+);/g)].map((x) => x[1]);
-const current = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = ([^;]+);/g)].map((x) => x[1]);
+const marketing = [...pbx.matchAll(/MARKETING_VERSION = ([^;]+);/g)].map((x) => unquote(x[1]));
+const current = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = ([^;]+);/g)].map((x) => unquote(x[1]));
 
 if (marketing.length === 0) fail("project.pbxproj has no MARKETING_VERSION.");
 if (current.length === 0) fail("project.pbxproj has no CURRENT_PROJECT_VERSION.");
