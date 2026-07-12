@@ -4,6 +4,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -47,6 +48,10 @@ export interface FocusLoggerProps {
    *  adding an exercise from the workout summary (#113). */
   focusExerciseId?: string;
 }
+
+/** Left padding of the pills scroll content (`px-4`), subtracted from a pill's
+ *  measured x so the active pill lands flush left with its usual inset. */
+const PILLS_LEFT_PADDING = 16;
 
 /**
  * The one-set-at-a-time swipeable logger. Shared by the active workout and the
@@ -96,6 +101,30 @@ export function FocusLogger({
   // the latest exercises from a ref rather than the closed-over prop.
   const exercisesRef = useRef(exercises);
   exercisesRef.current = exercises;
+
+  // Auto-scroll the pills bar so the active pill sits flush left (#119).
+  // Offsets are measured per pill via onLayout (pill width varies with the
+  // exercise name) and keyed by exercise id so add/remove/reorder stay correct.
+  const reducedMotion = useReducedMotion();
+  const pillsScrollRef = useRef<ScrollView>(null);
+  const pillOffsetsRef = useRef<Map<string, number>>(new Map());
+  const activeExerciseId = exercise?.id;
+
+  const scrollToActivePill = useCallback(
+    (exerciseId: string) => {
+      const x = pillOffsetsRef.current.get(exerciseId);
+      if (x === undefined) return;
+      pillsScrollRef.current?.scrollTo({
+        x: Math.max(0, x - PILLS_LEFT_PADDING),
+        animated: !reducedMotion,
+      });
+    },
+    [reducedMotion]
+  );
+
+  useEffect(() => {
+    if (activeExerciseId) scrollToActivePill(activeExerciseId);
+  }, [activeExerciseId, scrollToActivePill]);
 
   useEffect(() => {
     tx.value = -pageW;
@@ -277,6 +306,7 @@ export function FocusLogger({
 
       {/* Exercise pills */}
       <ScrollView
+        ref={pillsScrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -290,6 +320,14 @@ export function FocusLogger({
             <Pressable
               key={e.id}
               onPress={() => selectExercise(i)}
+              onLayout={(ev) => {
+                // layout.x is relative to the content container, so it already
+                // accounts for the px-4 inset and gap-2 spacing.
+                pillOffsetsRef.current.set(e.id, ev.nativeEvent.layout.x);
+                // Re-fires on add/remove/reorder (and first mount, which can
+                // land after the scroll effect) — keep the active pill flush.
+                if (selected) scrollToActivePill(e.id);
+              }}
               accessibilityRole="button"
               accessibilityLabel={e.name}
               accessibilityState={{ selected }}
