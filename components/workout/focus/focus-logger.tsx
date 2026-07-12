@@ -478,7 +478,7 @@ export function FocusLogger({
               curSet?.completed ? 'text-green-500' : 'text-primary-foreground'
             )}
           >
-            {curSet?.completed ? 'Set logged ✓' : completeLabel}
+            {curSet?.completed ? 'Next' : completeLabel}
           </Text>
         </Pressable>
       </View>

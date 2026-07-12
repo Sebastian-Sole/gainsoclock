@@ -34,18 +34,24 @@ function useChartColors() {
   };
 }
 
-function buildGeometry(points: MetricValuePoint[], width: number) {
-  const times = points.map((p) => new Date(p.date).getTime());
-  const t0 = times[0];
-  const tSpan = times[times.length - 1] - t0;
+/** Value domain of the y axis; padded when the series is flat so the line
+ *  sits mid-chart. Shared by the geometry and the axis labels. */
+function valueDomain(points: MetricValuePoint[]) {
   let vMin = Math.min(...points.map((p) => p.value));
   let vMax = Math.max(...points.map((p) => p.value));
   if (vMin === vMax) {
-    // Flat series: pad the domain so the line sits mid-chart.
     const pad = Math.abs(vMin) > 0 ? Math.abs(vMin) * 0.1 : 1;
     vMin -= pad;
     vMax += pad;
   }
+  return { vMin, vMax };
+}
+
+function buildGeometry(points: MetricValuePoint[], width: number) {
+  const times = points.map((p) => new Date(p.date).getTime());
+  const t0 = times[0];
+  const tSpan = times[times.length - 1] - t0;
+  const { vMin, vMax } = valueDomain(points);
   const coords = points.map((p, i) => {
     const tx = tSpan > 0 ? (times[i] - t0) / tSpan : i / Math.max(1, points.length - 1);
     const ty = (p.value - vMin) / (vMax - vMin);
@@ -84,9 +90,7 @@ export function ProgressionChart({
 
   const first = points[0];
   const last = points[points.length - 1];
-  const values = points.map((p) => p.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const { vMin, vMax } = valueDomain(points);
   const summary = trendAccessibilitySummary(accessibilitySubject, points, formatValue);
 
   return (
@@ -96,28 +100,48 @@ export function ProgressionChart({
         <Text className="text-sm font-semibold">{formatValue(last.value)}</Text>
       </View>
 
-      <View accessible accessibilityLabel={summary} onLayout={handleLayout}>
-        {width > 0 && (
-          <ChartSvg
-            points={points}
-            width={width}
-            lineColor={colors.line}
-            gridColor={colors.grid}
-          />
-        )}
-      </View>
+      <View className="flex-row gap-1.5">
+        {/* Y axis — tick labels for the top/middle/bottom gridlines. Hidden
+            from screen readers: the trend summary + "Show data" table carry
+            the accessible content. */}
+        <View
+          style={{ height: CHART_HEIGHT }}
+          className="justify-between py-0.5"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <Text className="text-right text-[10px] tabular-nums text-muted-foreground">
+            {formatValue(vMax)}
+          </Text>
+          <Text className="text-right text-[10px] tabular-nums text-muted-foreground">
+            {formatValue((vMin + vMax) / 2)}
+          </Text>
+          <Text className="text-right text-[10px] tabular-nums text-muted-foreground">
+            {formatValue(vMin)}
+          </Text>
+        </View>
 
-      <View className="flex-row justify-between gap-2">
-        <Text className="text-xs text-muted-foreground">
-          {format(new Date(first.date), 'MMM d, yyyy')}
-        </Text>
-        <Text className="text-xs text-muted-foreground">
-          {format(new Date(last.date), 'MMM d, yyyy')}
-        </Text>
-      </View>
-      <View className="flex-row justify-between gap-2">
-        <Text className="text-xs text-muted-foreground">Low {formatValue(min)}</Text>
-        <Text className="text-xs text-muted-foreground">High {formatValue(max)}</Text>
+        <View className="flex-1">
+          <View accessible accessibilityLabel={summary} onLayout={handleLayout}>
+            {width > 0 && (
+              <ChartSvg
+                points={points}
+                width={width}
+                lineColor={colors.line}
+                gridColor={colors.grid}
+              />
+            )}
+          </View>
+          {/* X axis — first/last date of the range */}
+          <View className="flex-row justify-between gap-2">
+            <Text className="text-xs text-muted-foreground">
+              {format(new Date(first.date), 'MMM d, yyyy')}
+            </Text>
+            <Text className="text-xs text-muted-foreground">
+              {format(new Date(last.date), 'MMM d, yyyy')}
+            </Text>
+          </View>
+        </View>
       </View>
 
       <Pressable
@@ -168,11 +192,30 @@ function ChartSvg({
   const { coords, d } = buildGeometry(points, width);
   return (
     <Svg width={width} height={CHART_HEIGHT}>
+      {/* top / middle / bottom gridlines (labelled by the y-axis gutter) */}
       <Line x1={PAD} y1={PAD} x2={width - PAD} y2={PAD} stroke={gridColor} strokeWidth={1} />
+      <Line
+        x1={PAD}
+        y1={CHART_HEIGHT / 2}
+        x2={width - PAD}
+        y2={CHART_HEIGHT / 2}
+        stroke={gridColor}
+        strokeWidth={1}
+        strokeDasharray="3 5"
+      />
       <Line
         x1={PAD}
         y1={CHART_HEIGHT - PAD}
         x2={width - PAD}
+        y2={CHART_HEIGHT - PAD}
+        stroke={gridColor}
+        strokeWidth={1}
+      />
+      {/* y axis */}
+      <Line
+        x1={PAD}
+        y1={PAD}
+        x2={PAD}
         y2={CHART_HEIGHT - PAD}
         stroke={gridColor}
         strokeWidth={1}

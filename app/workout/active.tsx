@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Dumbbell } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
@@ -78,11 +79,15 @@ export default function ActiveWorkoutScreen() {
     }, [])
   );
 
-  // If the workout is cleared (discarded, or finished) while the logger is the
-  // top screen, leave the workout modal instead of rendering a blank screen.
+  // If the workout is cleared (discarded) while the logger is the top screen,
+  // leave the workout modal instead of rendering a blank screen. Gated on
+  // focus: during finishWorkout the store clears while the summary/complete
+  // screen is on top, and an unguarded dismissAll here races the finish
+  // navigation and closes the complete screen before it's seen (#118).
+  const isFocused = useIsFocused();
   useEffect(() => {
-    if (!activeWorkout) router.dismissAll();
-  }, [activeWorkout, router]);
+    if (!activeWorkout && isFocused) router.dismissAll();
+  }, [activeWorkout, isFocused, router]);
 
   const handleAddSet = (exercise: Exercise) => {
     if (exercise.type === 'intervals') {
