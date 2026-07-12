@@ -11,6 +11,7 @@ import {
   planStatusValidator,
   planDayStatusValidator,
   ingredientValidator,
+  ingredientSourceValidator,
   macrosValidator,
   weekStartDayValidator,
   goalValidator,
@@ -360,6 +361,23 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_clientId", ["userId", "clientId"])
     .index("by_user_saved", ["userId", "saved"]),
+
+  // Per-user ingredient library (scanned/manual foods saved for recipe
+  // building). Macros are stored per 100 g and scaled at use time.
+  ingredients: defineTable({
+    userId: v.id("users"),
+    clientId: v.string(),
+    name: v.string(),
+    per100g: macrosValidator,
+    servingSizeG: v.optional(v.number()),
+    barcode: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    source: ingredientSourceValidator,
+    createdAt: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_clientId", ["userId", "clientId"])
+    .index("by_user_barcode", ["userId", "barcode"]),
 
   // Meal log entries
   mealLogs: defineTable({

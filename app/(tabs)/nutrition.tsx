@@ -3,7 +3,7 @@ import { View, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ShoppingCart } from 'lucide-react-native';
+import { BookOpen, ShoppingCart } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
 import { Colors } from '@/constants/theme';
@@ -14,11 +14,13 @@ import { RecipesTab } from '@/components/nutrition/recipes-tab';
 import { TodayTab } from '@/components/nutrition/today-tab';
 import { NutritionHistoryTab } from '@/components/nutrition/history-tab';
 import { GroceryListModal } from '@/components/nutrition/grocery-list-modal';
+import { IngredientLibraryModal } from '@/components/nutrition/ingredient-library-modal';
 import { useGroceryStore } from '@/stores/grocery-store';
 
 export default function NutritionScreen() {
   const [activeTab, setActiveTab] = useState('today');
   const [showGroceryModal, setShowGroceryModal] = useState(false);
+  const [showIngredientLibrary, setShowIngredientLibrary] = useState(false);
 
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
@@ -32,9 +34,21 @@ export default function NutritionScreen() {
         <Text className="text-3xl font-bold">Nutrition</Text>
         <View className="flex-row items-center">
           <Pressable
+            onPress={() => setShowIngredientLibrary(true)}
+            className="p-2"
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Open ingredient library"
+            testID="nutrition-ingredient-library"
+          >
+            <Icon as={BookOpen} size={22} className="text-foreground" />
+          </Pressable>
+          <Pressable
             onPress={() => setShowGroceryModal(true)}
             className="p-2 relative"
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Open grocery list"
           >
             <Icon
               as={ShoppingCart}
@@ -91,6 +105,11 @@ export default function NutritionScreen() {
       <GroceryListModal
         visible={showGroceryModal}
         onClose={() => setShowGroceryModal(false)}
+      />
+
+      <IngredientLibraryModal
+        visible={showIngredientLibrary}
+        onClose={() => setShowIngredientLibrary(false)}
       />
     </View>
   );
