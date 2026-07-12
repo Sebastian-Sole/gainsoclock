@@ -1,5 +1,6 @@
 import { format, differenceInCalendarDays, isLeapYear, getDayOfYear, subDays } from 'date-fns';
-import type { WorkoutLog, WorkoutSet } from './types';
+import { METRICS, METRIC_LIST, readMetricValue } from './metrics';
+import type { MetricId, WorkoutLog, WorkoutSet } from './types';
 
 // ---- Date range types ----
 
@@ -46,22 +47,40 @@ export function filterLogsByDateRange(logs: WorkoutLog[], filter: DateRangeFilte
 
 // ---- Return types ----
 
+/** A dated value — a personal best or one point of a progression series. */
+export interface MetricValuePoint {
+  value: number;
+  date: string;
+}
+
+/**
+ * Per-exercise stats, keyed by the metrics registry (lib/metrics.ts) rather
+ * than fixed weight/reps/time/distance fields. Everything is driven by each
+ * MetricSpec's declared `aggregation` and `prDirection`, so adding a metric to
+ * the registry surfaces here with no change to this file.
+ */
 export interface ExerciseStats {
   exerciseName: string;
   exerciseId: string;
   totalAppearances: number;
-  // Totals
-  totalReps: number;
-  totalWeight: number; // sum of reps × weight
-  totalDistance: number;
-  totalTime: number; // seconds
   totalSets: number;
-  // Personal bests
-  maxWeight?: { value: number; date: string };
-  maxReps?: { value: number; date: string };
-  maxTime?: { value: number; date: string };
-  maxDistance?: { value: number; date: string };
-  maxVolume?: { value: number; date: string }; // single-set reps × weight
+  /**
+   * Metrics observed on this exercise's completed sets (a value was actually
+   * recorded), in registry palette order. Observed — not the exercise's
+   * declared list — so legacy logs whose declared metrics drifted from the
+   * data still chart what was really logged.
+   */
+  metricIds: MetricId[];
+  /** Lifetime totals for metrics whose aggregation is 'sum' (reps, duration,
+   *  distance, calories, …). Absent key = never recorded. */
+  totals: Partial<Record<MetricId, number>>;
+  /** Best single completed set per metric. Respects the metric's
+   *  `prDirection` — for 'lower' metrics (pace) best means minimum; metrics
+   *  with prDirection 'none' never appear. */
+  bests: Partial<Record<MetricId, MetricValuePoint>>;
+  /** Derived volume (weight × reps) — not a registry metric. */
+  totalVolume: number; // lifetime sum of reps × weight
+  maxVolume?: MetricValuePoint; // best single-set reps × weight
 }
 
 export interface StreakStats {
@@ -155,13 +174,17 @@ function isRestInterval(set: WorkoutSet): boolean {
 }
 
 /**
- * Whether a set's `distance` counts toward totals/PBs. Interval sets keep
- * stale values on the flat shape when the user switches their effort metric
- * (distance → pace/speed), so their distance only counts when distance is
- * the selected metric — matching the pre-flat per-type behavior.
+ * Whether a stored metric value on this set should be read at all. Interval
+ * sets keep stale values on the flat shape when the user switches their
+ * effort metric (distance ↔ pace ↔ speed), so those three only count when
+ * they are the selected interval metric — matching the pre-flat per-type
+ * behavior for distance, extended symmetrically to pace/speed.
  */
-function countsDistance(set: WorkoutSet): boolean {
-  return set.type !== 'intervals' || (set.metric ?? 'distance') === 'distance';
+function metricCounts(set: WorkoutSet, id: MetricId): boolean {
+  if (set.type !== 'intervals') return true;
+  const selected = set.metric ?? 'distance';
+  if (id === 'distance' || id === 'pace' || id === 'speed') return selected === id;
+  return true;
 }
 
 // ---- Session totals (shared with the workout summary screen) ----
@@ -183,11 +206,15 @@ export function sessionTotals(exercises: readonly { sets: WorkoutSet[] }[]): Ses
   for (const exercise of exercises) {
     for (const set of exercise.sets) {
       if (!set.completed || isRestInterval(set)) continue;
-      if (set.reps !== undefined) totals.reps += set.reps;
-      if (set.time !== undefined) totals.time += set.time;
-      if (set.distance !== undefined && countsDistance(set)) totals.distance += set.distance;
-      if (set.weight !== undefined && set.reps !== undefined) {
-        totals.volume += set.weight * set.reps;
+      const reps = readMetricValue(set, 'reps');
+      const time = readMetricValue(set, 'duration');
+      const distance = readMetricValue(set, 'distance');
+      const weight = readMetricValue(set, 'weight');
+      if (reps !== undefined) totals.reps += reps;
+      if (time !== undefined) totals.time += time;
+      if (distance !== undefined && metricCounts(set, 'distance')) totals.distance += distance;
+      if (weight !== undefined && reps !== undefined) {
+        totals.volume += weight * reps;
       }
     }
   }
@@ -198,6 +225,7 @@ export function sessionTotals(exercises: readonly { sets: WorkoutSet[] }[]): Ses
 
 function computeExerciseStats(logs: WorkoutLog[]): ExerciseStats[] {
   const exerciseMap = new Map<string, ExerciseStats>();
+  const seenMetrics = new Map<string, Set<MetricId>>();
 
   for (const log of logs) {
     const logDate = log.startedAt;
@@ -209,61 +237,58 @@ function computeExerciseStats(logs: WorkoutLog[]): ExerciseStats[] {
           exerciseName: exercise.name,
           exerciseId: exercise.exerciseId,
           totalAppearances: 0,
-          totalReps: 0,
-          totalWeight: 0,
-          totalDistance: 0,
-          totalTime: 0,
           totalSets: 0,
+          metricIds: [],
+          totals: {},
+          bests: {},
+          totalVolume: 0,
         };
         exerciseMap.set(exercise.exerciseId, stats);
+        seenMetrics.set(exercise.exerciseId, new Set());
       }
+      const seen = seenMetrics.get(exercise.exerciseId)!;
       stats.totalAppearances++;
 
       for (const set of exercise.sets) {
         if (!set.completed) continue;
         stats.totalSets++;
 
-        // Accumulate totals. Sets are flat: sum whichever metrics are present.
-        // Interval exercises only count their 'work' sub-sets; 'rest' sub-sets
-        // contribute nothing (matches the legacy per-type behavior).
-        if (!isRestInterval(set)) {
-          if (set.reps !== undefined) stats.totalReps += set.reps;
-          if (set.time !== undefined) stats.totalTime += set.time;
-          if (set.distance !== undefined && countsDistance(set)) {
-            stats.totalDistance += set.distance;
+        // Sets are flat: read whichever registry metrics are present, driven
+        // by each spec's declared aggregation/prDirection.
+        for (const spec of METRIC_LIST) {
+          const value = readMetricValue(set, spec.id);
+          if (value === undefined || !metricCounts(set, spec.id)) continue;
+          seen.add(spec.id);
+
+          // Totals: 'sum' metrics only. Interval 'rest' sub-sets contribute
+          // nothing to totals (legacy behavior) but still feed PBs, matching
+          // the pre-registry code path.
+          if (spec.aggregation === 'sum' && !isRestInterval(set)) {
+            stats.totals[spec.id] = (stats.totals[spec.id] ?? 0) + value;
           }
-          if (set.weight !== undefined && set.reps !== undefined) {
-            stats.totalWeight += set.reps * set.weight;
+
+          // Personal bests, per prDirection. 'lower' metrics (pace) treat the
+          // minimum as best and ignore non-positive placeholder values — a
+          // 0:00 pace is an unset default, not a record.
+          if (spec.prDirection === 'none') continue;
+          if (spec.prDirection === 'lower' && value <= 0) continue;
+          const current = stats.bests[spec.id];
+          const better =
+            !current ||
+            (spec.prDirection === 'higher'
+              ? value > current.value
+              : value < current.value);
+          if (better) {
+            stats.bests[spec.id] = { value, date: logDate };
           }
         }
 
-        // Track personal bests
-        if ('weight' in set && set.weight !== undefined) {
-          if (!stats.maxWeight || set.weight > stats.maxWeight.value) {
-            stats.maxWeight = { value: set.weight, date: logDate };
-          }
-        }
-
-        if ('reps' in set && set.reps !== undefined) {
-          if (!stats.maxReps || set.reps > stats.maxReps.value) {
-            stats.maxReps = { value: set.reps, date: logDate };
-          }
-        }
-
-        if ('time' in set && set.time !== undefined) {
-          if (!stats.maxTime || set.time > stats.maxTime.value) {
-            stats.maxTime = { value: set.time, date: logDate };
-          }
-        }
-
-        if ('distance' in set && set.distance !== undefined && countsDistance(set)) {
-          if (!stats.maxDistance || set.distance > stats.maxDistance.value) {
-            stats.maxDistance = { value: set.distance, date: logDate };
-          }
-        }
-
-        if (set.weight !== undefined && set.reps !== undefined) {
-          const volume = set.reps * set.weight;
+        // Volume (weight × reps) is derived, not a registry metric.
+        const weight = readMetricValue(set, 'weight');
+        const reps = readMetricValue(set, 'reps');
+        if (weight !== undefined && reps !== undefined) {
+          const volume = reps * weight;
+          if (!isRestInterval(set)) stats.totalVolume += volume;
           if (!stats.maxVolume || volume > stats.maxVolume.value) {
             stats.maxVolume = { value: volume, date: logDate };
           }
@@ -272,9 +297,139 @@ function computeExerciseStats(logs: WorkoutLog[]): ExerciseStats[] {
     }
   }
 
+  for (const stats of exerciseMap.values()) {
+    const seen = seenMetrics.get(stats.exerciseId)!;
+    stats.metricIds = METRIC_LIST.filter((spec) => seen.has(spec.id)).map(
+      (spec) => spec.id
+    );
+  }
+
   return Array.from(exerciseMap.values()).sort(
     (a, b) => b.totalAppearances - a.totalAppearances
   );
+}
+
+// ---- Progression series (per exercise, per metric) ----
+
+/** Chronological dated points for one exercise, keyed by metric. */
+export type ExerciseMetricSeries = Partial<Record<MetricId, MetricValuePoint[]>>;
+
+/**
+ * Dated progression series for one exercise: one point per session (log) per
+ * metric, collapsed with the metric's declared aggregation semantics —
+ * 'sum' totals the session's sets, 'avg' averages them, 'max' takes the
+ * highest, 'none' (weight) takes the session's best set per prDirection.
+ *
+ * Computed client-side over the hydrated history store, consistent with the
+ * rest of the stats read path (offline-first; no Convex query). Exclusions
+ * match the aggregate stats: completed sets only, interval 'rest' sub-sets
+ * skipped, stale interval distance/pace/speed skipped, and non-positive
+ * values ignored for lower-is-better metrics.
+ */
+export function computeExerciseSeries(
+  logs: WorkoutLog[],
+  exerciseId: string
+): ExerciseMetricSeries {
+  const sorted = [...logs].sort(
+    (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
+  );
+
+  const series: ExerciseMetricSeries = {};
+
+  for (const log of sorted) {
+    // Collect this session's raw values per metric across the exercise's sets.
+    const values = new Map<MetricId, number[]>();
+    for (const exercise of log.exercises) {
+      if (exercise.exerciseId !== exerciseId) continue;
+      for (const set of exercise.sets) {
+        if (!set.completed || isRestInterval(set)) continue;
+        for (const spec of METRIC_LIST) {
+          const value = readMetricValue(set, spec.id);
+          if (value === undefined || !metricCounts(set, spec.id)) continue;
+          if (spec.prDirection === 'lower' && value <= 0) continue;
+          const list = values.get(spec.id);
+          if (list) {
+            list.push(value);
+          } else {
+            values.set(spec.id, [value]);
+          }
+        }
+      }
+    }
+
+    for (const [id, vals] of values) {
+      const spec = METRICS[id];
+      let value: number;
+      switch (spec.aggregation) {
+        case 'sum':
+          value = vals.reduce((a, b) => a + b, 0);
+          break;
+        case 'avg':
+          value = vals.reduce((a, b) => a + b, 0) / vals.length;
+          break;
+        case 'max':
+          value = Math.max(...vals);
+          break;
+        case 'none':
+          value =
+            spec.prDirection === 'lower' ? Math.min(...vals) : Math.max(...vals);
+          break;
+      }
+      (series[id] ??= []).push({ date: log.startedAt, value });
+    }
+  }
+
+  return series;
+}
+
+/** Human span between two ISO dates, for trend summaries ("3 months"). */
+function describeSpan(fromIso: string, toIso: string): string {
+  const days = Math.max(
+    1,
+    differenceInCalendarDays(new Date(toIso), new Date(fromIso))
+  );
+  if (days >= 60) {
+    const months = Math.round(days / 30);
+    return `${months} ${months === 1 ? 'month' : 'months'}`;
+  }
+  if (days >= 14) {
+    const weeks = Math.round(days / 7);
+    return `${weeks} ${weeks === 1 ? 'week' : 'weeks'}`;
+  }
+  return `${days} ${days === 1 ? 'day' : 'days'}`;
+}
+
+/**
+ * Screen-reader summary of a progression series, e.g. "Bench Press estimated
+ * 1RM, up 8% over 3 months, latest 92.5 kg, 12 sessions". Used as the chart's
+ * accessibilityLabel so the trend is never visual-only.
+ */
+export function trendAccessibilitySummary(
+  subject: string,
+  points: readonly MetricValuePoint[],
+  formatValue: (value: number) => string
+): string {
+  if (points.length === 0) {
+    return `${subject}, no data in the selected range`;
+  }
+  const first = points[0];
+  const last = points[points.length - 1];
+  const latestPart = `latest ${formatValue(last.value)}`;
+  if (points.length === 1) {
+    return `${subject}, one session in the selected range, ${latestPart}`;
+  }
+
+  const delta = last.value - first.value;
+  let phrase: string;
+  if (first.value !== 0) {
+    const pct = Math.round(Math.abs(delta / first.value) * 100);
+    phrase = pct === 0 ? 'steady' : `${delta > 0 ? 'up' : 'down'} ${pct}%`;
+  } else {
+    phrase = delta === 0 ? 'steady' : delta > 0 ? 'up' : 'down';
+  }
+
+  const span = describeSpan(first.date, last.date);
+  return `${subject}, ${phrase} over ${span}, ${latestPart}, ${points.length} sessions`;
 }
 
 function computeBestMonth(logs: WorkoutLog[]): MonthRecord | null {
@@ -373,12 +528,15 @@ function computeTotals(logs: WorkoutLog[]): TotalStats {
 
         // Flat accumulation; interval 'rest' sub-sets contribute nothing.
         if (!isRestInterval(set)) {
-          if (set.reps !== undefined) totalReps += set.reps;
-          if (set.distance !== undefined && countsDistance(set)) {
-            totalDistance += set.distance;
+          const reps = readMetricValue(set, 'reps');
+          const distance = readMetricValue(set, 'distance');
+          const weight = readMetricValue(set, 'weight');
+          if (reps !== undefined) totalReps += reps;
+          if (distance !== undefined && metricCounts(set, 'distance')) {
+            totalDistance += distance;
           }
-          if (set.weight !== undefined && set.reps !== undefined) {
-            totalWeightLifted += set.reps * set.weight;
+          if (weight !== undefined && reps !== undefined) {
+            totalWeightLifted += reps * weight;
           }
         }
       }
