@@ -39,6 +39,7 @@ import type * as onboardingInternal from "../onboardingInternal.js";
 import type * as openaiConfig from "../openaiConfig.js";
 import type * as plans from "../plans.js";
 import type * as posthogServer from "../posthogServer.js";
+import type * as recipeVision from "../recipeVision.js";
 import type * as recipes from "../recipes.js";
 import type * as revenuecatTypes from "../revenuecatTypes.js";
 import type * as settings from "../settings.js";
@@ -90,6 +91,7 @@ declare const fullApi: ApiFromModules<{
   openaiConfig: typeof openaiConfig;
   plans: typeof plans;
   posthogServer: typeof posthogServer;
+  recipeVision: typeof recipeVision;
   recipes: typeof recipes;
   revenuecatTypes: typeof revenuecatTypes;
   settings: typeof settings;

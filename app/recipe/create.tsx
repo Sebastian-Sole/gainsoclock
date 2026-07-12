@@ -12,12 +12,16 @@ import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Icon } from '@/components/ui/icon';
-import { Plus, Trash2, ChevronDown, ChevronUp, Lock, BookOpen } from 'lucide-react-native';
+import { Plus, Trash2, ChevronDown, ChevronUp, Lock, BookOpen, ScanText } from 'lucide-react-native';
 import { capture } from '@/lib/analytics';
 import { lightHaptic } from '@/lib/haptics';
 import { useRecipeStore } from '@/stores/recipe-store';
+import { useIngredientStore } from '@/stores/ingredient-store';
 import { IngredientLibraryModal } from '@/components/nutrition/ingredient-library-modal';
+import { RecipeScanSheet } from '@/components/nutrition/recipe-scan-sheet';
 import { scalePer100gMacros } from '@/lib/ingredient-macros';
+import { normalizeQuantity, scannedIngredientMacros } from '@/lib/recipe-scan';
+import type { ScannedRecipe } from '@/lib/recipe-scan';
 import type { Ingredient, Macros, SavedIngredient } from '@/lib/types';
 import { parseLocaleNumber } from '@/lib/format';
 
@@ -57,6 +61,11 @@ export default function CreateRecipeScreen() {
   const [cookTime, setCookTime] = useState('');
   const [tags, setTags] = useState('');
   const [showLibraryPicker, setShowLibraryPicker] = useState(false);
+  const [showScanSheet, setShowScanSheet] = useState(false);
+  // Total macros printed on a scanned source (label/PDF). Used as a fallback
+  // when no per-ingredient macros exist to auto-calculate from.
+  const [scannedMacros, setScannedMacros] = useState<Macros | undefined>(undefined);
+  const savedIngredients = useIngredientStore((s) => s.ingredients);
 
   // Raw text for macro fields while they're being edited, keyed by
   // `${ingredientKey}:${field}`. Macros are stored as numbers, which can't
@@ -114,6 +123,38 @@ export default function CreateRecipeScreen() {
     };
   }, [ingredients]);
 
+  // Prefer macros calculated from ingredient rows; fall back to totals that
+  // were printed on a scanned source. Still fully editable via ingredients.
+  const effectiveMacros = calculatedMacros ?? scannedMacros;
+
+  // Pre-fill the form from a scanned recipe. Nothing is saved until the user
+  // reviews the fields and taps Save (the normal create path).
+  const applyScannedRecipe = (recipe: ScannedRecipe) => {
+    setShowScanSheet(false);
+    setTitle(recipe.title);
+    setServings(recipe.servings !== null ? String(recipe.servings) : '');
+    setIngredients(
+      recipe.ingredients.length > 0
+        ? recipe.ingredients.map((ing) => {
+            // Best-effort: map onto the saved ingredient library by name so
+            // gram-quantified matches get macros pre-filled.
+            const macros = scannedIngredientMacros(ing, savedIngredients);
+            return {
+              key: nextKey(),
+              name: ing.name,
+              amount: normalizeQuantity(ing.quantity),
+              unit: ing.unit ?? '',
+              macros: macros ?? undefined,
+              showMacros: !!macros,
+            };
+          })
+        : [emptyIngredient()]
+    );
+    setInstructions(recipe.steps.length > 0 ? recipe.steps : ['']);
+    setScannedMacros(recipe.macros ?? undefined);
+    lightHaptic();
+  };
+
   const handleSave = () => {
     if (!title.trim()) {
       Alert.alert('Error', 'Please enter a recipe title');
@@ -150,7 +191,7 @@ export default function CreateRecipeScreen() {
       servings: servings ? parseInt(servings, 10) || 1 : undefined,
       prepTimeMinutes: prepTime ? parseInt(prepTime, 10) || undefined : undefined,
       cookTimeMinutes: cookTime ? parseInt(cookTime, 10) || undefined : undefined,
-      macros: calculatedMacros,
+      macros: effectiveMacros,
       tags: parsedTags.length > 0 ? parsedTags : undefined,
     };
 
@@ -162,7 +203,7 @@ export default function CreateRecipeScreen() {
         name: 'recipe_created',
         props: {
           ingredientCount: cleanIngredients.length,
-          hasMacros: calculatedMacros !== undefined,
+          hasMacros: effectiveMacros !== undefined,
         },
       });
     }
@@ -273,6 +314,24 @@ export default function CreateRecipeScreen() {
           keyboardDismissMode="interactive"
           contentContainerStyle={{ paddingBottom: 120 }}
         >
+          {/* Scan / import entry point */}
+          {!isEditing && (
+            <Pressable
+              onPress={() => {
+                lightHaptic();
+                setShowScanSheet(true);
+              }}
+              className="mb-4 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-primary bg-accent py-3"
+              accessibilityRole="button"
+              accessibilityLabel="Scan a recipe from a photo or PDF"
+              accessibilityHint="Pre-fills this form; you review before saving"
+              testID="recipe-scan-open"
+            >
+              <Icon as={ScanText} size={18} className="text-primary" />
+              <Text className="font-medium text-primary">Scan from Photo or PDF</Text>
+            </Pressable>
+          )}
+
           {/* Title */}
           <Text className="mb-2 text-sm font-medium text-muted-foreground">TITLE</Text>
           <Input
@@ -487,36 +546,41 @@ export default function CreateRecipeScreen() {
             </Pressable>
           </View>
 
-          {/* Auto-calculated macros */}
-          {calculatedMacros && (
+          {/* Auto-calculated (or scanned) macros */}
+          {effectiveMacros && (
             <View className="mb-4 rounded-xl border border-border bg-card p-4">
               <Text className="mb-2 text-sm font-semibold">
                 Total Nutrition {servings ? `(${servings} servings)` : ''}
               </Text>
+              {!calculatedMacros && scannedMacros && (
+                <Text className="mb-2 text-xs text-muted-foreground">
+                  From the scanned source — adjust ingredient macros to override.
+                </Text>
+              )}
               <View className="flex-row justify-between">
                 <View className="items-center">
-                  <Text className="text-lg font-bold">{calculatedMacros.calories}</Text>
+                  <Text className="text-lg font-bold">{effectiveMacros.calories}</Text>
                   <Text className="text-xs text-muted-foreground">calories</Text>
                 </View>
                 <View className="items-center">
                   <Text className="text-lg font-bold text-primary">
-                    {calculatedMacros.protein}g
+                    {effectiveMacros.protein}g
                   </Text>
                   <Text className="text-xs text-muted-foreground">protein</Text>
                 </View>
                 <View className="items-center">
-                  <Text className="text-lg font-bold">{calculatedMacros.carbs}g</Text>
+                  <Text className="text-lg font-bold">{effectiveMacros.carbs}g</Text>
                   <Text className="text-xs text-muted-foreground">carbs</Text>
                 </View>
                 <View className="items-center">
-                  <Text className="text-lg font-bold">{calculatedMacros.fat}g</Text>
+                  <Text className="text-lg font-bold">{effectiveMacros.fat}g</Text>
                   <Text className="text-xs text-muted-foreground">fat</Text>
                 </View>
               </View>
               {servings && parseInt(servings, 10) > 1 && (
                 <View className="mt-2 pt-2 border-t border-border">
                   <Text className="text-xs text-muted-foreground text-center">
-                    Per serving: {Math.round(calculatedMacros.calories / parseInt(servings, 10))} cal · {Math.round(calculatedMacros.protein / parseInt(servings, 10))}g protein · {Math.round(calculatedMacros.carbs / parseInt(servings, 10))}g carbs · {Math.round(calculatedMacros.fat / parseInt(servings, 10))}g fat
+                    Per serving: {Math.round(effectiveMacros.calories / parseInt(servings, 10))} cal · {Math.round(effectiveMacros.protein / parseInt(servings, 10))}g protein · {Math.round(effectiveMacros.carbs / parseInt(servings, 10))}g carbs · {Math.round(effectiveMacros.fat / parseInt(servings, 10))}g fat
                   </Text>
                 </View>
               )}
@@ -599,6 +663,12 @@ export default function CreateRecipeScreen() {
         visible={showLibraryPicker}
         onClose={() => setShowLibraryPicker(false)}
         onPick={addIngredientFromLibrary}
+      />
+
+      <RecipeScanSheet
+        visible={showScanSheet}
+        onClose={() => setShowScanSheet(false)}
+        onParsed={applyScannedRecipe}
       />
     </>
   );
