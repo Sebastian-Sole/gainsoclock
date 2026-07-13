@@ -1,0 +1,58 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - chat
+---
+# #130 — copy any chat message to the clipboard via long-press.
+#
+# Send one short message, then long-press the user bubble and assert the
+# "Copied" indicator. AI-dependent assertions (the assistant's live generation
+# progress) are optional and time-boxed — the flow must not depend on AI output.
+#
+# Prereq: reach /(tabs) by completing onboarding.
+
+- runFlow: ../onboarding/01-happy-path.yaml
+
+- tapOn:
+    id: "tab-chat"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# The chat tab may show a one-time HealthKit prompt; skip it if present.
+- tapOn:
+    id: "healthkit-chat-prompt-skip"
+    optional: true
+
+# Send a short message.
+- tapOn:
+    id: "chat-composer-input"
+- inputText: "Hello coach"
+- tapOn:
+    id: "chat-send"
+
+# The user's bubble renders; long-press it to copy, then assert the "Copied"
+# indicator. Maestro 2.4.0's `longPressOn` does not register as a React Native
+# long-press under the New Architecture (onLongPress never fires — verified: no
+# clipboard call, no indicator), so hold the touch with a slow zero-distance
+# swipe instead, which RN's Pressability does interpret as a long press. The
+# coordinates target the single user bubble (top-right) on the pinned test
+# device; the indicator is shown for ~2s.
+- extendedWaitUntil:
+    visible:
+      id: "chat-bubble-user"
+    timeout: 8000
+- swipe:
+    start: "83%, 16%"
+    end: "83%, 17%"
+    duration: 1200
+- assertVisible:
+    id: "chat-copied-indicator"
+
+# If the assistant happens to be generating, surface its progress row — but do
+# not depend on AI output, so this is a guarded, best-effort observation only.
+- runFlow:
+    when:
+      visible:
+        id: "chat-generation-progress"
+    commands:
+      - assertVisible:
+          id: "chat-generation-progress"
