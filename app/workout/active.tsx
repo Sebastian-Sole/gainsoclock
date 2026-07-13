@@ -4,7 +4,7 @@ import { Text } from '@/components/ui/text';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Dumbbell } from 'lucide-react-native';
+import { X, Dumbbell, BookmarkPlus } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 
 import { useWorkoutStore } from '@/stores/workout-store';
@@ -17,6 +17,7 @@ import { formatTime, formatDuration } from '@/lib/format';
 import type { Exercise, WorkoutSet } from '@/lib/types';
 import { setActiveWorkoutVisible } from '@/lib/notifications';
 import { FocusLogger } from '@/components/workout/focus/focus-logger';
+import { SaveTemplateSheet } from '@/components/workout/save-template-sheet';
 import { FocusReward } from '@/components/workout/focus/focus-reward';
 import { FocusGradient } from '@/components/workout/focus/focus-gradient';
 
@@ -70,6 +71,7 @@ export default function ActiveWorkoutScreen() {
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
 
   const [rewardTick, setRewardTick] = useState(0);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
 
   // Suppress the rest-timer notification alert while this screen is focused.
   useFocusEffect(
@@ -165,6 +167,16 @@ export default function ActiveWorkoutScreen() {
           <View className="ml-auto flex-row items-center gap-3">
             <RestIndicator />
             <Pressable
+              onPress={() => setShowSaveTemplate(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Save as template"
+              testID="workout-save-template"
+              hitSlop={8}
+              className="h-9 w-9 items-center justify-center rounded-xl border border-border"
+            >
+              <Icon as={BookmarkPlus} size={18} className="text-muted-foreground" />
+            </Pressable>
+            <Pressable
               onPress={() => router.push('/workout/summary')}
               accessibilityRole="button"
               accessibilityLabel="Finish workout"
@@ -196,6 +208,7 @@ export default function ActiveWorkoutScreen() {
       </KeyboardAvoidingView>
 
       <FocusReward trigger={rewardTick} />
+      <SaveTemplateSheet visible={showSaveTemplate} onClose={() => setShowSaveTemplate(false)} />
     </SafeAreaView>
   );
 }
