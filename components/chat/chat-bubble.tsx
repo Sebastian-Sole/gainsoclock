@@ -1,6 +1,10 @@
-import React, { useEffect, useMemo } from 'react';
-import { View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { AccessibilityInfo, Pressable, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { Check } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
+import { Icon } from '@/components/ui/icon';
+import { successHaptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import Animated, {
   useSharedValue,
@@ -15,6 +19,11 @@ interface ChatBubbleProps {
   content: string;
   isStreaming?: boolean;
   isError?: boolean;
+  /**
+   * Server-reported stage label for long generations (issue #127), e.g.
+   * "Building your workout plan… 12 KB drafted". Only shown while streaming.
+   */
+  progressText?: string;
 }
 
 function renderInlineMarkdown(text: string, isUser: boolean): React.ReactNode {
@@ -152,17 +161,79 @@ export function StreamingDots() {
   );
 }
 
-export function ChatBubble({ role, content, isStreaming, isError }: ChatBubbleProps) {
+/**
+ * Seconds elapsed since this indicator mounted. A cheap always-ticking
+ * liveness signal for long generations — the label text may hold still for
+ * a while (e.g. during model reasoning), but this visibly updates every
+ * second (issue #127).
+ */
+function ElapsedSeconds() {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      setSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (seconds < 1) return null;
+  return (
+    <Text className="text-xs text-muted-foreground tabular-nums">
+      {seconds}s
+    </Text>
+  );
+}
+
+export function ChatBubble({
+  role,
+  content,
+  isStreaming,
+  isError,
+  progressText,
+}: ChatBubbleProps) {
   const isUser = role === 'user';
   const markdownElements = useMemo(
     () => (!isUser && content ? renderMarkdown(content, false) : null),
     [content, isUser]
   );
 
+  // Copy-to-clipboard (issue #130): long-press on any bubble, or the "copy"
+  // screen-reader action, copies the raw message text with haptic + a brief
+  // visible "Copied" confirmation.
+  const [copied, setCopied] = useState(false);
+  const canCopy = content.length > 0 && !isStreaming;
+
+  const handleCopy = useCallback(async () => {
+    if (!content) return;
+    await Clipboard.setStringAsync(content);
+    successHaptic();
+    AccessibilityInfo.announceForAccessibility('Message copied to clipboard');
+    setCopied(true);
+  }, [content]);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
   if (!content && !isStreaming) return null;
 
   return (
-    <View
+    <Pressable
+      testID={`chat-bubble-${role}`}
+      accessibilityRole="text"
+      accessibilityLabel={content || 'Assistant is responding'}
+      accessibilityHint={canCopy ? 'Long press to copy' : undefined}
+      accessibilityActions={
+        canCopy ? [{ name: 'copy', label: 'Copy message' }] : undefined
+      }
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'copy') void handleCopy();
+      }}
+      onLongPress={canCopy ? () => void handleCopy() : undefined}
       className={cn(
         'max-w-[85%] rounded-2xl px-4 py-3',
         isUser
@@ -184,10 +255,45 @@ export function ChatBubble({ role, content, isStreaming, isError }: ChatBubblePr
         ) : (
           markdownElements
         )
-      ) : isStreaming ? (
-        <StreamingDots />
       ) : null}
-      {isStreaming && content ? <StreamingDots /> : null}
-    </View>
+      {isStreaming ? (
+        <View
+          testID="chat-generation-progress"
+          className={cn('flex-row items-center gap-2', content ? 'pt-2' : '')}
+          accessibilityLabel={progressText || 'Generating response'}
+          accessibilityRole="progressbar"
+        >
+          <StreamingDots />
+          {progressText ? (
+            <Text className="text-xs text-muted-foreground">
+              {progressText}
+            </Text>
+          ) : null}
+          <ElapsedSeconds />
+        </View>
+      ) : null}
+      {copied ? (
+        <View
+          testID="chat-copied-indicator"
+          className="mt-1 flex-row items-center gap-1"
+        >
+          <Icon
+            as={Check}
+            size={12}
+            className={
+              isUser ? 'text-primary-foreground' : 'text-muted-foreground'
+            }
+          />
+          <Text
+            className={cn(
+              'text-xs',
+              isUser ? 'text-primary-foreground' : 'text-muted-foreground'
+            )}
+          >
+            Copied
+          </Text>
+        </View>
+      ) : null}
+    </Pressable>
   );
 }

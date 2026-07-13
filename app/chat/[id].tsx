@@ -12,6 +12,7 @@ import { useNetwork } from '@/hooks/use-network';
 import { ChatBubble, StreamingDots } from '@/components/chat/chat-bubble';
 import { ChatInput } from '@/components/chat/chat-input';
 import { ApprovalCard } from '@/components/chat/approval-card';
+import { GenerationIncompleteNotice } from '@/components/chat/generation-status';
 import { OfflineBanner } from '@/components/shared/offline-banner';
 import type { Id } from '@/convex/_generated/dataModel';
 
@@ -23,7 +24,15 @@ export default function ChatConversationScreen() {
 
   const conversations = useQuery(api.chat.listConversations) ?? [];
   const conversation = conversations.find((c) => c.clientId === id);
-  const { messages, sendMessage, isSending, isStreaming } = useChat(id);
+  const {
+    messages,
+    sendMessage,
+    retryMessage,
+    retryingMessageId,
+    staleMessageIds,
+    isSending,
+    isStreaming,
+  } = useChat(id);
   const approveAction = useMutation(api.chat.approveAction);
   const executeApproval = useMutation(api.aiTools.executeApproval);
   const [isApprovingAll, setIsApprovingAll] = useState(false);
@@ -108,9 +117,23 @@ export default function ChatConversationScreen() {
             <ChatBubble
               role={item.role as 'user' | 'assistant'}
               content={item.content}
-              isStreaming={item.status === 'streaming'}
+              isStreaming={
+                item.status === 'streaming' && !staleMessageIds.has(item._id)
+              }
               isError={item.status === 'error'}
+              progressText={
+                item.status === 'streaming' ? item.progress : undefined
+              }
             />
+            {item.role === 'assistant' &&
+              (item.status === 'incomplete' ||
+                item.status === 'error' ||
+                staleMessageIds.has(item._id)) && (
+              <GenerationIncompleteNotice
+                onRetry={() => retryMessage(item._id)}
+                isRetrying={retryingMessageId === item._id}
+              />
+            )}
             {item.pendingApproval && (
               <View className={item.content ? 'mt-2' : ''}>
                 <ApprovalCard

@@ -309,6 +309,12 @@ export default defineSchema({
     status: chatMessageStatusValidator,
     toolCalls: v.optional(v.array(toolCallValidator)),
     pendingApproval: v.optional(pendingApprovalValidator),
+    // Transient generation progress (issue #127): a human-readable label for
+    // the current step ("Building your workout plan… 12 KB drafted") plus a
+    // liveness timestamp bumped every few seconds while the generating action
+    // is alive. Cleared on terminal status updates. Optional for back-compat.
+    progress: v.optional(v.string()),
+    progressUpdatedAt: v.optional(v.number()),
     createdAt: v.string(),
   }).index("by_conversation", ["userId", "conversationClientId"]),
 

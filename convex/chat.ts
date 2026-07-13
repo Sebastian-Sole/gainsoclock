@@ -178,7 +178,34 @@ export const updateMessageContent = internalMutation({
   },
   handler: async (ctx, args) => {
     const updates: Record<string, unknown> = { content: args.content };
-    if (args.status) updates.status = args.status;
+    if (args.status) {
+      // Terminal update — clear the transient progress fields.
+      updates.status = args.status;
+      updates.progress = undefined;
+      updates.progressUpdatedAt = undefined;
+    } else {
+      // Mid-stream content updates double as a liveness signal.
+      updates.progressUpdatedAt = Date.now();
+    }
+    await ctx.db.patch(args.messageId, updates);
+  },
+});
+
+// Progress reporting for long-running generations (issue #127). Called with
+// a label at step transitions, and with no label every few seconds as a pure
+// liveness heartbeat while the model produces no deltas (reasoning).
+export const updateMessageProgress = internalMutation({
+  args: {
+    messageId: v.id("chatMessages"),
+    // Omit to bump only the liveness timestamp. Empty string clears the
+    // label while keeping the heartbeat (e.g. once text starts streaming).
+    progress: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const updates: { progressUpdatedAt: number; progress?: string } = {
+      progressUpdatedAt: Date.now(),
+    };
+    if (args.progress !== undefined) updates.progress = args.progress;
     await ctx.db.patch(args.messageId, updates);
   },
 });
@@ -197,7 +224,56 @@ export const updateMessageWithToolCalls = internalMutation({
       toolCalls: args.toolCalls,
       pendingApproval: args.pendingApproval,
       status: args.status,
+      // Terminal update — clear the transient progress fields.
+      progress: undefined,
+      progressUpdatedAt: undefined,
     });
+  },
+});
+
+// Reset a failed/stuck assistant message so the retry action can re-run the
+// generation in place (same bubble, no duplicate user message). Streaming
+// messages are only retryable once they look abandoned — a live generation
+// updates its message at least every few seconds.
+const RETRY_STALE_STREAM_MS = 45_000;
+
+export const resetMessageForRetry = internalMutation({
+  args: {
+    userId: v.id("users"),
+    messageId: v.id("chatMessages"),
+  },
+  handler: async (ctx, args) => {
+    const message = await ctx.db.get(args.messageId);
+    if (!message || message.userId !== args.userId) {
+      throw new Error("Message not found");
+    }
+    if (message.role !== "assistant") {
+      throw new Error("Only assistant messages can be retried");
+    }
+
+    const lastActivity =
+      message.progressUpdatedAt ?? new Date(message.createdAt).getTime();
+    const retryable =
+      message.status === "error" ||
+      message.status === "incomplete" ||
+      (message.status === "streaming" &&
+        Date.now() - lastActivity > RETRY_STALE_STREAM_MS);
+    if (!retryable) {
+      throw new Error("Message is not in a retryable state");
+    }
+
+    await ctx.db.patch(args.messageId, {
+      content: "",
+      status: "streaming" as const,
+      toolCalls: undefined,
+      pendingApproval: undefined,
+      progress: undefined,
+      // Fresh liveness baseline so the retried message isn't immediately
+      // considered stale by the client.
+      progressUpdatedAt: Date.now(),
+    });
+
+    return { conversationClientId: message.conversationClientId };
   },
 });
 
