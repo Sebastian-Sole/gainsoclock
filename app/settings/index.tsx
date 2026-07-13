@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Crown,
   Download,
+  Dumbbell,
   Gauge,
   Heart,
   HeartPulse,
@@ -424,11 +425,28 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Exercise Defaults Section */}
+        {/* Exercises Section */}
         <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
-          EXERCISE DEFAULTS
+          EXERCISES
         </Text>
         <View className="rounded-xl bg-card">
+          <Pressable
+            onPress={() => router.push("/exercise")}
+            className="flex-row items-center gap-3 px-4 py-4"
+            accessibilityRole="button"
+            accessibilityLabel="Exercise Library"
+            testID="settings-exercise-library"
+          >
+            <Icon as={Dumbbell} size={20} className="text-primary" />
+            <View className="flex-1">
+              <Text className="font-medium">Exercise Library</Text>
+              <Text className="text-sm text-muted-foreground">
+                Browse, archive & restore your exercises
+              </Text>
+            </View>
+            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
+          </Pressable>
+          <Separator />
           <View className="flex-row items-center gap-3 px-4 py-4">
             <View className="flex-1">
               <Text className="font-medium">Default Sets</Text>
