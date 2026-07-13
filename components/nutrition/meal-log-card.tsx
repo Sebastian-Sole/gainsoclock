@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { Trash2, UtensilsCrossed } from 'lucide-react-native';
+import { UtensilsCrossed } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 import { Icon } from '@/components/ui/icon';
@@ -18,9 +18,9 @@ export function MealLogCard({ meal }: MealLogCardProps) {
   const deleteMeal = useMealLogStore((s) => s.deleteMeal);
 
   const handlePress = () => {
-    if (meal.recipeClientId) {
-      router.push(`/recipe/${meal.recipeClientId}`);
-    }
+    // Logged-meal detail (day's snapshot), NOT the recipe-library screen —
+    // its delete removes only this log entry, never the recipe (issue #125).
+    router.push(`/meal-log/${meal.id}?date=${meal.date}`);
   };
 
   const handleLongPress = () => {
@@ -48,6 +48,10 @@ export function MealLogCard({ meal }: MealLogCardProps) {
       onPress={handlePress}
       onLongPress={handleLongPress}
       className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-4"
+      accessibilityRole="button"
+      accessibilityLabel={`${meal.title}, ${meal.macros.calories} calories`}
+      accessibilityHint="Opens logged meal details. Long press to remove it from the log."
+      testID={`meal-log-card-${meal.id}`}
     >
       <View className="h-10 w-10 items-center justify-center rounded-full bg-primary/10">
         <Icon as={UtensilsCrossed} size={18} className="text-primary" />
