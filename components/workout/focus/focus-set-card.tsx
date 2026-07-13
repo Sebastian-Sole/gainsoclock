@@ -31,6 +31,7 @@ function BigInput({
   editable,
   accessibilityLabel,
   testID,
+  inputRef,
 }: {
   value?: number;
   onChange: (v: number | undefined) => void;
@@ -38,6 +39,7 @@ function BigInput({
   editable?: boolean;
   accessibilityLabel: string;
   testID?: string;
+  inputRef?: React.Ref<TextInput>;
 }) {
   const { text, onChangeText, onBlur } = useNumericField({
     value,
@@ -48,6 +50,7 @@ function BigInput({
 
   return (
     <TextInput
+      ref={inputRef}
       value={text}
       editable={editable}
       onChangeText={onChangeText}
@@ -87,6 +90,8 @@ export function FocusSetCard({
 }: FocusSetCardProps) {
   const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
   const metrics = resolveExerciseMetrics(exercise.type, exercise.metrics);
+  // One ref per metric row so the pencil affordance can focus its field.
+  const valueInputRefs = React.useRef<Record<string, TextInput | null>>({});
 
   // Intervals don't compose from the metric palette: one set is a whole
   // interval — a work segment (effort + duration) and a rest segment — with
@@ -134,9 +139,18 @@ export function FocusSetCard({
           <Text className="text-xl font-medium leading-none text-muted-foreground">−</Text>
         </Pressable>
         <View className="flex-1 flex-row items-center justify-end gap-2">
-          {/* Decorative affordance: the big borderless number doesn't read as
-              editable on its own. Tapping the number itself focuses it. */}
-          {editable && <Icon as={Pencil} size={13} className="text-muted-foreground/60" />}
+          {/* Edit affordance: the big borderless number doesn't read as
+              editable on its own. Tapping the pencil focuses the field. */}
+          {editable && (
+            <Pressable
+              onPress={() => valueInputRefs.current[spec.id]?.focus()}
+              accessibilityRole="button"
+              accessibilityLabel={`Edit ${spec.label}`}
+              hitSlop={10}
+            >
+              <Icon as={Pencil} size={13} className="text-muted-foreground/60" />
+            </Pressable>
+          )}
           <BigInput
             value={value}
             onChange={change}
@@ -144,6 +158,9 @@ export function FocusSetCard({
             editable={editable}
             accessibilityLabel={spec.label}
             testID={`focus-${spec.id}`}
+            inputRef={(r) => {
+              valueInputRefs.current[spec.id] = r;
+            }}
           />
         </View>
         <Pressable
