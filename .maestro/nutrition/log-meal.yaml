@@ -26,16 +26,16 @@ tags:
 - tapOn:
     id: "log-meal-quick-tab"
 
-# Name the meal and log it.
+# Name the meal and log it. The Log Meal button sits under the keyboard, so
+# submit via the title field's return key (returnKeyType=done -> onSubmitEditing).
 - tapOn:
     id: "log-meal-quick-title"
 - inputText: "Maestro Test Meal"
-- hideKeyboard
-- tapOn:
-    id: "log-meal-quick-submit"
+- pressKey: Enter
 
-# The modal closes and the meal renders in today's list.
+# The modal closes and the meal renders in today's list (the card label is
+# composite: "title, N calories"), so match the title as a substring.
 - extendedWaitUntil:
     visible:
-      text: "Maestro Test Meal"
+      text: ".*Maestro Test Meal.*"
     timeout: 10000

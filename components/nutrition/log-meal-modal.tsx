@@ -313,6 +313,8 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
               onChangeText={setQuickTitle}
               placeholder="e.g. Protein shake"
               autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleQuickLog}
               testID="log-meal-quick-title"
               className="mb-4"
             />
