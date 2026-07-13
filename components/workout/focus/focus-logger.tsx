@@ -6,7 +6,7 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withTiming,
+  withSpring,
 } from 'react-native-reanimated';
 import { ChevronDown, ChevronUp, MoreHorizontal, Plus, Trash2 } from 'lucide-react-native';
 
@@ -45,13 +45,82 @@ export interface FocusLoggerProps {
   autoAdvance?: boolean;
   completeLabel?: string;
   /** Point the pager at this exercise (first set) when set/changed — e.g. after
-   *  adding an exercise from the workout summary (#113). */
+   *  adding an exercise mid-workout from any entry point (#113, #126). */
   focusExerciseId?: string;
 }
 
 /** Left padding of the pills scroll content (`px-4`), subtracted from a pill's
  *  measured x so the active pill lands flush left with its usual inset. */
 const PILLS_LEFT_PADDING = 16;
+
+// --- Set pager tuning (#134) ---
+/** Flicks faster than this (pt/s) turn the page even under the drag threshold. */
+const FLICK_VELOCITY = 500;
+/** Fraction of the page width that must be dragged to commit a page turn. */
+const PAGE_THRESHOLD = 0.22;
+/** Drag resistance past the first/last set (rubber-band). */
+const OVERDRAG_RESISTANCE = 0.28;
+/** Release spring, seeded with the gesture velocity on release. Clamped so an
+ *  overshoot can never expose the unmounted slot beyond the target page. */
+const PAGER_SPRING = {
+  stiffness: 300,
+  damping: 30,
+  mass: 1,
+  overshootClamping: true,
+} as const;
+
+interface SetSlotProps {
+  exercise: Exercise;
+  set: WorkoutSet;
+  pageW: number;
+  offsetX: number;
+  weightUnit: string;
+  distanceUnit: string;
+  editable: boolean;
+  onUpdateSet: (exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => void;
+  onShowAddMetric: () => void;
+  onRemoveMetric: (exerciseId: string, metricId: MetricId) => void;
+}
+
+/** One page of the set pager, absolutely positioned at its set's offset inside
+ *  the translated row. Memoized and keyed by set id so a swipe commit only
+ *  mounts the slot entering the 3-slot window — the visible cards (and their
+ *  focused inputs) are never remounted or repositioned by a page turn, which
+ *  is what keeps the commit frame flicker-free (#134). */
+const SetSlot = React.memo(function SetSlot({
+  exercise,
+  set,
+  pageW,
+  offsetX,
+  weightUnit,
+  distanceUnit,
+  editable,
+  onUpdateSet,
+  onShowAddMetric,
+  onRemoveMetric,
+}: SetSlotProps) {
+  return (
+    <View style={{ position: 'absolute', top: 0, bottom: 0, left: offsetX, width: pageW }}>
+      <ScrollView
+        contentContainerClassName="px-5 pb-6"
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        showsVerticalScrollIndicator={false}
+      >
+        <FocusSetCard
+          exercise={exercise}
+          set={set}
+          weightUnit={weightUnit}
+          distanceUnit={distanceUnit}
+          editable={editable}
+          onUpdate={(updates) => onUpdateSet(exercise.id, set.id, updates)}
+          onAddMetric={onShowAddMetric}
+          onRemoveMetric={(m) => onRemoveMetric(exercise.id, m)}
+        />
+      </ScrollView>
+    </View>
+  );
+});
 
 /**
  * The one-set-at-a-time swipeable logger. Shared by the active workout and the
@@ -84,18 +153,25 @@ export function FocusLogger({
   const [showAddMetric, setShowAddMetric] = useState(false);
   const [showExMenu, setShowExMenu] = useState(false);
   const [pageW, setPageW] = useState(0);
+  // Row translateX. At rest it sits at -safeSetIdx * pageW; each set's slot is
+  // absolutely positioned at index * pageW, so no commit ever has to reset it.
   const tx = useSharedValue(0);
+  // tx captured at gesture start, so a drag that catches the row mid-settle
+  // continues from where the row actually is instead of jumping.
+  const panStartX = useSharedValue(0);
+  // Set right before a gesture-driven setSetIdx commit: the release spring
+  // already owns the motion, so the index-sync effect must not re-drive tx
+  // (that would kill the spring's velocity).
+  const fromGestureRef = useRef(false);
 
   const safeExIdx = Math.min(exIdx, Math.max(0, exercises.length - 1));
   const exercise = exercises[safeExIdx];
   const sets = exercise?.sets ?? [];
   const safeSetIdx = Math.min(setIdx, Math.max(0, sets.length - 1));
 
-  const prevSet = sets[safeSetIdx - 1];
   const curSet = sets[safeSetIdx];
-  const nextSet = sets[safeSetIdx + 1];
-  const hasPrev = !!prevSet;
-  const hasNext = !!nextSet;
+  const hasPrev = safeSetIdx > 0;
+  const hasNext = safeSetIdx < sets.length - 1;
 
   // advanceAfterComplete runs on a timer, after the store has moved on — read
   // the latest exercises from a ref rather than the closed-over prop.
@@ -126,8 +202,15 @@ export function FocusLogger({
     if (activeExerciseId) scrollToActivePill(activeExerciseId);
   }, [activeExerciseId, scrollToActivePill]);
 
+  // Pin the row to the active set whenever the index changes outside the pan
+  // gesture (set dots, auto-advance, add/remove set, exercise switch, layout).
+  // Instant, matching the previous non-swipe behavior.
   useEffect(() => {
-    tx.value = -pageW;
+    if (fromGestureRef.current) {
+      fromGestureRef.current = false;
+      return;
+    }
+    tx.value = -safeSetIdx * pageW;
   }, [pageW, safeSetIdx, safeExIdx, tx]);
 
   // Jump to a caller-designated exercise (its first set) — e.g. one just added
@@ -141,41 +224,50 @@ export function FocusLogger({
     }
   }, [focusExerciseId]);
 
-  const commitPrev = useCallback(() => {
+  const openAddMetric = useCallback(() => setShowAddMetric(true), []);
+
+  const commitFromGesture = useCallback((target: number) => {
+    fromGestureRef.current = true;
     lightHaptic();
-    setSetIdx((i) => Math.max(0, i - 1));
-    tx.value = -pageW;
-  }, [pageW, tx]);
-  const commitNext = useCallback(() => {
-    lightHaptic();
-    setSetIdx((i) => Math.min(sets.length - 1, i + 1));
-    tx.value = -pageW;
-  }, [pageW, sets.length, tx]);
+    setSetIdx(target);
+  }, []);
 
   const pan = Gesture.Pan()
     .activeOffsetX([-16, 16])
+    .onStart(() => {
+      'worklet';
+      panStartX.value = tx.value;
+    })
     .onUpdate((e) => {
       'worklet';
-      let base = -pageW + e.translationX;
-      if ((!hasPrev && e.translationX > 0) || (!hasNext && e.translationX < 0)) {
-        base = -pageW + e.translationX * 0.28; // rubber-band at the ends
+      if (pageW <= 0) return; // detector mounts before the first layout pass
+      const raw = panStartX.value + e.translationX;
+      const min = -(sets.length - 1) * pageW;
+      if (raw > 0) {
+        tx.value = raw * OVERDRAG_RESISTANCE; // rubber-band before the first set
+      } else if (raw < min) {
+        tx.value = min + (raw - min) * OVERDRAG_RESISTANCE; // …and past the last
+      } else {
+        tx.value = raw;
       }
-      tx.value = base;
     })
     .onEnd((e) => {
       'worklet';
-      const threshold = pageW * 0.22;
-      if (e.translationX < -threshold && hasNext) {
-        tx.value = withTiming(-2 * pageW, { duration: 190 }, (f) => {
-          if (f) runOnJS(commitNext)();
-        });
-      } else if (e.translationX > threshold && hasPrev) {
-        tx.value = withTiming(0, { duration: 190 }, (f) => {
-          if (f) runOnJS(commitPrev)();
-        });
-      } else {
-        tx.value = withTiming(-pageW, { duration: 170 });
+      if (pageW <= 0) return;
+      // Fractional set index under the viewport at release.
+      const idxF = -tx.value / pageW;
+      let target = safeSetIdx;
+      if (hasNext && (idxF - safeSetIdx > PAGE_THRESHOLD || e.velocityX < -FLICK_VELOCITY)) {
+        target = safeSetIdx + 1;
+      } else if (hasPrev && (safeSetIdx - idxF > PAGE_THRESHOLD || e.velocityX > FLICK_VELOCITY)) {
+        target = safeSetIdx - 1;
       }
+      // Carry the finger's velocity into the settle so flicks feel fast and
+      // slow drags ease in gently. The commit runs immediately: the target
+      // slot is already mounted, so the React re-render only swaps which
+      // offscreen neighbor exists — nothing visible moves at commit (#134).
+      tx.value = withSpring(-target * pageW, { ...PAGER_SPRING, velocity: e.velocityX });
+      if (target !== safeSetIdx) runOnJS(commitFromGesture)(target);
     });
 
   const rowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
@@ -263,30 +355,6 @@ export function FocusLogger({
   const doneSets = exercises.reduce((n, e) => n + e.sets.filter((s) => s.completed).length, 0);
   const metrics = resolveExerciseMetrics(exercise.type, exercise.metrics);
   const addableMetrics = METRIC_LIST.filter((spec) => !metrics.includes(spec.id));
-
-  const renderPage = (pageSet: WorkoutSet | undefined, key: string, editable: boolean) => (
-    <ScrollView
-      key={key}
-      style={{ width: pageW }}
-      contentContainerClassName="px-5 pb-6"
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="interactive"
-      showsVerticalScrollIndicator={false}
-    >
-      {pageSet ? (
-        <FocusSetCard
-          exercise={exercise}
-          set={pageSet}
-          weightUnit={weightUnit}
-          distanceUnit={distanceUnit}
-          editable={editable}
-          onUpdate={(updates) => onUpdateSet(exercise.id, pageSet.id, updates)}
-          onAddMetric={() => setShowAddMetric(true)}
-          onRemoveMetric={(m) => onRemoveMetric(exercise.id, m)}
-        />
-      ) : null}
-    </ScrollView>
-  );
 
   return (
     <>
@@ -390,6 +458,7 @@ export function FocusLogger({
             onPress={() => setShowExMenu(true)}
             accessibilityRole="button"
             accessibilityLabel="Reorder or remove exercise"
+            testID="focus-exercise-menu"
             className="h-7 w-8 items-center justify-center rounded-lg border border-border"
           >
             <Icon as={MoreHorizontal} size={16} className="text-muted-foreground" />
@@ -404,18 +473,37 @@ export function FocusLogger({
         </Text>
       </View>
 
-      {/* Swipeable set pager */}
-      <View className="flex-1 overflow-hidden" onLayout={(e) => setPageW(e.nativeEvent.layout.width)}>
-        {pageW > 0 && (
-          <GestureDetector gesture={pan}>
-            <Animated.View style={[{ width: pageW * 3, flexDirection: 'row' }, rowStyle]}>
-              {renderPage(prevSet, `prev-${prevSet?.id ?? 'x'}`, false)}
-              {renderPage(curSet, `cur-${curSet?.id ?? 'x'}`, true)}
-              {renderPage(nextSet, `next-${nextSet?.id ?? 'x'}`, false)}
+      {/* Swipeable set pager. The detector sits on the (untranslated) viewport
+          so the pan hit area covers the screen at every page; the translated
+          row inside holds a 3-slot window of absolutely positioned pages. */}
+      <GestureDetector gesture={pan}>
+        <View
+          className="flex-1 overflow-hidden"
+          onLayout={(e) => setPageW(e.nativeEvent.layout.width)}
+        >
+          {pageW > 0 && (
+            <Animated.View style={[{ flex: 1 }, rowStyle]}>
+              {sets.map((s, i) =>
+                Math.abs(i - safeSetIdx) > 1 ? null : (
+                  <SetSlot
+                    key={s.id}
+                    exercise={exercise}
+                    set={s}
+                    pageW={pageW}
+                    offsetX={i * pageW}
+                    weightUnit={weightUnit}
+                    distanceUnit={distanceUnit}
+                    editable={i === safeSetIdx}
+                    onUpdateSet={onUpdateSet}
+                    onShowAddMetric={openAddMetric}
+                    onRemoveMetric={onRemoveMetric}
+                  />
+                )
+              )}
             </Animated.View>
-          </GestureDetector>
-        )}
-      </View>
+          )}
+        </View>
+      </GestureDetector>
 
       {/* Set dots */}
       <View className="flex-row flex-wrap items-center justify-center gap-2 px-4 py-2">
@@ -565,6 +653,7 @@ export function FocusLogger({
               disabled={exercises.length <= 1}
               accessibilityRole="button"
               accessibilityLabel="Remove exercise"
+              testID="focus-remove-exercise"
               className={cn(
                 'mt-2 flex-row items-center gap-3 rounded-xl border border-border px-4 py-3',
                 exercises.length <= 1 && 'opacity-40'
