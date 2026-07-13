@@ -7,14 +7,15 @@ interface CalendarDayProps {
   day: number;
   isToday: boolean;
   isSelected: boolean;
-  hasWorkout: boolean;
-  /** Day has imported (Apple Health) workouts but no Fitbull workout. */
-  hasExternalWorkoutOnly: boolean;
+  /** Day has entries — filled marker (workouts in history, meals in nutrition). */
+  isMarked: boolean;
+  /** Secondary dot marker (e.g. imported Apple Health workouts without a Fitbull log). */
+  hasDot: boolean;
   isCurrentMonth: boolean;
   onPress: () => void;
 }
 
-export const CalendarDay = React.memo(function CalendarDay({ day, isToday, isSelected, hasWorkout, hasExternalWorkoutOnly, isCurrentMonth, onPress }: CalendarDayProps) {
+export const CalendarDay = React.memo(function CalendarDay({ day, isToday, isSelected, isMarked, hasDot, isCurrentMonth, onPress }: CalendarDayProps) {
   return (
     <Pressable
       onPress={onPress}
@@ -24,8 +25,8 @@ export const CalendarDay = React.memo(function CalendarDay({ day, isToday, isSel
         className={cn(
           'h-10 w-10 items-center justify-center rounded-full',
           isSelected && 'bg-primary',
-          hasWorkout && !isSelected && 'bg-primary/25',
-          isToday && !isSelected && !hasWorkout && 'bg-accent border-2 border-primary'
+          isMarked && !isSelected && 'bg-primary/25',
+          isToday && !isSelected && !isMarked && 'bg-accent border-2 border-primary'
         )}
       >
         <Text
@@ -34,12 +35,12 @@ export const CalendarDay = React.memo(function CalendarDay({ day, isToday, isSel
             !isCurrentMonth && 'text-muted-foreground/40',
             isSelected && 'font-bold text-primary-foreground',
             isToday && !isSelected && 'font-bold text-primary',
-            hasWorkout && !isSelected && !isToday && 'font-semibold text-primary'
+            isMarked && !isSelected && !isToday && 'font-semibold text-primary'
           )}
         >
           {day}
         </Text>
-        {hasExternalWorkoutOnly && (
+        {hasDot && (
           <View
             className={cn(
               'absolute bottom-1 h-1 w-1 rounded-full',
@@ -54,7 +55,7 @@ export const CalendarDay = React.memo(function CalendarDay({ day, isToday, isSel
   prev.day === next.day &&
   prev.isToday === next.isToday &&
   prev.isSelected === next.isSelected &&
-  prev.hasWorkout === next.hasWorkout &&
-  prev.hasExternalWorkoutOnly === next.hasExternalWorkoutOnly &&
+  prev.isMarked === next.isMarked &&
+  prev.hasDot === next.hasDot &&
   prev.isCurrentMonth === next.isCurrentMonth
 );

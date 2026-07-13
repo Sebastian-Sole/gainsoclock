@@ -26,10 +26,13 @@ const GRID_HEIGHT = MAX_WEEKS * ROW_HEIGHT;
 interface CalendarProps {
   currentMonth: Date;
   selectedDate: Date;
-  workoutDates: Set<string>;
-  /** Dates ("yyyy-MM-dd") with imported (Apple Health) workouts. Days that
-   * also appear in `workoutDates` keep the Fitbull marker. */
-  externalWorkoutDates?: Set<string>;
+  /** Dates ("yyyy-MM-dd") with entries — filled marker. Domain-agnostic:
+   * workout logs in history, meal logs in nutrition. */
+  markedDates: Set<string>;
+  /** Dates ("yyyy-MM-dd") with a secondary dot marker (e.g. imported Apple
+   * Health workouts). Days that also appear in `markedDates` keep the filled
+   * marker. */
+  dotDates?: Set<string>;
   isLoading?: boolean;
   onSelectDate: (date: Date) => void;
   onPrevMonth: () => void;
@@ -82,8 +85,8 @@ function CalendarSkeleton() {
 export function Calendar({
   currentMonth,
   selectedDate,
-  workoutDates,
-  externalWorkoutDates,
+  markedDates,
+  dotDates,
   isLoading,
   onSelectDate,
   onPrevMonth,
@@ -140,10 +143,8 @@ export function Calendar({
                 day={day.getDate()}
                 isToday={isToday(day)}
                 isSelected={isSameDay(day, selectedDate)}
-                hasWorkout={workoutDates.has(dateStr)}
-                hasExternalWorkoutOnly={
-                  externalWorkoutDates?.has(dateStr) === true && !workoutDates.has(dateStr)
-                }
+                isMarked={markedDates.has(dateStr)}
+                hasDot={dotDates?.has(dateStr) === true && !markedDates.has(dateStr)}
                 isCurrentMonth={true}
                 onPress={() => onSelectDate(day)}
               />

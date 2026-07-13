@@ -144,8 +144,8 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
       <Calendar
         currentMonth={currentMonth}
         selectedDate={selectedDate}
-        workoutDates={workoutDates}
-        externalWorkoutDates={externalWorkoutDates}
+        markedDates={workoutDates}
+        dotDates={externalWorkoutDates}
         isLoading={startOfMonth(currentMonth).toISOString() < fetchedRangeFrom}
         onSelectDate={onSelectDate}
         onPrevMonth={() => {
