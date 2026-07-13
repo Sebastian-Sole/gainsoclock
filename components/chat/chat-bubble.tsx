@@ -1,6 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { AccessibilityInfo, Pressable, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { Check } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
+import { Icon } from '@/components/ui/icon';
+import { successHaptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import Animated, {
   useSharedValue,
@@ -195,10 +199,41 @@ export function ChatBubble({
     [content, isUser]
   );
 
+  // Copy-to-clipboard (issue #130): long-press on any bubble, or the "copy"
+  // screen-reader action, copies the raw message text with haptic + a brief
+  // visible "Copied" confirmation.
+  const [copied, setCopied] = useState(false);
+  const canCopy = content.length > 0 && !isStreaming;
+
+  const handleCopy = useCallback(async () => {
+    if (!content) return;
+    await Clipboard.setStringAsync(content);
+    successHaptic();
+    AccessibilityInfo.announceForAccessibility('Message copied to clipboard');
+    setCopied(true);
+  }, [content]);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
   if (!content && !isStreaming) return null;
 
   return (
-    <View
+    <Pressable
+      testID={`chat-bubble-${role}`}
+      accessibilityRole="text"
+      accessibilityLabel={content || 'Assistant is responding'}
+      accessibilityHint={canCopy ? 'Long press to copy' : undefined}
+      accessibilityActions={
+        canCopy ? [{ name: 'copy', label: 'Copy message' }] : undefined
+      }
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'copy') void handleCopy();
+      }}
+      onLongPress={canCopy ? () => void handleCopy() : undefined}
       className={cn(
         'max-w-[85%] rounded-2xl px-4 py-3',
         isUser
@@ -237,6 +272,28 @@ export function ChatBubble({
           <ElapsedSeconds />
         </View>
       ) : null}
-    </View>
+      {copied ? (
+        <View
+          testID="chat-copied-indicator"
+          className="mt-1 flex-row items-center gap-1"
+        >
+          <Icon
+            as={Check}
+            size={12}
+            className={
+              isUser ? 'text-primary-foreground' : 'text-muted-foreground'
+            }
+          />
+          <Text
+            className={cn(
+              'text-xs',
+              isUser ? 'text-primary-foreground' : 'text-muted-foreground'
+            )}
+          >
+            Copied
+          </Text>
+        </View>
+      ) : null}
+    </Pressable>
   );
 }
