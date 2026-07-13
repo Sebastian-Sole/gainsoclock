@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Pressable, ScrollView, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useRouter } from 'expo-router';
@@ -15,6 +15,7 @@ import { lightHaptic, mediumHaptic } from '@/lib/haptics';
 import { SectionHeader } from '@/components/shared/section-header';
 import { FocusGradient } from '@/components/workout/focus/focus-gradient';
 import { SummaryExerciseRow } from '@/components/workout/summary-exercise-row';
+import { SaveTemplateSheet } from '@/components/workout/save-template-sheet';
 
 export default function WorkoutSummaryScreen() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function WorkoutSummaryScreen() {
   const weightUnit = useSettingsStore((s) => s.weightUnit);
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
   const { finishWorkout, discardWorkout } = useFinishWorkout();
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
 
   if (!activeWorkout) return null;
 
@@ -172,10 +174,25 @@ export default function WorkoutSummaryScreen() {
         >
           <Text className="text-base font-bold text-primary-foreground">Finish workout</Text>
         </Pressable>
-        <Pressable onPress={confirmDiscard} accessibilityRole="button" accessibilityLabel="Discard workout" className="items-center py-1">
-          <Text className="text-sm font-medium text-destructive">Discard workout</Text>
-        </Pressable>
+        <View className="flex-row items-center justify-center gap-8">
+          {exercises.length > 0 && (
+            <Pressable
+              onPress={() => setShowSaveTemplate(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Save as template"
+              testID="summary-save-template"
+              hitSlop={8}
+              className="items-center py-1"
+            >
+              <Text className="text-sm font-medium text-primary">Save as template</Text>
+            </Pressable>
+          )}
+          <Pressable onPress={confirmDiscard} accessibilityRole="button" accessibilityLabel="Discard workout" hitSlop={8} className="items-center py-1">
+            <Text className="text-sm font-medium text-destructive">Discard workout</Text>
+          </Pressable>
+        </View>
       </View>
+      <SaveTemplateSheet visible={showSaveTemplate} onClose={() => setShowSaveTemplate(false)} />
     </SafeAreaView>
   );
 }
