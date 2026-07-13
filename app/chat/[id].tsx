@@ -29,6 +29,7 @@ export default function ChatConversationScreen() {
     sendMessage,
     retryMessage,
     retryingMessageId,
+    staleMessageIds,
     isSending,
     isStreaming,
   } = useChat(id);
@@ -116,14 +117,18 @@ export default function ChatConversationScreen() {
             <ChatBubble
               role={item.role as 'user' | 'assistant'}
               content={item.content}
-              isStreaming={item.status === 'streaming'}
+              isStreaming={
+                item.status === 'streaming' && !staleMessageIds.has(item._id)
+              }
               isError={item.status === 'error'}
               progressText={
                 item.status === 'streaming' ? item.progress : undefined
               }
             />
             {item.role === 'assistant' &&
-              (item.status === 'incomplete' || item.status === 'error') && (
+              (item.status === 'incomplete' ||
+                item.status === 'error' ||
+                staleMessageIds.has(item._id)) && (
               <GenerationIncompleteNotice
                 onRetry={() => retryMessage(item._id)}
                 isRetrying={retryingMessageId === item._id}
