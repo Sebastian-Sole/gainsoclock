@@ -122,7 +122,11 @@ export const chatMessageRoleValidator = v.union(
 export const chatMessageStatusValidator = v.union(
   v.literal("complete"),
   v.literal("streaming"),
-  v.literal("error")
+  v.literal("error"),
+  // Generation started but did not finish (e.g. tool-call JSON truncated by
+  // the token budget). Distinct from "error" so the client can offer a retry
+  // while still showing whatever text streamed before the cutoff.
+  v.literal("incomplete")
 );
 
 export const approvalTypeValidator = v.union(

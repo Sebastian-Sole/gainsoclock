@@ -12,6 +12,7 @@ import { useNetwork } from '@/hooks/use-network';
 import { ChatBubble, StreamingDots } from '@/components/chat/chat-bubble';
 import { ChatInput } from '@/components/chat/chat-input';
 import { ApprovalCard } from '@/components/chat/approval-card';
+import { GenerationIncompleteNotice } from '@/components/chat/generation-status';
 import { OfflineBanner } from '@/components/shared/offline-banner';
 import type { Id } from '@/convex/_generated/dataModel';
 
@@ -23,7 +24,14 @@ export default function ChatConversationScreen() {
 
   const conversations = useQuery(api.chat.listConversations) ?? [];
   const conversation = conversations.find((c) => c.clientId === id);
-  const { messages, sendMessage, isSending, isStreaming } = useChat(id);
+  const {
+    messages,
+    sendMessage,
+    retryMessage,
+    retryingMessageId,
+    isSending,
+    isStreaming,
+  } = useChat(id);
   const approveAction = useMutation(api.chat.approveAction);
   const executeApproval = useMutation(api.aiTools.executeApproval);
   const [isApprovingAll, setIsApprovingAll] = useState(false);
@@ -111,6 +119,13 @@ export default function ChatConversationScreen() {
               isStreaming={item.status === 'streaming'}
               isError={item.status === 'error'}
             />
+            {item.role === 'assistant' &&
+              (item.status === 'incomplete' || item.status === 'error') && (
+              <GenerationIncompleteNotice
+                onRetry={() => retryMessage(item._id)}
+                isRetrying={retryingMessageId === item._id}
+              />
+            )}
             {item.pendingApproval && (
               <View className={item.content ? 'mt-2' : ''}>
                 <ApprovalCard

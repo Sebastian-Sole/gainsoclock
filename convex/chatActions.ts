@@ -8,8 +8,12 @@ import type {
   ChatCompletionTool,
 } from "openai/resources/chat/completions";
 import { internal } from "./_generated/api";
-import { action } from "./_generated/server";
-import { OPENAI_CHAT_MODEL } from "./openaiConfig";
+import { action, type ActionCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import {
+  OPENAI_CHAT_MODEL,
+  OPENAI_CHAT_MAX_COMPLETION_TOKENS,
+} from "./openaiConfig";
 import { METRIC_IDS } from "./metricsMap";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -682,7 +686,322 @@ ${planSection}
 - When you call update_workout_plan, briefly state in your text response which plan you are updating, by name.`;
 }
 
+// ── Generation Core ────────────────────────────────────────────
+
+/**
+ * Runs one assistant turn against OpenAI and persists the outcome onto an
+ * existing placeholder assistant message. Shared by sendMessage (normal
+ * sends) and retryGeneration (re-running a failed/truncated turn in place).
+ *
+ * Returns the conversation history used for the prompt on success, or null
+ * when generation failed (the message is patched with an error state either
+ * way — this never throws for generation failures).
+ */
+async function generateAssistantResponse(
+  ctx: ActionCtx,
+  params: {
+    userId: Id<"users">;
+    conversationClientId: string;
+    assistantMessageId: Id<"chatMessages">;
+  },
+): Promise<Doc<"chatMessages">[] | null> {
+  const { userId, conversationClientId, assistantMessageId } = params;
+
+  // Gather user context
+  const context = await ctx.runQuery(internal.chatInternal.getUserContext, {
+    userId,
+  });
+
+  // Gather recent health & recovery context (Apple Health imports)
+  const healthContext = await ctx.runQuery(
+    internal.healthData.getHealthContextForUser,
+    { userId },
+  );
+
+  // Load conversation history
+  const history = await ctx.runQuery(internal.chat.getHistory, {
+    userId,
+    conversationClientId,
+  });
+
+  // Build messages array for OpenAI. Window to the most recent exchange so
+  // prompt size stays bounded as conversations grow. Exclude the placeholder
+  // being generated into, plus failed/abandoned turns — their content is
+  // either empty or an error fallback that would only confuse the model.
+  const recentHistory = history
+    .filter(
+      (m) =>
+        m.role !== "system" &&
+        m._id !== assistantMessageId &&
+        m.status !== "error" &&
+        m.status !== "incomplete" &&
+        m.status !== "streaming",
+    )
+    .slice(-OPENAI_HISTORY_WINDOW);
+  const systemPrompt = buildSystemPrompt(context, healthContext);
+  const messages: ChatCompletionMessageParam[] = [
+    { role: "system", content: systemPrompt },
+    ...recentHistory.map((m) => ({
+      role: m.role as "user" | "assistant",
+      content:
+        m.role === "assistant" && m.pendingApproval
+          ? m.content + approvalMarker(m.pendingApproval)
+          : m.content,
+    })),
+  ];
+
+  // Cost tripwire for backlog.md LATER #2 — counts only, never content.
+  void ctx
+    .runAction(internal.analytics.captureServer, {
+      distinctId: userId,
+      eventName: "ai_context_size",
+      properties: {
+        systemPromptChars: systemPrompt.length,
+        historyMessages: recentHistory.length,
+        historyMessagesRaw: history.length,
+        historyChars: recentHistory.reduce((n, m) => n + m.content.length, 0),
+        totalWorkouts: context.stats.totalWorkouts,
+        exerciseCount: context.exercises.length,
+      },
+    })
+    .catch(() => {});
+
+  // Call OpenAI with streaming
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+  try {
+    const stream = await openai.chat.completions.create({
+      model: OPENAI_CHAT_MODEL,
+      messages,
+      tools: TOOLS,
+      stream: true,
+      max_completion_tokens: OPENAI_CHAT_MAX_COMPLETION_TOKENS,
+    });
+
+    let fullContent = "";
+    let lastUpdateTime = 0;
+    let finishReason: string | null = null;
+
+    // Accumulate tool calls from stream deltas
+    const toolCallAccumulator: Map<
+      number,
+      { id: string; name: string; arguments: string }
+    > = new Map();
+
+    for await (const chunk of stream) {
+      const choice = chunk.choices[0];
+      if (!choice) continue;
+
+      if (choice.finish_reason) finishReason = choice.finish_reason;
+
+      const delta = choice.delta;
+
+      // Accumulate text content
+      if (delta?.content) {
+        fullContent += delta.content;
+
+        // Update message content periodically (~200ms)
+        const now = Date.now();
+        if (now - lastUpdateTime > 200) {
+          await ctx.runMutation(internal.chat.updateMessageContent, {
+            messageId: assistantMessageId,
+            content: fullContent,
+          });
+          lastUpdateTime = now;
+        }
+      }
+
+      // Accumulate tool calls
+      if (delta?.tool_calls) {
+        for (const tc of delta.tool_calls) {
+          const existing = toolCallAccumulator.get(tc.index);
+          if (!existing) {
+            toolCallAccumulator.set(tc.index, {
+              id: tc.id ?? "",
+              name: tc.function?.name ?? "",
+              arguments: tc.function?.arguments ?? "",
+            });
+          } else {
+            if (tc.id) existing.id = tc.id;
+            if (tc.function?.name) existing.name += tc.function.name;
+            if (tc.function?.arguments)
+              existing.arguments += tc.function.arguments;
+          }
+        }
+      }
+    }
+
+    // Process completed stream
+    const rawToolCalls = Array.from(toolCallAccumulator.values()).filter(
+      (tc) => tc.id && tc.name,
+    );
+
+    // Structural guard (issue #102): a single assistant turn may propose at
+    // most ONE new workout plan. The model occasionally emits several
+    // create_workout_plan calls in one response; each would become its own
+    // approval card and, once approved, its own saved plan. Keep the first
+    // and drop the rest — prompt rules alone are not a guardrail.
+    let sawCreatePlan = false;
+    const toolCalls = rawToolCalls.filter((tc) => {
+      if (tc.name !== "create_workout_plan") return true;
+      if (sawCreatePlan) {
+        console.error(
+          "[chat] dropped duplicate create_workout_plan tool call in a single turn",
+        );
+        return false;
+      }
+      sawCreatePlan = true;
+      return true;
+    });
+
+    // Reports a truncated/failed tool call so it shows up in error tracking —
+    // the user sees a retryable "incomplete" bubble, so Convex's uncaught
+    // handler never fires for this path.
+    const reportTruncation = (toolName: string) => {
+      console.error(
+        `[chat] tool-call arguments unparseable (likely token truncation): ${toolName}`,
+      );
+      void ctx.scheduler.runAfter(
+        0,
+        internal.errorReporting.reportHandledError,
+        {
+          where: "chat.generateAssistantResponse",
+          message: `Tool-call arguments unparseable (likely token truncation): ${toolName}, finish_reason=${finishReason ?? "unknown"}`,
+          userId,
+          extra: { conversationClientId },
+        },
+      );
+    };
+
+    if (toolCalls.length > 0) {
+      // Strip raw JSON that the model sometimes echoes as text content
+      // alongside tool calls (e.g., dumping the recipe/template JSON inline).
+      // We keep only non-JSON text (the explanation the model wrote).
+      fullContent = stripInlineJson(fullContent);
+
+      // Helper to determine approval type from tool name
+      function getApprovalType(name: string) {
+        if (name === "create_workout_template") return "create_template";
+        if (name === "create_workout_plan") return "create_plan";
+        if (name === "update_workout_plan") return "update_plan";
+        if (name === "log_meal") return "log_meal";
+        if (name === "set_nutrition_goals") return "set_nutrition_goals";
+        return "create_recipe";
+      }
+
+      // First tool call goes on the main assistant message (with text content)
+      const firstToolCall = toolCalls[0];
+      let firstToolArgs: unknown;
+      let firstToolArgsOk = true;
+      try {
+        firstToolArgs = JSON.parse(firstToolCall.arguments);
+      } catch {
+        firstToolArgsOk = false;
+        reportTruncation(firstToolCall.name);
+      }
+
+      if (firstToolArgsOk) {
+        await ctx.runMutation(internal.chat.updateMessageWithToolCalls, {
+          messageId: assistantMessageId,
+          content: fullContent,
+          toolCalls: toolCalls.map((tc) => ({
+            id: tc.id,
+            name: tc.name,
+            arguments: tc.arguments,
+          })),
+          pendingApproval: {
+            type: getApprovalType(firstToolCall.name),
+            payload: JSON.stringify(firstToolArgs),
+            status: "pending",
+          },
+          status: "complete",
+        });
+      } else {
+        // Truncated tool-call JSON (issue #128). Keep whatever text streamed,
+        // but surface the failure as a retryable "incomplete" state — never a
+        // silent "complete" with no approval card.
+        await ctx.runMutation(internal.chat.updateMessageContent, {
+          messageId: assistantMessageId,
+          content: fullContent,
+          status: "incomplete",
+        });
+      }
+
+      // Additional tool calls each get their own assistant message
+      for (let i = 1; i < toolCalls.length; i++) {
+        const tc = toolCalls[i];
+        let tcArgs: unknown;
+        try {
+          tcArgs = JSON.parse(tc.arguments);
+        } catch {
+          reportTruncation(tc.name);
+          // Surface the dropped proposal as its own retryable bubble instead
+          // of silently skipping it.
+          await ctx.runMutation(internal.chat.insertMessage, {
+            userId,
+            conversationClientId,
+            role: "assistant",
+            content: "",
+            status: "incomplete",
+          });
+          continue;
+        }
+
+        await ctx.runMutation(internal.chat.insertMessage, {
+          userId,
+          conversationClientId,
+          role: "assistant",
+          content: "",
+          status: "complete",
+          pendingApproval: {
+            type: getApprovalType(tc.name),
+            payload: JSON.stringify(tcArgs),
+            status: "pending",
+          },
+        });
+      }
+    } else {
+      // Final content update for non-tool-call responses. A "length" finish
+      // means the text itself was cut off by the token budget — mark it
+      // incomplete so the user can retry instead of trusting a clipped answer.
+      await ctx.runMutation(internal.chat.updateMessageContent, {
+        messageId: assistantMessageId,
+        content: fullContent,
+        status: finishReason === "length" ? "incomplete" : "complete",
+      });
+    }
+
+    return history;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[chat] generateAssistantResponse failed: ${reason}`);
+
+    // Handled failure: the user gets a fallback message below, so Convex's
+    // native (uncaught) Sentry integration never sees this. Report it.
+    await ctx.scheduler.runAfter(0, internal.errorReporting.reportHandledError, {
+      where: "chat.sendMessage",
+      message: reason,
+      stack: error instanceof Error ? error.stack : undefined,
+      userId,
+      extra: { conversationClientId },
+    });
+
+    // Mark message as error
+    await ctx.runMutation(internal.chat.updateMessageContent, {
+      messageId: assistantMessageId,
+      content:
+        "Sorry, I encountered an error processing your request. Please try again.",
+      status: "error",
+    });
+
+    return null;
+  }
+}
+
 // ── Main Chat Action ───────────────────────────────────────────
+
+const SUBSCRIPTION_REQUIRED_MESSAGE =
+  "Subscription required: Your current plan doesn't include AI Coach. Please upgrade to Pro to use this feature.";
 
 export const sendMessage = action({
   args: {
@@ -699,12 +1018,10 @@ export const sendMessage = action({
       { userId }
     );
     if (!isPro) {
-      throw new Error(
-        "Subscription required: Your current plan doesn't include AI Coach. Please upgrade to Pro to use this feature."
-      );
+      throw new Error(SUBSCRIPTION_REQUIRED_MESSAGE);
     }
 
-    // 1. Insert user message
+    // Insert user message
     await ctx.runMutation(internal.chat.insertMessage, {
       userId,
       conversationClientId: args.conversationClientId,
@@ -713,57 +1030,7 @@ export const sendMessage = action({
       status: "complete",
     });
 
-    // 2. Gather user context
-    const context = await ctx.runQuery(internal.chatInternal.getUserContext, {
-      userId,
-    });
-
-    // 2b. Gather recent health & recovery context (Apple Health imports)
-    const healthContext = await ctx.runQuery(
-      internal.healthData.getHealthContextForUser,
-      { userId },
-    );
-
-    // 3. Load conversation history
-    const history = await ctx.runQuery(internal.chat.getHistory, {
-      userId,
-      conversationClientId: args.conversationClientId,
-    });
-
-    // 4. Build messages array for OpenAI. Window to the most recent
-    // exchange so prompt size stays bounded as conversations grow.
-    const recentHistory = history
-      .filter((m) => m.role !== "system")
-      .slice(-OPENAI_HISTORY_WINDOW);
-    const systemPrompt = buildSystemPrompt(context, healthContext);
-    const messages: ChatCompletionMessageParam[] = [
-      { role: "system", content: systemPrompt },
-      ...recentHistory.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content:
-          m.role === "assistant" && m.pendingApproval
-            ? m.content + approvalMarker(m.pendingApproval)
-            : m.content,
-      })),
-    ];
-
-    // Cost tripwire for backlog.md LATER #2 — counts only, never content.
-    void ctx
-      .runAction(internal.analytics.captureServer, {
-        distinctId: userId,
-        eventName: "ai_context_size",
-        properties: {
-          systemPromptChars: systemPrompt.length,
-          historyMessages: recentHistory.length,
-          historyMessagesRaw: history.length,
-          historyChars: recentHistory.reduce((n, m) => n + m.content.length, 0),
-          totalWorkouts: context.stats.totalWorkouts,
-          exerciseCount: context.exercises.length,
-        },
-      })
-      .catch(() => {});
-
-    // 5. Insert placeholder assistant message
+    // Insert placeholder assistant message and run the generation
     const assistantMessageId = await ctx.runMutation(
       internal.chat.insertMessage,
       {
@@ -775,185 +1042,18 @@ export const sendMessage = action({
       },
     );
 
-    // 6. Call OpenAI with streaming
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const history = await generateAssistantResponse(ctx, {
+      userId,
+      conversationClientId: args.conversationClientId,
+      assistantMessageId,
+    });
 
-    try {
-      const stream = await openai.chat.completions.create({
-        model: OPENAI_CHAT_MODEL,
-        messages,
-        tools: TOOLS,
-        stream: true,
-        max_completion_tokens: 8000,
-      });
-
-      let fullContent = "";
-      let lastUpdateTime = 0;
-
-      // Accumulate tool calls from stream deltas
-      const toolCallAccumulator: Map<
-        number,
-        { id: string; name: string; arguments: string }
-      > = new Map();
-
-      for await (const chunk of stream) {
-        const choice = chunk.choices[0];
-        if (!choice) continue;
-
-        const delta = choice.delta;
-
-        // Accumulate text content
-        if (delta?.content) {
-          fullContent += delta.content;
-
-          // Update message content periodically (~500ms)
-          const now = Date.now();
-          if (now - lastUpdateTime > 200) {
-            await ctx.runMutation(internal.chat.updateMessageContent, {
-              messageId: assistantMessageId,
-              content: fullContent,
-            });
-            lastUpdateTime = now;
-          }
-        }
-
-        // Accumulate tool calls
-        if (delta?.tool_calls) {
-          for (const tc of delta.tool_calls) {
-            const existing = toolCallAccumulator.get(tc.index);
-            if (!existing) {
-              toolCallAccumulator.set(tc.index, {
-                id: tc.id ?? "",
-                name: tc.function?.name ?? "",
-                arguments: tc.function?.arguments ?? "",
-              });
-            } else {
-              if (tc.id) existing.id = tc.id;
-              if (tc.function?.name) existing.name += tc.function.name;
-              if (tc.function?.arguments)
-                existing.arguments += tc.function.arguments;
-            }
-          }
-        }
-      }
-
-      // 7. Process completed stream
-      const rawToolCalls = Array.from(toolCallAccumulator.values()).filter(
-        (tc) => tc.id && tc.name,
-      );
-
-      // Structural guard (issue #102): a single assistant turn may propose at
-      // most ONE new workout plan. The model occasionally emits several
-      // create_workout_plan calls in one response; each would become its own
-      // approval card and, once approved, its own saved plan. Keep the first
-      // and drop the rest — prompt rules alone are not a guardrail.
-      let sawCreatePlan = false;
-      const toolCalls = rawToolCalls.filter((tc) => {
-        if (tc.name !== "create_workout_plan") return true;
-        if (sawCreatePlan) {
-          console.error(
-            "[chat] dropped duplicate create_workout_plan tool call in a single turn",
-          );
-          return false;
-        }
-        sawCreatePlan = true;
-        return true;
-      });
-
-      if (toolCalls.length > 0) {
-        // Strip raw JSON that the model sometimes echoes as text content
-        // alongside tool calls (e.g., dumping the recipe/template JSON inline).
-        // We keep only non-JSON text (the explanation the model wrote).
-        fullContent = stripInlineJson(fullContent);
-
-        // Helper to determine approval type from tool name
-        function getApprovalType(name: string) {
-          if (name === "create_workout_template") return "create_template";
-          if (name === "create_workout_plan") return "create_plan";
-          if (name === "update_workout_plan") return "update_plan";
-          if (name === "log_meal") return "log_meal";
-          if (name === "set_nutrition_goals") return "set_nutrition_goals";
-          return "create_recipe";
-        }
-
-        // First tool call goes on the main assistant message (with text content)
-        const firstToolCall = toolCalls[0];
-        let firstToolArgs: unknown;
-        let firstToolArgsOk = true;
-        try {
-          firstToolArgs = JSON.parse(firstToolCall.arguments);
-        } catch {
-          firstToolArgsOk = false;
-          console.error(
-            `[chat] tool-call arguments unparseable (likely token truncation): ${firstToolCall.name}`,
-          );
-        }
-
-        if (firstToolArgsOk) {
-          await ctx.runMutation(internal.chat.updateMessageWithToolCalls, {
-            messageId: assistantMessageId,
-            content: fullContent,
-            toolCalls: toolCalls.map((tc) => ({
-              id: tc.id,
-              name: tc.name,
-              arguments: tc.arguments,
-            })),
-            pendingApproval: {
-              type: getApprovalType(firstToolCall.name),
-              payload: JSON.stringify(firstToolArgs),
-              status: "pending",
-            },
-            status: "complete",
-          });
-        } else {
-          // Truncated tool-call JSON — degrade to the streamed text content
-          // instead of failing the whole turn.
-          await ctx.runMutation(internal.chat.updateMessageContent, {
-            messageId: assistantMessageId,
-            content: fullContent,
-            status: "complete",
-          });
-        }
-
-        // Additional tool calls each get their own assistant message
-        for (let i = 1; i < toolCalls.length; i++) {
-          const tc = toolCalls[i];
-          let tcArgs: unknown;
-          try {
-            tcArgs = JSON.parse(tc.arguments);
-          } catch {
-            console.error(
-              `[chat] tool-call arguments unparseable (likely token truncation): ${tc.name}`,
-            );
-            continue;
-          }
-
-          await ctx.runMutation(internal.chat.insertMessage, {
-            userId,
-            conversationClientId: args.conversationClientId,
-            role: "assistant",
-            content: "",
-            status: "complete",
-            pendingApproval: {
-              type: getApprovalType(tc.name),
-              payload: JSON.stringify(tcArgs),
-              status: "pending",
-            },
-          });
-        }
-      } else {
-        // Final content update for non-tool-call responses
-        await ctx.runMutation(internal.chat.updateMessageContent, {
-          messageId: assistantMessageId,
-          content: fullContent,
-          status: "complete",
-        });
-      }
-
-      // 8. Auto-generate conversation title if first user message
+    // Auto-generate conversation title if first user message
+    if (history) {
       const userMessages = history.filter((m) => m.role === "user");
       if (userMessages.length <= 1) {
         try {
+          const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
           const titleResponse = await openai.chat.completions.create({
             model: OPENAI_CHAT_MODEL,
             messages: [
@@ -977,27 +1077,49 @@ export const sendMessage = action({
           // Title generation is non-critical
         }
       }
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      console.error(`[chat] sendMessage failed: ${reason}`);
-
-      // Handled failure: the user gets a fallback message below, so Convex's
-      // native (uncaught) Sentry integration never sees this. Report it.
-      await ctx.scheduler.runAfter(0, internal.errorReporting.reportHandledError, {
-        where: "chat.sendMessage",
-        message: reason,
-        stack: error instanceof Error ? error.stack : undefined,
-        userId,
-        extra: { conversationClientId: args.conversationClientId },
-      });
-
-      // Mark message as error
-      await ctx.runMutation(internal.chat.updateMessageContent, {
-        messageId: assistantMessageId,
-        content:
-          "Sorry, I encountered an error processing your request. Please try again.",
-        status: "error",
-      });
     }
+  },
+});
+
+// ── Retry Action (issue #128) ──────────────────────────────────
+
+/**
+ * Re-runs a failed, truncated, or abandoned assistant turn in place. The
+ * user's original message is already in the conversation history, so the
+ * failed assistant message is reset to a streaming placeholder and the
+ * generation runs again into the same bubble — no duplicate user message.
+ */
+export const retryGeneration = action({
+  args: {
+    conversationClientId: v.string(),
+    messageId: v.id("chatMessages"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const isPro = await ctx.runQuery(
+      internal.subscriptions.checkSubscription,
+      { userId }
+    );
+    if (!isPro) {
+      throw new Error(SUBSCRIPTION_REQUIRED_MESSAGE);
+    }
+
+    // Validates ownership + retryable state, and resets the message to a
+    // streaming placeholder.
+    const { conversationClientId } = await ctx.runMutation(
+      internal.chat.resetMessageForRetry,
+      { userId, messageId: args.messageId },
+    );
+    if (conversationClientId !== args.conversationClientId) {
+      throw new Error("Message does not belong to this conversation");
+    }
+
+    await generateAssistantResponse(ctx, {
+      userId,
+      conversationClientId: args.conversationClientId,
+      assistantMessageId: args.messageId,
+    });
   },
 });

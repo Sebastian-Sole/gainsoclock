@@ -201,6 +201,47 @@ export const updateMessageWithToolCalls = internalMutation({
   },
 });
 
+// Reset a failed/stuck assistant message so the retry action can re-run the
+// generation in place (same bubble, no duplicate user message). Streaming
+// messages are only retryable once they look abandoned — a live generation
+// updates its message at least every few seconds.
+const RETRY_STALE_STREAM_MS = 45_000;
+
+export const resetMessageForRetry = internalMutation({
+  args: {
+    userId: v.id("users"),
+    messageId: v.id("chatMessages"),
+  },
+  handler: async (ctx, args) => {
+    const message = await ctx.db.get(args.messageId);
+    if (!message || message.userId !== args.userId) {
+      throw new Error("Message not found");
+    }
+    if (message.role !== "assistant") {
+      throw new Error("Only assistant messages can be retried");
+    }
+
+    const lastActivity = new Date(message.createdAt).getTime();
+    const retryable =
+      message.status === "error" ||
+      message.status === "incomplete" ||
+      (message.status === "streaming" &&
+        Date.now() - lastActivity > RETRY_STALE_STREAM_MS);
+    if (!retryable) {
+      throw new Error("Message is not in a retryable state");
+    }
+
+    await ctx.db.patch(args.messageId, {
+      content: "",
+      status: "streaming" as const,
+      toolCalls: undefined,
+      pendingApproval: undefined,
+    });
+
+    return { conversationClientId: message.conversationClientId };
+  },
+});
+
 export const updateConversationTitle = internalMutation({
   args: {
     userId: v.id("users"),
