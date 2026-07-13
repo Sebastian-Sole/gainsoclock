@@ -60,8 +60,16 @@ tags:
 - waitForAnimationToEnd:
     timeout: 5000
 
-# Paywall: native RevenueCat sheet. Optionally dismiss it; any outcome lands on
-# tabs. Try a few common close affordances, but don't fail if none are present.
+# Soft paywall. With no RevenueCat offerings configured (dev/CI), this is the
+# in-app interstitial (or fallback) screen, not a native RC sheet; tap its skip
+# ("I'll decide later"). If a native RC sheet ever appears instead, its Close is
+# an optional-tap zone. Any outcome lands on /(tabs).
+- tapOn:
+    id: "paywall-skip"
+    optional: true
+- tapOn:
+    id: "paywall-fallback-skip"
+    optional: true
 - runFlow:
     when:
       visible:
@@ -69,13 +77,6 @@ tags:
     commands:
       - tapOn:
           text: "Close"
-- runFlow:
-    when:
-      visible:
-        text: "X"
-    commands:
-      - tapOn:
-          text: "X"
 
 # Soft paywall always lands on /(tabs).
 - extendedWaitUntil:
