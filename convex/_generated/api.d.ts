@@ -21,6 +21,7 @@ import type * as cronRunner from "../cronRunner.js";
 import type * as crons from "../crons.js";
 import type * as dataExport from "../dataExport.js";
 import type * as email from "../email.js";
+import type * as emailChange from "../emailChange.js";
 import type * as errorBoundary from "../errorBoundary.js";
 import type * as errorReporting from "../errorReporting.js";
 import type * as exerciseLibrary from "../exerciseLibrary.js";
@@ -74,6 +75,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   dataExport: typeof dataExport;
   email: typeof email;
+  emailChange: typeof emailChange;
   errorBoundary: typeof errorBoundary;
   errorReporting: typeof errorReporting;
   exerciseLibrary: typeof exerciseLibrary;

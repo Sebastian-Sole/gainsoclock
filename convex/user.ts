@@ -292,18 +292,16 @@ export const deleteAllData = action({
 
 // --- Account management (issue #106): display name + password changes ------
 //
-// Email change is deliberately NOT implemented. In `@convex-dev/auth@0.0.90`
-// the email address IS the password authAccount's `providerAccountId` (its
-// primary lookup key) — the library exposes `modifyAccountCredentials` for
-// the secret only, and no supported API to re-key an account. The only
-// sanctioned email flows are the Password provider's `reset`/`verify` OTP
-// sub-providers, which this app doesn't configure (no OTP token storage or
-// verification screens exist). Hand-editing `authAccounts.providerAccountId`
-// + `users.email` would bypass the library and activate an unverified
-// address — an account-takeover vector. Ship email change only with a
-// verify-before-activate flow (send an OTP to the NEW address via
-// `convex/email.ts`, store a pending-change token, swap on confirmation).
-// Re-check on any auth-package upgrade (see docs/auth-upgrade.md).
+// Email change lives in `convex/emailChange.ts`, NOT here. In
+// `@convex-dev/auth@0.0.90` the email address IS the password authAccount's
+// `providerAccountId` (its primary lookup key) — the library exposes
+// `modifyAccountCredentials` for the secret only, and no supported API to
+// re-key an account. Naively swapping `authAccounts.providerAccountId` +
+// `users.email` would activate an unverified address — an account-takeover
+// vector. `emailChange.ts` therefore re-keys only AFTER a verify-before-
+// activate flow: re-auth with the current password, email a one-time link to
+// the NEW address (`convex/email.ts`), and swap on confirmation via the route
+// in `convex/http.ts`. Re-check on any auth-package upgrade (docs/auth-upgrade.md).
 
 const MAX_NAME_LENGTH = 80;
 

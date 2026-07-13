@@ -65,6 +65,13 @@ function unsubscribeUrl(userId: string, token: string): string {
   return `${base}/webhooks/email/unsubscribe?${params.toString()}`;
 }
 
+function emailChangeConfirmUrl(token: string): string {
+  const base =
+    process.env.CONVEX_SITE_URL?.replace(/\/$/, "") ?? "https://fitbull.app";
+  const params = new URLSearchParams({ token });
+  return `${base}/webhooks/email/confirm-email-change?${params.toString()}`;
+}
+
 /**
  * HMAC-SHA256(userId) keyed on UNSUBSCRIBE_TOKEN_SECRET, hex-encoded.
  * Returns null when the secret is unset — callers must skip the send and
@@ -173,6 +180,94 @@ to pick up right where you left off.</p>
 </body></html>`;
   return { html, text };
 }
+
+function emailChangeVerifyTemplate(args: { confirmUrl: string }): {
+  html: string;
+  text: string;
+} {
+  const text = [
+    "Confirm your new Fitbull email address.",
+    "",
+    "You (or someone signed in to your account) asked to change the email",
+    "address on your Fitbull account to this one. Open the link below to",
+    "confirm — your email won't change until you do.",
+    "",
+    args.confirmUrl,
+    "",
+    "This link expires in 1 hour. If you didn't request this, you can ignore",
+    "this email — nothing will change.",
+  ].join("\n");
+  const html = `<!doctype html><html><body style="font-family:sans-serif;line-height:1.5">
+<p>Confirm your new <strong>Fitbull</strong> email address.</p>
+<p>You (or someone signed in to your account) asked to change the email address on your Fitbull account to this one. Confirm to finish — your email won't change until you do.</p>
+<p><a href="${args.confirmUrl}">Confirm this email address</a></p>
+<p style="font-size:12px;color:#666">This link expires in 1 hour. If you didn't request this, you can ignore this email — nothing will change.</p>
+</body></html>`;
+  return { html, text };
+}
+
+function emailChangeNoticeTemplate(args: { newEmail: string }): {
+  html: string;
+  text: string;
+} {
+  const text = [
+    "Your Fitbull email address was changed.",
+    "",
+    `The email on your Fitbull account was changed to ${args.newEmail}.`,
+    "",
+    "If you made this change, no action is needed. If you did NOT, contact",
+    "support@fitbull.app right away.",
+  ].join("\n");
+  const html = `<!doctype html><html><body style="font-family:sans-serif;line-height:1.5">
+<p>Your <strong>Fitbull</strong> email address was changed.</p>
+<p>The email on your Fitbull account was changed to <strong>${args.newEmail}</strong>.</p>
+<p>If you made this change, no action is needed. If you did NOT, contact <a href="mailto:support@fitbull.app">support@fitbull.app</a> right away.</p>
+</body></html>`;
+  return { html, text };
+}
+
+// Verify-before-activate email change (issue #106). Sends the confirmation
+// link to the NEW address; the swap only happens when that link is clicked
+// (see convex/emailChange.ts + the confirm route in convex/http.ts).
+export const sendEmailChangeVerification = internalAction({
+  args: {
+    newEmail: v.string(),
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { html, text } = emailChangeVerifyTemplate({
+      confirmUrl: emailChangeConfirmUrl(args.token),
+    });
+    await sendViaResend(ctx, {
+      from: FROM_ADDRESS,
+      to: [args.newEmail],
+      reply_to: REPLY_TO,
+      subject: "Confirm your new Fitbull email address",
+      html,
+      text,
+    });
+  },
+});
+
+// Security notice sent to the OLD address after an email change is confirmed,
+// so a user whose account was taken over still hears about it.
+export const sendEmailChangeNotice = internalAction({
+  args: {
+    oldEmail: v.string(),
+    newEmail: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { html, text } = emailChangeNoticeTemplate({ newEmail: args.newEmail });
+    await sendViaResend(ctx, {
+      from: FROM_ADDRESS,
+      to: [args.oldEmail],
+      reply_to: REPLY_TO,
+      subject: "Your Fitbull email address was changed",
+      html,
+      text,
+    });
+  },
+});
 
 export const sendTrialReminder48h = internalAction({
   args: {
