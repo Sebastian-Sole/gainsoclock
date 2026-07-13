@@ -21,19 +21,14 @@ appId: com.soleinnovations.fitbull
     id: "signup-email-input"
 - inputText: ${EMAIL}
 
-# The password field uses textContentType="newPassword" (correct app behaviour:
-# it enables Keychain save). On the simulator, focusing it pops iOS's "Use Strong
-# Password?" sheet — a SpringBoard system layer that is NOT in the app's a11y
-# tree, so it can't be matched by id/text. Focus the field, let the sheet animate
-# in, then dismiss it by tapping its Close (X) by position before typing. The
-# sheet only appears on the first newPassword focus, so the confirm field below
-# needs no dismissal. Coordinates target the iPhone 17 Pro Max sheet X (~92%/61%).
+# The password fields use textContentType="newPassword" (correct app behaviour:
+# it enables Keychain save). That normally pops iOS's "Use Strong Password?" sheet
+# on the simulator, which hijacks the field. The test simulator must have
+# Settings > General > AutoFill & Passwords > "Suggest Strong Passwords" turned
+# OFF (see .maestro/README.md) so the sheet never appears and these fields accept
+# typed input directly.
 - tapOn:
     id: "signup-password-input"
-- waitForAnimationToEnd:
-    timeout: 2500
-- tapOn:
-    point: "92%,61%"
 - inputText: ${PASSWORD}
 
 - tapOn:

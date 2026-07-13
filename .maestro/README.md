@@ -9,6 +9,8 @@ Flows are written against the **shipped** screens: a fresh, wiped install lands 
 - **Maestro CLI:** `curl -Ls "https://get.maestro.mobile.dev" | bash`
 - **IDB** (iOS Simulator driver): `brew tap facebook/fb && brew install facebook/fb/idb-companion`
 - **A running Expo dev client build.** Expo Go is not supported for the `launchApp` command — you need a dev build via `pnpm ios`. (This is required, not optional: the flows install/relaunch `com.soleinnovations.fitbull`.)
+- **Disable iOS strong-password suggestions on the test simulator.** Settings ▸ General ▸ AutoFill & Passwords ▸ **Suggest Strong Passwords → off**. The sign-up and email-change flows type into `newPassword`/`password` fields; with this on, iOS pops a "Use Strong Password?" system sheet that hijacks the field and can't be matched by `id`/`text` (it's a SpringBoard layer, not in the app's a11y tree), so the typed password never registers. This is a per-simulator setting that persists across launches.
+- **Metro on port 8082.** Start the dev server with `npx expo start --port 8082` (8081 belongs to a different project). After a `clearState` launch the dev client shows its server-picker; `common/launch-app.yaml` selects `http://localhost:8082` and dismisses the dev-menu sheet automatically.
 
 ## Running
 
