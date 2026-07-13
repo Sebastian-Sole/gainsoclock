@@ -244,7 +244,7 @@ export default function CreateExerciseScreen() {
 
           {/* Search */}
           <View className="px-4 pb-2">
-            <View className="flex-row items-center rounded-xl border border-input bg-card px-3">
+            <View className="h-12 flex-row items-center rounded-xl border border-input bg-card px-3">
               <Icon as={Search} size={18} className="text-muted-foreground" />
               <TextInput
                 value={searchQuery}
@@ -252,7 +252,7 @@ export default function CreateExerciseScreen() {
                 placeholder="Search exercises..."
                 placeholderTextColor="#9ca3af"
                 autoFocus
-                className="flex-1 px-3 py-3 text-[16px] text-foreground"
+                className="flex-1 px-3 py-0 text-[16px] text-foreground"
               />
             </View>
           </View>

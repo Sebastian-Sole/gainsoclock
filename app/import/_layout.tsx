@@ -11,6 +11,18 @@ export default function ImportLayout() {
         name="fitnotes"
         options={{ title: 'FitNotes', headerShown: false }}
       />
+      <Stack.Screen
+        name="strong"
+        options={{ title: 'Strong', headerShown: false }}
+      />
+      <Stack.Screen
+        name="hevy"
+        options={{ title: 'Hevy', headerShown: false }}
+      />
+      <Stack.Screen
+        name="generic"
+        options={{ title: 'Generic CSV', headerShown: false }}
+      />
     </Stack>
   );
 }

@@ -25,6 +25,8 @@ import {
   ShieldCheck,
   Timer,
   Trash2,
+  Upload,
+  UserCog,
   UserX,
   Vibrate,
   Weight,
@@ -699,6 +701,23 @@ export default function SettingsScreen() {
           </Pressable>
           <Separator />
           <Pressable
+            onPress={() => router.push("/settings/export-data")}
+            className="flex-row items-center gap-3 px-4 py-4"
+            accessibilityRole="button"
+            accessibilityLabel="Export my data"
+            testID="settings-export-data"
+          >
+            <Icon as={Upload} size={20} className="text-primary" />
+            <View className="flex-1">
+              <Text className="font-medium">Export My Data</Text>
+              <Text className="text-sm text-muted-foreground">
+                Save everything as a JSON file
+              </Text>
+            </View>
+            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
+          </Pressable>
+          <Separator />
+          <Pressable
             onPress={() => setResetModalVisible(true)}
             className="flex-row items-center gap-3 px-4 py-4"
           >
@@ -740,6 +759,23 @@ export default function SettingsScreen() {
           ACCOUNT
         </Text>
         <View className="rounded-xl bg-card">
+          <Pressable
+            onPress={() => router.push("/settings/account")}
+            className="flex-row items-center gap-3 px-4 py-4"
+            accessibilityRole="button"
+            accessibilityLabel="Manage account"
+            testID="settings-account"
+          >
+            <Icon as={UserCog} size={20} className="text-primary" />
+            <View className="flex-1">
+              <Text className="font-medium">Manage account</Text>
+              <Text className="text-sm text-muted-foreground">
+                Change your name or password
+              </Text>
+            </View>
+            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
+          </Pressable>
+          <Separator />
           {Platform.OS === "ios" && (
             <>
               <Pressable

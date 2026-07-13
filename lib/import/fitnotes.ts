@@ -2,6 +2,11 @@ import Papa from 'papaparse';
 import { generateId } from '@/lib/id';
 import { metricsForLegacyType } from '@/lib/metrics';
 import type {
+  ImportOptions,
+  ImportSummary,
+  ParsedCsvImport,
+} from '@/lib/import/shared';
+import type {
   ExerciseType,
   WorkoutLog,
   WorkoutLogExercise,
@@ -28,12 +33,9 @@ export interface FitNotesRow {
   Note: string;
 }
 
-export interface FitNotesImportOptions {
-  exercises: boolean;
-  setsAndReps: boolean;
-  weightAndTime: boolean;
-  completionStatus: boolean;
-}
+// Structurally identical to the shared import types; kept as aliases so
+// pre-existing FitNotes call sites keep compiling.
+export type FitNotesImportOptions = ImportOptions;
 
 export const ALL_IMPORT_OPTIONS: FitNotesImportOptions = {
   exercises: true,
@@ -42,12 +44,7 @@ export const ALL_IMPORT_OPTIONS: FitNotesImportOptions = {
   completionStatus: true,
 };
 
-export interface FitNotesSummary {
-  workoutCount: number;
-  exerciseCount: number;
-  setCount: number;
-  dateRange: { earliest: string; latest: string } | null;
-}
+export type FitNotesSummary = ImportSummary;
 
 export interface ParsedFitNotesData {
   rows: FitNotesRow[];
@@ -202,6 +199,26 @@ export function buildWorkoutLogs(
   );
 
   return logs;
+}
+
+/**
+ * Wrap a FitNotes parse result in the source-agnostic handle the shared
+ * import flow UI works with (see components/import/csv-import-flow.tsx).
+ */
+export function toFitNotesImport(parsed: ParsedFitNotesData): ParsedCsvImport {
+  const keys = new Set<string>();
+  for (const row of parsed.rows) {
+    keys.add(
+      `${normalizeTimestamp(row.StartTime)}|${normalizeTimestamp(row.EndTime)}`
+    );
+  }
+  return {
+    setCount: parsed.rows.length,
+    summary: parsed.summary,
+    sessionKeys: [...keys],
+    buildLogs: (options, resolver) =>
+      buildWorkoutLogs(parsed.rows, options, resolver),
+  };
 }
 
 /**

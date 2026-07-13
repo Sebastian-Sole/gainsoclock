@@ -6,8 +6,16 @@ import {
   action,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import type { DataModel } from "./_generated/dataModel";
+import {
+  getAuthSessionId,
+  getAuthUserId,
+  invalidateSessions,
+  modifyAccountCredentials,
+  retrieveAccount,
+} from "@convex-dev/auth/server";
 import { v } from "convex/values";
+import { APPLE_RELAY_DOMAIN } from "./auth";
 
 export const me = query({
   args: {},
@@ -279,5 +287,211 @@ export const deleteAllData = action({
         });
       }
     }
+  },
+});
+
+// --- Account management (issue #106): display name + password changes ------
+//
+// Email change is deliberately NOT implemented. In `@convex-dev/auth@0.0.90`
+// the email address IS the password authAccount's `providerAccountId` (its
+// primary lookup key) — the library exposes `modifyAccountCredentials` for
+// the secret only, and no supported API to re-key an account. The only
+// sanctioned email flows are the Password provider's `reset`/`verify` OTP
+// sub-providers, which this app doesn't configure (no OTP token storage or
+// verification screens exist). Hand-editing `authAccounts.providerAccountId`
+// + `users.email` would bypass the library and activate an unverified
+// address — an account-takeover vector. Ship email change only with a
+// verify-before-activate flow (send an OTP to the NEW address via
+// `convex/email.ts`, store a pending-change token, swap on confirmation).
+// Re-check on any auth-package upgrade (see docs/auth-upgrade.md).
+
+const MAX_NAME_LENGTH = 80;
+
+// Matches the Password provider's default `validatePasswordRequirements`
+// (non-empty, >= 8 chars) and the sign-up screen's client-side rule
+// (app/(auth)/sign-up.tsx). Keep the three in sync.
+const MIN_PASSWORD_LENGTH = 8;
+
+/**
+ * Account info for the Settings → Account screen: profile fields plus which
+ * auth methods this user actually has, so the UI can hide the password
+ * section for OAuth-only accounts and never render a broken form.
+ */
+export const getAccountInfo = query({
+  args: {},
+  returns: v.union(
+    v.null(),
+    v.object({
+      name: v.optional(v.string()),
+      email: v.optional(v.string()),
+      /** True when a `password` authAccount exists — gates the password UI. */
+      hasPassword: v.boolean(),
+      /** Hide-My-Email relay address — the email row is hidden for these. */
+      isAppleRelay: v.boolean(),
+      /** Provider ids: "password" | "google" | "apple-native". */
+      providers: v.array(v.string()),
+    })
+  ),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const user = await ctx.db.get(userId);
+    if (!user) return null;
+
+    const accounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
+      .collect();
+    const providers = accounts.map((a) => a.provider);
+
+    return {
+      ...(user.name !== undefined ? { name: user.name } : {}),
+      ...(user.email !== undefined ? { email: user.email } : {}),
+      hasPassword: providers.includes("password"),
+      isAppleRelay: user.email?.endsWith(APPLE_RELAY_DOMAIN) ?? false,
+      providers,
+    };
+  },
+});
+
+/**
+ * Update the signed-in user's display name on the `users` doc.
+ * Returns a status literal instead of throwing: plain `Error` messages are
+ * scrubbed to "Server Error" in production (see convex/accountLinking.ts).
+ */
+export const updateName = mutation({
+  args: { name: v.string() },
+  returns: v.union(v.literal("ok"), v.literal("invalid_name")),
+  handler: async (ctx, { name }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("not_authenticated");
+
+    const trimmed = name.trim();
+    if (trimmed.length === 0 || trimmed.length > MAX_NAME_LENGTH) {
+      return "invalid_name";
+    }
+
+    await ctx.db.patch(userId, { name: trimmed });
+    return "ok";
+  },
+});
+
+/**
+ * The `providerAccountId` (email) of the caller's password authAccount, or
+ * null when the user has no password credential. `retrieveAccount` /
+ * `modifyAccountCredentials` are keyed by (provider, account id), so the
+ * change-password action needs this lookup — the account id is the email the
+ * user signed up with, which can differ in case from `users.email`.
+ */
+export const getPasswordAccountEmail = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.union(v.null(), v.string()),
+  handler: async (ctx, { userId }) => {
+    const account = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) =>
+        q.eq("userId", userId).eq("provider", "password")
+      )
+      .first();
+    return account?.providerAccountId ?? null;
+  },
+});
+
+/**
+ * Change the signed-in user's password.
+ *
+ * Runs in an action because `retrieveAccount` / `modifyAccountCredentials` /
+ * `invalidateSessions` are action-ctx helpers (they call through the
+ * `auth:store` mutation and the Password provider's Scrypt crypto).
+ *
+ * Flow: verify the CURRENT password via `retrieveAccount` (rate-limited by
+ * the library — repeated wrong guesses return `too_many_attempts`), then
+ * store the new secret via `modifyAccountCredentials`, then invalidate every
+ * OTHER session so a stolen device can't keep riding the old credential.
+ *
+ * Returns a status literal instead of throwing: plain `Error` messages are
+ * scrubbed to "Server Error" in production, which would break inline error
+ * copy on the client (same rationale as `checkEmailExists` in
+ * convex/accountLinking.ts).
+ */
+export const changePassword = action({
+  args: {
+    currentPassword: v.string(),
+    newPassword: v.string(),
+  },
+  returns: v.union(
+    v.literal("ok"),
+    v.literal("wrong_password"),
+    v.literal("invalid_new_password"),
+    v.literal("no_password_account"),
+    v.literal("too_many_attempts")
+  ),
+  // Explicit return type: this handler calls `internal.user.*` from its own
+  // module — without the annotation TS can hit the circular-inference
+  // bail-out that poisons the generated `api` type (see accountLinking.ts).
+  handler: async (
+    ctx,
+    { currentPassword, newPassword }
+  ): Promise<
+    | "ok"
+    | "wrong_password"
+    | "invalid_new_password"
+    | "no_password_account"
+    | "too_many_attempts"
+  > => {
+    const userId = await ctx.runQuery(internal.user.getAuthUser);
+    if (!userId) throw new Error("not_authenticated");
+
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      return "invalid_new_password";
+    }
+
+    // The account id for the Password provider is the email the user signed
+    // up with (the authAccounts row's providerAccountId), not users.email.
+    const accountEmail: string | null = await ctx.runQuery(
+      internal.user.getPasswordAccountEmail,
+      { userId }
+    );
+    if (accountEmail === null) {
+      // OAuth-only account — the UI hides this section, but never trust it.
+      return "no_password_account";
+    }
+
+    try {
+      const retrieved = await retrieveAccount<DataModel>(ctx, {
+        provider: "password",
+        account: { id: accountEmail, secret: currentPassword },
+      });
+      // Defense in depth: the email came from the caller's own authAccounts
+      // row, so this can only mismatch if something is deeply wrong.
+      if (retrieved.user._id !== userId) {
+        return "no_password_account";
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (message.includes("InvalidSecret")) return "wrong_password";
+      if (message.includes("TooManyFailedAttempts")) {
+        return "too_many_attempts";
+      }
+      if (message.includes("InvalidAccountId")) return "no_password_account";
+      throw err;
+    }
+
+    await modifyAccountCredentials<DataModel>(ctx, {
+      provider: "password",
+      account: { id: accountEmail, secret: newPassword },
+    });
+
+    // Sign out every other session; keep the one that just proved it knows
+    // the (old) password. `getAuthSessionId` is null only in exotic states —
+    // then we invalidate everything and the client re-authenticates.
+    const sessionId = await getAuthSessionId(ctx);
+    await invalidateSessions<DataModel>(ctx, {
+      userId,
+      except: sessionId ? [sessionId] : [],
+    });
+
+    return "ok";
   },
 });

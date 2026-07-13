@@ -94,3 +94,36 @@ export function formatPace(paceSeconds: number): string {
   const secs = Math.round(paceSeconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
+
+/**
+ * Human-readable value for a registry metric — used by stats PB rows and
+ * progression charts. Unit-preference metrics (weight, distance, pace, speed)
+ * take the user's units; the rest fall back to the spec's fixed unit.
+ */
+export function formatMetricValue(
+  id: MetricId,
+  value: number,
+  weightUnit: 'kg' | 'lbs',
+  distanceUnit: 'km' | 'mi'
+): string {
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+  switch (id) {
+    case 'weight':
+      return formatWeight(round1(value), weightUnit);
+    case 'distance':
+      return formatDistance(round1(value), distanceUnit);
+    case 'duration':
+      return formatTime(Math.round(value));
+    case 'pace':
+      return `${formatPace(value)} /${distanceUnit}`;
+    case 'speed':
+      return `${round1(value)} ${distanceUnit}/h`;
+    case 'reps':
+      return `${Math.round(value)} reps`;
+    default: {
+      const unit = METRICS[id].unit;
+      const rounded = Math.round(value);
+      return unit ? `${rounded} ${unit}` : String(rounded);
+    }
+  }
+}

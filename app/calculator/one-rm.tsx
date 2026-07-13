@@ -8,17 +8,7 @@ import { useColorScheme } from 'nativewind';
 import { useSettingsStore } from '@/stores/settings-store';
 import { Colors } from '@/constants/theme';
 import { parseLocaleNumber } from '@/lib/format';
-
-function calculate1RM(weight: number, reps: number): { epley: number; brzycki: number; lombardi: number } {
-  if (reps <= 0 || weight <= 0) return { epley: 0, brzycki: 0, lombardi: 0 };
-  if (reps === 1) return { epley: weight, brzycki: weight, lombardi: weight };
-
-  return {
-    epley: Math.round(weight * (1 + reps / 30)),
-    brzycki: reps >= 37 ? 0 : Math.round(weight * (36 / (37 - reps))),
-    lombardi: Math.round(weight * Math.pow(reps, 0.1)),
-  };
-}
+import { calculate1RM } from '@/lib/one-rep-max';
 
 function getPercentages(oneRM: number): { percent: number; weight: number }[] {
   return [95, 90, 85, 80, 75, 70, 65, 60, 55, 50].map((p) => ({
