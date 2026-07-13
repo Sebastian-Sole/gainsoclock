@@ -227,24 +227,62 @@ export function readMetricValue(set: WorkoutSet, id: MetricId): number | undefin
   return set[METRICS[id].field];
 }
 
+/** The three interdependent cardio fields: duration ÷ distance = pace. */
+export type CardioTripleField = 'time' | 'distance' | 'paceSeconds';
+
+const CARDIO_TRIPLE_FIELDS: readonly CardioTripleField[] = ['time', 'distance', 'paceSeconds'];
+
+/** The cardio-triple field an update touches, if any (first wins). */
+export function editedCardioField(updates: Partial<WorkoutSet>): CardioTripleField | undefined {
+  return CARDIO_TRIPLE_FIELDS.find((f) => f in updates);
+}
+
 /**
- * Derived pace for an exercise that tracks pace alongside duration + distance:
- * seconds per distance unit = duration ÷ distance. Returns undefined when pace
- * isn't tracked or duration/distance is missing or zero, so callers leave any
- * existing value alone rather than storing 0/Infinity.
+ * Multi-way duration/distance/pace solver. Editing any one of the three
+ * recomputes a dependent field from the other two, so the triple can never
+ * disagree — which is why there is no "inconsistent values" state to warn
+ * about. Only solves when the exercise tracks all three metrics (with fewer,
+ * the missing field isn't shown and there's nothing to reconcile).
  *
- * Pace is pre-filled from duration/distance edits but stays user-editable: an
- * edit to pace itself is not a duration/distance change, so it isn't recomputed
- * until the inputs change again.
+ * When all three have values, the recomputed field is deterministic: editing
+ * duration or distance recomputes pace (time and distance are the ground
+ * truth, pace derives from them), and editing pace recomputes duration (the
+ * route's distance is the fixed quantity). With only one partner filled in,
+ * the remaining blank field is solved instead.
+ *
+ * Returns {} when nothing can be derived (edited value cleared/zero, partners
+ * blank) so callers leave existing values alone rather than storing
+ * 0/Infinity.
  */
-export function derivePaceSeconds(
+export function solveCardioTriple(
   metrics: MetricId[],
-  time: number | undefined,
-  distance: number | undefined
-): number | undefined {
-  if (!metrics.includes('pace')) return undefined;
-  if (!time || time <= 0 || !distance || distance <= 0) return undefined;
-  return Math.round(time / distance);
+  set: Pick<WorkoutSet, 'time' | 'distance' | 'paceSeconds'>,
+  edited: CardioTripleField
+): Partial<WorkoutSet> {
+  if (!metrics.includes('pace') || !metrics.includes('duration') || !metrics.includes('distance')) {
+    return {};
+  }
+  const has = (v: number | undefined): v is number => v !== undefined && v > 0;
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const { time, distance, paceSeconds: pace } = set;
+
+  switch (edited) {
+    case 'time':
+      if (!has(time)) return {};
+      if (has(distance)) return { paceSeconds: Math.round(time / distance) };
+      if (has(pace)) return { distance: round2(time / pace) };
+      return {};
+    case 'distance':
+      if (!has(distance)) return {};
+      if (has(time)) return { paceSeconds: Math.round(time / distance) };
+      if (has(pace)) return { time: Math.round(pace * distance) };
+      return {};
+    case 'paceSeconds':
+      if (!has(pace)) return {};
+      if (has(distance)) return { time: Math.round(pace * distance) };
+      if (has(time)) return { distance: round2(time / pace) };
+      return {};
+  }
 }
 
 /**

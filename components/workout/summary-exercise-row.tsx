@@ -59,6 +59,15 @@ export function SummaryExerciseRow({
     transform: [{ translateX: translateX.value }],
   }));
 
+  // The pan gesture doesn't cancel the RN Pressables underneath it, so
+  // releasing a swipe would also fire their onPress. At that moment the row is
+  // still displaced (the spring back has only just started), so a non-zero
+  // offset identifies the release-of-a-swipe and suppresses the tap.
+  const guardSwipe = (fn: () => void) => () => {
+    if (Math.abs(translateX.value) > 1) return;
+    fn();
+  };
+
   const bgStyle = useAnimatedStyle(() => ({
     opacity: Math.min(translateX.value / THRESHOLD, 1),
   }));
@@ -76,7 +85,7 @@ export function SummaryExerciseRow({
       <GestureDetector gesture={pan}>
         <Animated.View style={cardStyle}>
           <Pressable
-            onPress={onNavigate}
+            onPress={guardSwipe(onNavigate)}
             accessibilityRole="button"
             accessibilityLabel={`${exercise.name}, ${done} of ${exercise.sets.length} sets logged`}
             accessibilityHint="Opens this exercise in the logger"
@@ -87,7 +96,7 @@ export function SummaryExerciseRow({
             className="flex-row items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
           >
             <Pressable
-              onPress={onToggleComplete}
+              onPress={guardSwipe(onToggleComplete)}
               accessibilityRole="button"
               accessibilityState={{ checked: full }}
               accessibilityLabel={

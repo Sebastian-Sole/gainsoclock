@@ -3,7 +3,7 @@ import { View, Pressable, TextInput } from 'react-native';
 import { useNumericField } from '@/hooks/use-numeric-field';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { Text } from '@/components/ui/text';
-import { X } from 'lucide-react-native';
+import { Pencil, X } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { TimeInput } from '@/components/shared/time-input';
@@ -133,7 +133,10 @@ export function FocusSetCard({
         >
           <Text className="text-xl font-medium leading-none text-muted-foreground">−</Text>
         </Pressable>
-        <View className="flex-1 items-end">
+        <View className="flex-1 flex-row items-center justify-end gap-2">
+          {/* Decorative affordance: the big borderless number doesn't read as
+              editable on its own. Tapping the number itself focuses it. */}
+          {editable && <Icon as={Pencil} size={13} className="text-muted-foreground/60" />}
           <BigInput
             value={value}
             onChange={change}
