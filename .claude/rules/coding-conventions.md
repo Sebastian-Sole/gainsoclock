@@ -58,6 +58,8 @@ These rules are enforceable. If a rule can be enforced by ESLint/TypeScript, pre
 
 ### Single-line text inputs (vertical-centering gotcha)
 
+**Enforced by lint**: importing `TextInput` from react-native is an ESLint error (`no-restricted-imports`) outside the allowlist in `eslint.config.js`. New form fields use the `Input` primitive; only multiline/display-style inputs earn an allowlist entry.
+
 A single-line `TextInput` on iOS renders its text/placeholder **off-centre** if either of two things is present. This has bitten us repeatedly; both have the same visible symptom (text sits low in the box) but different causes:
 
 - **`py-*` padding.** iOS does not split `paddingVertical` evenly around single-line text. Measured offset with `py-4`: ~8pt low. Use a fixed height + `py-0` and let UIKit centre the text.

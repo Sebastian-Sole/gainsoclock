@@ -77,14 +77,14 @@ export function ExercisesTab({
   return (
     <View className="gap-3">
       {/* Search */}
-      <View className="flex-row items-center gap-2 rounded-xl border border-border bg-card px-3">
+      <View className="h-12 flex-row items-center gap-2 rounded-xl border border-border bg-card px-3">
         <Icon as={Search} size={18} className="text-muted-foreground" />
         <TextInput
           placeholder="Search exercises..."
           placeholderTextColor={mutedColor}
           value={search}
           onChangeText={setSearch}
-          className="flex-1 py-3 text-[16px] text-foreground"
+          className="flex-1 py-0 text-[16px] text-foreground"
           autoCapitalize="none"
           autoCorrect={false}
           textAlignVertical="center"

@@ -101,14 +101,14 @@ export function RecipesTab() {
     <View className="flex-1">
       {/* Search + Filter */}
       <View className="px-4 mb-3">
-        <View className="flex-row items-center gap-2 rounded-xl border border-input bg-card px-3">
+        <View className="h-12 flex-row items-center gap-2 rounded-xl border border-input bg-card px-3">
           <Icon as={Search} size={18} className="text-muted-foreground" />
           <TextInput
             value={search}
             onChangeText={setSearch}
             placeholder="Search recipes..."
             placeholderTextColor="#9ca3af"
-            className="flex-1 py-3 text-foreground"
+            className="flex-1 py-0 text-foreground"
           />
           <Pressable onPress={() => setShowFilterModal(true)} className="p-1.5" hitSlop={8}>
             <Icon
