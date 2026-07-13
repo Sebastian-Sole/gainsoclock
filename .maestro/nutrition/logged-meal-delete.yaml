@@ -1,0 +1,68 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - nutrition
+---
+# #125 — deleting a LOGGED meal removes only that day's log entry (via the
+# logged-meal detail screen), never a recipe.
+#
+# A fresh account has no recipes, so this drives the quick-add path: log a meal,
+# open its logged-meal detail, delete it, and confirm the log entry is gone. It
+# also confirms the Recipes tab is intact afterwards (the delete is scoped to the
+# meal-log store and cannot touch the recipe library). Proving survival of a
+# recipe that BACKS a logged meal would need a recipe-creation preamble the
+# fresh-account e2e can't cheaply seed — see the run report.
+#
+# Prereq: reach /(tabs) by completing onboarding.
+
+- runFlow: ../onboarding/01-happy-path.yaml
+
+- tapOn:
+    id: "tab-nutrition"
+- extendedWaitUntil:
+    visible:
+      id: "nutrition-log-meal"
+    timeout: 10000
+
+# Quick-add a meal.
+- tapOn:
+    id: "nutrition-log-meal"
+- tapOn:
+    id: "log-meal-quick-tab"
+- tapOn:
+    id: "log-meal-quick-title"
+- inputText: "Maestro Delete Meal"
+# The Log Meal button sits under the keyboard; submit via the return key
+# (returnKeyType=done -> onSubmitEditing).
+- pressKey: Enter
+
+# It renders in today's list (the card label is composite: "title, N calories").
+- extendedWaitUntil:
+    visible:
+      text: ".*Maestro Delete Meal.*"
+    timeout: 10000
+
+# Open the logged-meal detail and delete it.
+- tapOn:
+    text: ".*Maestro Delete Meal.*"
+- extendedWaitUntil:
+    visible:
+      id: "meal-log-detail-delete"
+    timeout: 8000
+- tapOn:
+    id: "meal-log-detail-delete"
+- tapOn:
+    text: "Remove"
+
+# Back on the nutrition screen, the log entry is gone.
+- extendedWaitUntil:
+    visible:
+      id: "nutrition-log-meal"
+    timeout: 8000
+- assertNotVisible:
+    text: ".*Maestro Delete Meal.*"
+
+# The Recipes tab is intact — deleting a log entry never touches the library.
+- tapOn:
+    text: "Recipes"
+- waitForAnimationToEnd:
+    timeout: 2000
