@@ -2,12 +2,19 @@ appId: com.soleinnovations.fitbull
 tags:
   - workout
 ---
-# Log a workout end-to-end against the shipped workout path.
+# Log a workout end-to-end against the shipped Focus logger.
 #
 # A fresh install has no templates and an empty exercise library, so the
-# deterministic route is: Start Empty Workout -> Add Exercise -> Create New
-# Exercise -> Reps & Weight -> name -> sets -> rest -> Add Exercise. That
-# yields set rows we can fill via the forwarded set-row testIDs.
+# deterministic route is: Start Empty Workout -> add "Bench Press" from the
+# empty state -> add "Squats" from the logger's pills bar -> remove Squats ->
+# complete Bench's three default sets -> summary -> finish.
+#
+# Regression coverage baked in:
+# - #126: an exercise added mid-workout is focused in the pager (asserted via
+#   the "<name> · N metrics" header) from both in-workout entry points.
+# - #135: a mid-workout completion starts the rest timer, but completing the
+#   LAST set must not leave one running (asserted via the idle rest chip after
+#   returning from the summary).
 #
 # Prereq: reach /(tabs) by completing onboarding (01-happy-path leaves us there).
 
@@ -20,61 +27,125 @@ tags:
 - waitForAnimationToEnd:
     timeout: 3000
 
-# Start an empty workout -> active workout screen.
+# Start an empty workout -> empty-state active screen.
 - tapOn:
     id: "start-empty-workout"
 - assertVisible:
-    id: "workout-active-screen"
+    id: "workout-add-exercise"
     timeout: 10000
 
-# Add an exercise via the create wizard (exercise/create has no testIDs, so we
-# drive it with on-screen text; the picker library is empty on a fresh install).
+# Add "Bench Press" via the create wizard (empty-state entry point; the picker
+# library is empty on a fresh install, so create a new exercise).
 - tapOn:
     id: "workout-add-exercise"
 - tapOn:
     text: "Create New Exercise"
 - tapOn:
-    text: "Reps & Weight"
+    text: "Strength"
 - tapOn:
-    text: "Next"
-
-# Step 1: name (the name field auto-focuses).
+    text: "Next" # -> metrics (weight + reps preselected)
+- tapOn:
+    text: "Next" # -> name (auto-focused)
+- waitForAnimationToEnd:
+    timeout: 1500
 - inputText: "Bench Press"
 - hideKeyboard
 - tapOn:
-    text: "Next"
-
-# Step 2: sets & reps (defaults are fine).
+    text: "Next" # -> sets & reps (defaults)
 - tapOn:
-    text: "Next"
-
-# Step 3: rest time -> save.
+    text: "Next" # -> rest time (default)
 - tapOn:
     text: "Add Exercise"
 
-# Back on the active screen with a set row.
+# #126: back on the logger with the new exercise focused in the pager.
 - assertVisible:
     id: "workout-active-screen"
     timeout: 10000
+- assertVisible: "Bench Press · 2 metrics"
 
-# Fill the first set: weight then reps, then mark complete.
+# Add "Squats" from the pills bar (the second in-workout entry point).
 - tapOn:
-    id: "set-0-weight"
-- inputText: "60"
+    id: "workout-add-exercise"
 - tapOn:
-    id: "set-0-reps"
-- inputText: "5"
+    text: "Create New Exercise"
+- tapOn:
+    text: "Bodyweight"
+- tapOn:
+    text: "Next" # -> metrics (reps preselected)
+- tapOn:
+    text: "Next" # -> name (auto-focused)
+- waitForAnimationToEnd:
+    timeout: 1500
+- inputText: "Squats"
 - hideKeyboard
 - tapOn:
-    id: "set-0-complete"
+    text: "Next" # -> sets & reps
+- tapOn:
+    text: "Next" # -> rest time
+- tapOn:
+    text: "Add Exercise"
 
-# Finish: End Workout -> Alert "Save" (by text; native alert).
+# #126: the pager followed the newly added exercise.
+- assertVisible: "Squats · 1 metrics"
+
+# Remove Squats again so the completion path below stays short.
+- tapOn:
+    id: "focus-exercise-menu"
+- tapOn:
+    id: "focus-remove-exercise"
+- assertVisible: "Bench Press · 2 metrics"
+
+# Fill set 1 and complete it — mid-workout, so the rest timer SHOULD start.
+- tapOn:
+    id: "focus-weight"
+- inputText: "60"
+- tapOn:
+    id: "focus-reps"
+- inputText: "5"
+- hideKeyboard
+- assertVisible: "Complete set"
+- tapOn:
+    id: "focus-complete-set"
+# The first rest timer may raise the iOS notification-permission dialog.
+- runFlow:
+    when:
+      visible:
+        text: "Allow"
+    commands:
+      - tapOn:
+          text: "Allow"
+- assertVisible:
+    id: "workout-rest-skip"
+    timeout: 5000
+- tapOn:
+    id: "workout-rest-skip"
+
+# Auto-advance lands on set 2. Complete it and leave its rest timer running so
+# the last-set completion below has a live timer to cancel (#135).
+- assertVisible: "Complete set"
+- tapOn:
+    id: "focus-complete-set"
+
+# Set 3 is the workout's last set: completing it routes to the summary.
+- assertVisible: "Complete set"
+- tapOn:
+    id: "focus-complete-set"
+- assertVisible:
+    id: "summary-finish"
+    timeout: 10000
+
+# #135: back on the logger, no rest timer survived finishing every set.
+- tapOn:
+    id: "summary-back"
+- assertVisible:
+    id: "workout-rest-idle"
+    timeout: 5000
+
+# Finish for real: logger top bar -> summary -> completion screen.
 - tapOn:
     id: "workout-finish"
 - tapOn:
-    text: "Save"
-
-# Completion screen.
+    id: "summary-finish"
 - assertVisible:
     id: "workout-complete-screen"
     timeout: 15000

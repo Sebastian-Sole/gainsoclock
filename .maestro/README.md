@@ -40,7 +40,7 @@ maestro studio
 ├── onboarding/
 │   └── 01-happy-path.yaml          # sign-up → demos → founder-note → healthkit → paywall → tabs
 ├── workout/
-│   └── log-workout.yaml            # start empty → add exercise → log a set → finish
+│   └── log-workout.yaml            # start empty → add exercises (focus pager) → log sets → finish
 ├── nutrition/
 │   └── log-meal.yaml               # quick-add a meal
 └── settings/
