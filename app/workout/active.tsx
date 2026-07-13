@@ -15,7 +15,9 @@ import { createDefaultSet, createIntervalSet } from '@/lib/defaults';
 import { generateId } from '@/lib/id';
 import { formatTime, formatDuration } from '@/lib/format';
 import type { Exercise, WorkoutSet } from '@/lib/types';
-import { setActiveWorkoutVisible } from '@/lib/notifications';
+import { hasIncompleteSets } from '@/lib/workout-progress';
+import { setActiveWorkoutVisible, cancelRestTimerNotification } from '@/lib/notifications';
+import { endRestActivity } from '@/lib/live-activity';
 import { FocusLogger } from '@/components/workout/focus/focus-logger';
 import { SaveTemplateSheet } from '@/components/workout/save-template-sheet';
 import { FocusReward } from '@/components/workout/focus/focus-reward';
@@ -32,7 +34,11 @@ function RestIndicator() {
   const { isActive, remaining, stop } = useRestTimer();
   const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
   if (!isActive) {
-    return <Text className="font-mono text-[10px] text-muted-foreground">rest · auto</Text>;
+    return (
+      <Text testID="workout-rest-idle" className="font-mono text-[10px] text-muted-foreground">
+        rest · auto
+      </Text>
+    );
   }
   return (
     <View className="flex-row items-center gap-2 rounded-full border border-primary/40 bg-card px-2 py-1">
@@ -42,7 +48,12 @@ function RestIndicator() {
       <Pressable onPress={() => startRestTimer(remaining + 15)} accessibilityRole="button" accessibilityLabel="Add 15 seconds rest">
         <Text className="font-mono text-xs text-muted-foreground">+15</Text>
       </Pressable>
-      <Pressable onPress={() => stop()} accessibilityRole="button" accessibilityLabel="Skip rest">
+      <Pressable
+        onPress={() => stop()}
+        accessibilityRole="button"
+        accessibilityLabel="Skip rest"
+        testID="workout-rest-skip"
+      >
         <Text className="font-mono text-xs text-muted-foreground">Skip</Text>
       </Pressable>
     </View>
@@ -52,8 +63,10 @@ function RestIndicator() {
 export default function ActiveWorkoutScreen() {
   const router = useRouter();
 
-  // Set when create.tsx dismisses back here after adding an exercise from the
-  // workout summary — the pager should open on the newly added exercise (#113).
+  // Set when create.tsx dismisses back here after adding an exercise mid-
+  // workout (summary, empty state, or the logger's pills bar) — the pager
+  // should open on the newly added exercise (#113, #126). Also set when the
+  // summary's exercise rows navigate back to a specific exercise.
   const { focusExerciseId } = useLocalSearchParams<{ focusExerciseId?: string }>();
 
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
@@ -66,6 +79,7 @@ export default function ActiveWorkoutScreen() {
   const addExerciseMetric = useWorkoutStore((s) => s.addExerciseMetric);
   const removeExerciseMetric = useWorkoutStore((s) => s.removeExerciseMetric);
   const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
+  const stopRestTimer = useWorkoutStore((s) => s.stopRestTimer);
 
   const weightUnit = useSettingsStore((s) => s.weightUnit);
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
@@ -105,9 +119,26 @@ export default function ActiveWorkoutScreen() {
   };
 
   const handleSetCompleted = (exercise: Exercise) => {
-    // 0 is an explicit "no rest timer" (same rule as the classic screen).
-    if (exercise.restTimeSeconds > 0) startRestTimer(exercise.restTimeSeconds, exercise.name);
+    // The store already reflects this completion (the toggle runs before this
+    // callback), so read it fresh: if that was the workout's last remaining
+    // set there is no next set to rest for — the logger is about to route to
+    // the summary — so don't start a timer or schedule its notification (#135).
+    // 0 stays an explicit "no rest timer".
+    const exercisesNow = useWorkoutStore.getState().activeWorkout?.exercises ?? [];
+    if (exercise.restTimeSeconds > 0 && hasIncompleteSets(exercisesNow)) {
+      startRestTimer(exercise.restTimeSeconds, exercise.name);
+    }
     setRewardTick((t) => t + 1);
+  };
+
+  const handleAllComplete = () => {
+    // Every set is logged — a rest timer still running from an earlier set has
+    // no next set, so stop it and cancel its OS notification + Live Activity
+    // before the summary takes over (#135). All three are no-ops when idle.
+    stopRestTimer();
+    cancelRestTimerNotification();
+    endRestActivity();
+    router.push('/workout/summary');
   };
 
   if (!activeWorkout) return null;
@@ -202,7 +233,7 @@ export default function ActiveWorkoutScreen() {
           onRemoveMetric={removeExerciseMetric}
           onAddExercise={() => router.push('/exercise/create?source=active')}
           onSetCompleted={handleSetCompleted}
-          onAllComplete={() => router.push('/workout/summary')}
+          onAllComplete={handleAllComplete}
           focusExerciseId={focusExerciseId}
         />
       </KeyboardAvoidingView>

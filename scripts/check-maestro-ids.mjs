@@ -27,6 +27,12 @@ const DYNAMIC_FAMILIES = [
     //   testID={`set-${index}-weight`}  (and -reps / -complete)
     source: /testID=\{`set-\$\{index\}-(weight|reps|complete)`\}/,
   },
+  {
+    test: /^focus-(weight|reps|duration|distance|pace|speed|incline|cadence|calories|power_avg|heart_rate_avg)$/,
+    // focus-set-card.tsx renders one input per metric spec:
+    //   testID={`focus-${spec.id}`}
+    source: /testID=\{`focus-\$\{spec\.id\}`\}/,
+  },
 ];
 
 function walk(dir, exts, out = []) {
