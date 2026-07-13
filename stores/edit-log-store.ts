@@ -74,6 +74,7 @@ export const useEditLogStore = create<EditLogState>()((set) => ({
         name: exercise.name,
         type: exercise.type,
         metrics: exercise.metrics,
+        loadMode: exercise.loadMode,
         order: state.editingLog.exercises.length,
         restTimeSeconds: exercise.restTimeSeconds,
         sets: exercise.sets,

@@ -1,7 +1,11 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { exerciseTypeValidator, metricIdValidator } from "./validators";
+import {
+  exerciseTypeValidator,
+  loadModeValidator,
+  metricIdValidator,
+} from "./validators";
 
 // Returns ALL exercises, including archived ones. The sole consumer is the
 // sync provider (providers/convex-sync-provider.tsx), which hydrates the
@@ -27,6 +31,8 @@ export const create = mutation({
     name: v.string(),
     type: exerciseTypeValidator,
     metrics: v.optional(v.array(metricIdValidator)),
+    // Absent = "total" (legacy convention; see lib/load-mode.ts).
+    loadMode: v.optional(loadModeValidator),
     createdAt: v.string(),
   },
   handler: async (ctx, args) => {
@@ -105,6 +111,7 @@ export const bulkUpsert = mutation({
         name: v.string(),
         type: exerciseTypeValidator,
         metrics: v.optional(v.array(metricIdValidator)),
+        loadMode: v.optional(loadModeValidator),
         createdAt: v.string(),
       })
     ),

@@ -1,4 +1,5 @@
-import type { WorkoutLog, WorkoutSet } from './types';
+import { effectiveLoad } from './load-mode';
+import type { LoadMode, WorkoutLog, WorkoutSet } from './types';
 
 /**
  * Estimated one-rep-max formulas — the single implementation shared by the
@@ -63,16 +64,22 @@ export function calculate1RM(
  * Best estimated 1RM across one session's sets: the completed set with both
  * weight and reps whose e1RM is highest (which is not necessarily the
  * heaviest set — 90×10 beats 100×1). Undefined when no set qualifies.
+ *
+ * `loadMode` is the parent exercise's flag: e1RM is computed on the EFFECTIVE
+ * total load (lib/load-mode.ts), so a per-hand exercise (2×10 kg dumbbells)
+ * is estimated from 20 kg, not 10 — otherwise unilateral work is undercounted.
+ * Absent (legacy) = 'total', multiplier 1.
  */
 export function sessionBestOneRm(
   sets: readonly WorkoutSet[],
-  formula: OneRmFormula = DEFAULT_ONE_RM_FORMULA
+  formula: OneRmFormula = DEFAULT_ONE_RM_FORMULA,
+  loadMode?: LoadMode
 ): number | undefined {
   let best: number | undefined;
   for (const set of sets) {
     if (!set.completed) continue;
     if (set.weight === undefined || set.reps === undefined) continue;
-    const estimate = estimateOneRm(set.weight, set.reps, formula);
+    const estimate = estimateOneRm(effectiveLoad(set.weight, loadMode), set.reps, formula);
     if (estimate > 0 && (best === undefined || estimate > best)) {
       best = estimate;
     }
@@ -102,10 +109,17 @@ export function computeOneRmSeries(
 
   const points: OneRmPoint[] = [];
   for (const log of sorted) {
-    const sets = log.exercises
-      .filter((exercise) => exercise.exerciseId === exerciseId)
-      .flatMap((exercise) => exercise.sets);
-    const value = sessionBestOneRm(sets, formula);
+    // Per log-exercise so each row's own load mode applies: legacy rows
+    // (loadMode absent) stay multiplier-1, per-hand rows double. Best across
+    // duplicate appearances of the exercise in one session.
+    let value: number | undefined;
+    for (const exercise of log.exercises) {
+      if (exercise.exerciseId !== exerciseId) continue;
+      const best = sessionBestOneRm(exercise.sets, formula, exercise.loadMode);
+      if (best !== undefined && (value === undefined || best > value)) {
+        value = best;
+      }
+    }
     if (value !== undefined) {
       points.push({ date: log.startedAt, value });
     }

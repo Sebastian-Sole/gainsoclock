@@ -146,6 +146,26 @@ describe("workoutToTemplateExercises", () => {
     expect(out[0].suggestedWeight).toBeUndefined();
   });
 
+  // Load mode survives the workout → template round-trip (issue #132), so a
+  // saved template keeps the per-hand suggestedWeight convention.
+  it("carries loadMode over; leaves it absent for legacy exercises", () => {
+    const out = workoutToTemplateExercises(
+      [
+        exercise({
+          id: "e1",
+          loadMode: "per_hand",
+          sets: [set({ completed: true, reps: 10, weight: 10 })],
+        }),
+        exercise({ id: "e2" }), // legacy: no loadMode
+      ],
+      makeSeqId()
+    );
+    expect(out[0].loadMode).toBe("per_hand");
+    expect(out[0].suggestedWeight).toBe(10); // per hand, as entered
+    expect(out[1].loadMode).toBeUndefined();
+    expect("loadMode" in out[1]).toBe(false); // omitted, not undefined-valued
+  });
+
   it("clamps defaultSetsCount to at least 1 for a zero-set exercise", () => {
     const out = workoutToTemplateExercises([exercise({ sets: [] })], makeSeqId());
     expect(out[0].defaultSetsCount).toBe(1);

@@ -1,7 +1,11 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { exerciseTypeValidator, metricIdValidator } from "./validators";
+import {
+  exerciseTypeValidator,
+  loadModeValidator,
+  metricIdValidator,
+} from "./validators";
 
 const exercisePayload = v.object({
   clientId: v.string(),
@@ -9,6 +13,10 @@ const exercisePayload = v.object({
   exerciseName: v.string(),
   exerciseType: exerciseTypeValidator,
   exerciseMetrics: v.optional(v.array(metricIdValidator)),
+  // Load-mode flag of the referenced exercise, denormalized like
+  // exerciseMetrics. suggestedWeight follows the same per-hand convention.
+  // Absent = "total" (lib/load-mode.ts).
+  exerciseLoadMode: v.optional(loadModeValidator),
   order: v.number(),
   restTimeSeconds: v.number(),
   defaultSetsCount: v.number(),
@@ -66,6 +74,9 @@ export const listWithExercises = query({
             type: exercise?.type ?? ("reps_weight" as const),
             // Client fills legacy gaps via resolveExerciseMetrics on hydrate.
             metrics: exercise?.metrics ?? te.metrics,
+            // Prefer the live definition (same precedence as metrics) so a
+            // library-level load-mode fix reaches older templates.
+            loadMode: exercise?.loadMode ?? te.loadMode,
             order: te.order,
             restTimeSeconds: te.restTimeSeconds,
             defaultSetsCount: te.defaultSetsCount,
@@ -117,6 +128,7 @@ export const create = mutation({
           name: ex.exerciseName,
           type: ex.exerciseType,
           ...(ex.exerciseMetrics !== undefined && { metrics: ex.exerciseMetrics }),
+          ...(ex.exerciseLoadMode !== undefined && { loadMode: ex.exerciseLoadMode }),
           createdAt: args.createdAt,
         });
       }
@@ -140,6 +152,7 @@ export const create = mutation({
         templateClientId: args.clientId,
         exerciseClientId: ex.exerciseClientId,
         ...(ex.exerciseMetrics !== undefined && { metrics: ex.exerciseMetrics }),
+        ...(ex.exerciseLoadMode !== undefined && { loadMode: ex.exerciseLoadMode }),
         order: ex.order,
         restTimeSeconds: ex.restTimeSeconds,
         defaultSetsCount: ex.defaultSetsCount,
@@ -208,6 +221,7 @@ export const updateByClientId = mutation({
             name: ex.exerciseName,
             type: ex.exerciseType,
             ...(ex.exerciseMetrics !== undefined && { metrics: ex.exerciseMetrics }),
+            ...(ex.exerciseLoadMode !== undefined && { loadMode: ex.exerciseLoadMode }),
             createdAt: args.updatedAt,
           });
         }
@@ -218,6 +232,7 @@ export const updateByClientId = mutation({
           templateClientId: args.clientId,
           exerciseClientId: ex.exerciseClientId,
           ...(ex.exerciseMetrics !== undefined && { metrics: ex.exerciseMetrics }),
+          ...(ex.exerciseLoadMode !== undefined && { loadMode: ex.exerciseLoadMode }),
           order: ex.order,
           restTimeSeconds: ex.restTimeSeconds,
           defaultSetsCount: ex.defaultSetsCount,
@@ -301,6 +316,7 @@ export const bulkUpsert = mutation({
               name: ex.exerciseName,
               type: ex.exerciseType,
               ...(ex.exerciseMetrics !== undefined && { metrics: ex.exerciseMetrics }),
+              ...(ex.exerciseLoadMode !== undefined && { loadMode: ex.exerciseLoadMode }),
               createdAt: t.createdAt,
             });
           }
@@ -324,6 +340,7 @@ export const bulkUpsert = mutation({
             templateClientId: t.clientId,
             exerciseClientId: ex.exerciseClientId,
             ...(ex.exerciseMetrics !== undefined && { metrics: ex.exerciseMetrics }),
+            ...(ex.exerciseLoadMode !== undefined && { loadMode: ex.exerciseLoadMode }),
             order: ex.order,
             restTimeSeconds: ex.restTimeSeconds,
             defaultSetsCount: ex.defaultSetsCount,

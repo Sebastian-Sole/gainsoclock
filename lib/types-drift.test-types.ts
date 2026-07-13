@@ -15,12 +15,14 @@ import {
   workoutSetValidator,
   exerciseTypeValidator,
   metricIdValidator,
+  loadModeValidator,
 } from "@/convex/validators";
-import type { WorkoutSet, ExerciseType, MetricId } from "@/lib/types";
+import type { WorkoutSet, ExerciseType, MetricId, LoadMode } from "@/lib/types";
 
 type ServerSet = Infer<typeof workoutSetValidator>;
 type ServerExerciseType = Infer<typeof exerciseTypeValidator>;
 type ServerMetricId = Infer<typeof metricIdValidator>;
+type ServerLoadMode = Infer<typeof loadModeValidator>;
 
 // Mutual assignability — both directions must hold.
 // If either side adds, removes, or renames a field the assignment on that
@@ -32,3 +34,5 @@ const _etToServer = (e: ExerciseType): ServerExerciseType => e;
 const _etFromServer = (e: ServerExerciseType): ExerciseType => e;
 const _midToServer = (m: MetricId): ServerMetricId => m;
 const _midFromServer = (m: ServerMetricId): MetricId => m;
+const _lmToServer = (m: LoadMode): ServerLoadMode => m;
+const _lmFromServer = (m: ServerLoadMode): LoadMode => m;

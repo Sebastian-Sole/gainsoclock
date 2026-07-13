@@ -11,6 +11,10 @@ interface TemplatePreviewData {
   exercises: {
     name: string;
     type: string;
+    /** "total" | "per_hand" | "per_side"; suggestedWeight is per implement
+     *  for the latter two (lib/load-mode.ts). Untyped: the payload is
+     *  AI-authored JSON. */
+    loadMode?: string;
     defaultSetsCount: number;
     restTimeSeconds: number;
     suggestedReps?: number;
@@ -28,12 +32,17 @@ interface TemplatePreviewProps {
 const MAX_COLLAPSED = 3;
 
 function formatExerciseDetail(exercise: TemplatePreviewData['exercises'][number], weightUnit: string, distanceUnit: string): string {
-  const { defaultSetsCount, suggestedReps, suggestedWeight, suggestedTime, suggestedDistance, restTimeSeconds } = exercise;
+  const { defaultSetsCount, suggestedReps, suggestedWeight, suggestedTime, suggestedDistance, restTimeSeconds, loadMode } = exercise;
+
+  // Suggested weights follow the per-hand convention (lib/load-mode.ts):
+  // "@ 10kg/hand" makes the AI's proposal unambiguous on the approval card.
+  const weightQualifier =
+    loadMode === 'per_hand' ? '/hand' : loadMode === 'per_side' ? '/side' : '';
 
   let main = `${defaultSetsCount} sets`;
 
   if (suggestedReps && suggestedWeight) {
-    main = `${defaultSetsCount}×${suggestedReps} @ ${suggestedWeight}${weightUnit}`;
+    main = `${defaultSetsCount}×${suggestedReps} @ ${suggestedWeight}${weightUnit}${weightQualifier}`;
   } else if (suggestedReps) {
     main = `${defaultSetsCount}×${suggestedReps}`;
   } else if (suggestedTime && suggestedDistance) {

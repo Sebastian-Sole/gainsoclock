@@ -29,6 +29,15 @@ export const metricIdValidator = v.union(
   v.literal("calories")
 );
 
+// How an exercise's entered weight relates to the total load moved.
+// The stored weight is always what the user physically picks up; absent
+// (legacy rows) means "total". Semantics + defaulting: lib/load-mode.ts.
+export const loadModeValidator = v.union(
+  v.literal("total"),
+  v.literal("per_hand"),
+  v.literal("per_side")
+);
+
 const setVariantValidator = v.union(v.literal("work"), v.literal("rest"));
 const intervalMetricValidator = v.union(
   v.literal("pace"),

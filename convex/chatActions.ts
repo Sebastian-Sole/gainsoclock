@@ -126,6 +126,12 @@ const AI_EXERCISE_ITEM = {
       description:
         'Use "metrics" for normal exercises (and provide the `metrics` array). Use "intervals" only for work/rest interval exercises. Legacy types are still accepted.',
     },
+    loadMode: {
+      type: "string",
+      enum: ["total", "per_hand", "per_side"],
+      description:
+        'How the weight number relates to the total load. "total" (default): one load — barbell, machine, bodyweight. "per_hand": two implements moved at once — dumbbell bench, DB curls, farmer carries. "per_side": one loaded side at a time — single-arm row, lunge holding one dumbbell. CONVENTION: weight is always what the user physically picks up — for per_hand/per_side exercises, the weight of ONE dumbbell/implement (10, never the 20 combined). Set per_hand/per_side for every dumbbell/unilateral exercise.',
+    },
     defaultSetsCount: { type: "number", description: "Number of sets" },
     restTimeSeconds: {
       type: "number",
@@ -134,7 +140,7 @@ const AI_EXERCISE_ITEM = {
     suggestedWeight: {
       type: "number",
       description:
-        "Suggested weight per set in the user's preferred unit, based on history",
+        "Suggested weight per set in the user's preferred unit, based on history. Follows the loadMode convention: for per_hand/per_side exercises this is the weight of ONE dumbbell/implement (what the user picks up), never the combined total.",
     },
     suggestedReps: {
       type: "number",
@@ -676,6 +682,7 @@ ${planSection}
 - Use the user's preferred units (${context.settings.weightUnit}, ${context.settings.distanceUnit}).
 - Be concise but helpful. Focus on actionable advice.
 - Every exercise you create should set type "metrics" and list the metrics it tracks (compose from weight, reps, duration, distance, pace, speed, incline, power_avg, heart_rate_avg, cadence, calories; max 5). Reserve "intervals" for work/rest interval exercises.
+- Weight convention (loadMode): weights are always what the user physically picks up. For dumbbell/unilateral exercises set loadMode — "per_hand" when two implements move at once (DB bench, DB curls), "per_side" when one loaded side works at a time (single-arm row, weighted lunge) — and express suggestedWeight as the weight of ONE dumbbell/implement (a 10 kg dumbbell in each hand is 10, not 20). Barbell/machine/bodyweight exercises are "total" (the default; you may omit loadMode).
 - For workout plans, use dayOfWeek values: 0=Sunday, 1=Monday, ..., 6=Saturday.
 - For rest days in plans, omit the templateName field.
 - When the user asks to modify their existing plan, use the update_workout_plan tool with the plan's Plan ID (shown above in the Active Plan section). Reference existing template names exactly as they appear in the schedule. Only include newTemplates if you need to add workout types that don't already exist.

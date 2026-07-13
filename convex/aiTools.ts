@@ -1,7 +1,14 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { METRIC_IDS, normalizeExerciseMetrics, type MetricId } from "./metricsMap";
+import {
+  LOAD_MODES,
+  METRIC_IDS,
+  coerceLoadMode,
+  normalizeExerciseMetrics,
+  type LoadMode,
+  type MetricId,
+} from "./metricsMap";
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -105,6 +112,17 @@ function validateExercise(
   ) {
     throw new Error(
       `Invalid payload: "${prefix}" must provide a non-empty "metrics" array (or a legacy "type").`
+    );
+  }
+  // Optional load-mode flag; unknown values throw (surfaced to the model for
+  // a retry). Absent defaults to "total" at persistence time — the same
+  // legacy convention as lib/load-mode.ts, so no exercise needs it.
+  if (
+    ex.loadMode !== undefined &&
+    (typeof ex.loadMode !== "string" || coerceLoadMode(ex.loadMode) === undefined)
+  ) {
+    throw new Error(
+      `Invalid payload: "${prefix}.loadMode" must be one of: ${LOAD_MODES.join(", ")}.`
     );
   }
   assertNumber(ex.defaultSetsCount, `${prefix}.defaultSetsCount`);
@@ -323,6 +341,8 @@ interface ExercisePayload {
   name: string;
   type?: ExerciseType;
   metrics?: MetricId[];
+  // Absent = "total"; suggestedWeight follows the same per-hand convention.
+  loadMode?: LoadMode;
   defaultSetsCount: number;
   restTimeSeconds: number;
   suggestedReps?: number;
@@ -527,6 +547,7 @@ export const executeApproval = mutation({
             order: i,
             resolvedType: resolved.type,
             resolvedMetrics: resolved.metrics,
+            resolvedLoadMode: coerceLoadMode(ex.loadMode),
           };
         }
       );
@@ -547,6 +568,7 @@ export const executeApproval = mutation({
             name: ex.name,
             type: ex.resolvedType,
             metrics: ex.resolvedMetrics,
+            ...(ex.resolvedLoadMode !== undefined && { loadMode: ex.resolvedLoadMode }),
             createdAt: now,
           });
         } else {
@@ -571,6 +593,7 @@ export const executeApproval = mutation({
           templateClientId,
           exerciseClientId: ex.exerciseClientId,
           metrics: ex.resolvedMetrics,
+          ...(ex.resolvedLoadMode !== undefined && { loadMode: ex.resolvedLoadMode }),
           order: ex.order,
           restTimeSeconds: ex.restTimeSeconds,
           defaultSetsCount: ex.defaultSetsCount,
@@ -619,6 +642,7 @@ export const executeApproval = mutation({
               order: i,
               resolvedType: resolved.type,
               resolvedMetrics: resolved.metrics,
+              resolvedLoadMode: coerceLoadMode(ex.loadMode),
             };
           }
         );
@@ -639,6 +663,7 @@ export const executeApproval = mutation({
               name: ex.name,
               type: ex.resolvedType,
               metrics: ex.resolvedMetrics,
+              ...(ex.resolvedLoadMode !== undefined && { loadMode: ex.resolvedLoadMode }),
               createdAt: now,
             });
           } else {
@@ -662,6 +687,7 @@ export const executeApproval = mutation({
             templateClientId,
             exerciseClientId: ex.exerciseClientId,
             metrics: ex.resolvedMetrics,
+            ...(ex.resolvedLoadMode !== undefined && { loadMode: ex.resolvedLoadMode }),
             order: ex.order,
             restTimeSeconds: ex.restTimeSeconds,
             defaultSetsCount: ex.defaultSetsCount,
@@ -750,6 +776,7 @@ export const executeApproval = mutation({
               order: i,
               resolvedType: resolved.type,
               resolvedMetrics: resolved.metrics,
+              resolvedLoadMode: coerceLoadMode(ex.loadMode),
             };
           }
         );
@@ -769,6 +796,7 @@ export const executeApproval = mutation({
               name: ex.name,
               type: ex.resolvedType,
               metrics: ex.resolvedMetrics,
+              ...(ex.resolvedLoadMode !== undefined && { loadMode: ex.resolvedLoadMode }),
               createdAt: now,
             });
           } else {
@@ -791,6 +819,7 @@ export const executeApproval = mutation({
             templateClientId,
             exerciseClientId: ex.exerciseClientId,
             metrics: ex.resolvedMetrics,
+            ...(ex.resolvedLoadMode !== undefined && { loadMode: ex.resolvedLoadMode }),
             order: ex.order,
             restTimeSeconds: ex.restTimeSeconds,
             defaultSetsCount: ex.defaultSetsCount,

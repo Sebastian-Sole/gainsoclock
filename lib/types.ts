@@ -27,6 +27,14 @@ export type MetricId =
   | 'cadence'
   | 'calories';
 
+// How an exercise's entered weight relates to the total load moved. The
+// stored weight is always what the user physically picks up (10 kg per
+// dumbbell, not 20 kg combined). Absent = 'total'. Semantics, defaulting and
+// effective-load math live in lib/load-mode.ts; mirror of
+// convex/validators.ts loadModeValidator (drift-guarded in
+// lib/types-drift.test-types.ts).
+export type LoadMode = 'total' | 'per_hand' | 'per_side';
+
 export type IntervalMetric = 'pace' | 'distance' | 'speed';
 export type IntervalDistanceUnit = 'km' | 'mi';
 
@@ -68,6 +76,8 @@ export interface ExerciseDefinition {
   name: string;
   type: ExerciseType;
   metrics: MetricId[]; // ordered composed metrics (empty for 'intervals')
+  // Absent = 'total' (legacy). See lib/load-mode.ts.
+  loadMode?: LoadMode;
   createdAt: string;
   // Soft-delete marker (epoch ms). Archived exercises are hidden from
   // pickers and the library's default view but keep working wherever they
@@ -82,6 +92,9 @@ export interface TemplateExercise {
   name: string; // denormalized for display
   type: ExerciseType; // denormalized for display
   metrics: MetricId[]; // denormalized for display/logging
+  // Denormalized like `metrics`; suggestedWeight follows the same per-hand
+  // convention. Absent = 'total'.
+  loadMode?: LoadMode;
   order: number;
   restTimeSeconds: number;
   defaultSetsCount: number;
@@ -98,6 +111,9 @@ export interface Exercise {
   name: string;
   type: ExerciseType;
   metrics: MetricId[];
+  // Absent = 'total'. Drives the "per hand / per side" weight-field labels
+  // in the set loggers; carried into the log on finish.
+  loadMode?: LoadMode;
   sets: WorkoutSet[];
   restTimeSeconds: number;
 }
@@ -109,6 +125,9 @@ export interface WorkoutLogExercise {
   name: string; // denormalized
   type: ExerciseType; // denormalized
   metrics: MetricId[]; // denormalized
+  // Load mode AT LOG TIME. Absent (all pre-flag logs) = 'total', so
+  // historical stats/e1RM/volume are unchanged in interpretation.
+  loadMode?: LoadMode;
   order: number;
   restTimeSeconds: number;
   sets: WorkoutSet[];

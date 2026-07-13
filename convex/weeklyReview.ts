@@ -20,6 +20,7 @@ import {
 } from "./_generated/server";
 import type { ActionCtx, QueryCtx } from "./_generated/server";
 import { toKg } from "./fitnessMetrics";
+import { loadMultiplier } from "./metricsMap";
 import { OPENAI_CHAT_MODEL } from "./openaiConfig";
 import {
   weeklyReviewRecommendationValidator,
@@ -174,7 +175,11 @@ async function buildWeekStats(
         totalSets++;
         if (s.reps !== undefined && s.weight !== undefined) {
           const weightKg = toKg(s.weight, weightUnit);
-          totalVolumeKg += s.reps * weightKg;
+          // Volume uses the EFFECTIVE load: per-hand rows count double
+          // (mirrors lib/load-mode.ts; absent loadMode = total). The
+          // per-exercise best below stays the entered weight, matching the
+          // client's weight PBs.
+          totalVolumeKg += s.reps * weightKg * loadMultiplier(le.loadMode);
           const best = weekBestByExercise.get(le.exerciseClientId);
           if (
             !best ||

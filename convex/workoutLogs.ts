@@ -3,13 +3,20 @@ import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
-import { flatSetValidator, metricIdValidator } from "./validators";
+import {
+  flatSetValidator,
+  loadModeValidator,
+  metricIdValidator,
+} from "./validators";
 import { bestMatchingExternal } from "./workoutOverlap";
 
 const exercisePayload = v.object({
   clientId: v.string(),
   exerciseClientId: v.string(),
   metrics: v.optional(v.array(metricIdValidator)),
+  // Load mode at log time. Absent = "total" (lib/load-mode.ts) — pre-flag
+  // history keeps its original interpretation.
+  loadMode: v.optional(loadModeValidator),
   order: v.number(),
   restTimeSeconds: v.number(),
   sets: v.array(flatSetValidator),
@@ -194,6 +201,10 @@ export const listFull = query({
           // Passed through as-is; the client fills legacy gaps via
           // resolveExerciseMetrics on hydrate.
           metrics: ex.metrics ?? def?.metrics,
+          // Deliberately NOT falling back to the definition: a load-mode set
+          // on the exercise later must not reinterpret pre-flag history
+          // (absent = "total", lib/load-mode.ts).
+          loadMode: ex.loadMode,
           order: ex.order,
           restTimeSeconds: ex.restTimeSeconds,
           sets: sets
@@ -264,6 +275,7 @@ export const create = mutation({
         order: ex.order,
         restTimeSeconds: ex.restTimeSeconds,
         ...(ex.metrics !== undefined && { metrics: ex.metrics }),
+        ...(ex.loadMode !== undefined && { loadMode: ex.loadMode }),
       });
 
       for (const s of ex.sets) {
@@ -408,6 +420,7 @@ export const update = mutation({
           order: ex.order,
           restTimeSeconds: ex.restTimeSeconds,
           ...(ex.metrics !== undefined && { metrics: ex.metrics }),
+          ...(ex.loadMode !== undefined && { loadMode: ex.loadMode }),
         });
 
         for (const s of ex.sets) {
@@ -489,6 +502,7 @@ export const bulkUpsert = mutation({
             order: ex.order,
             restTimeSeconds: ex.restTimeSeconds,
             ...(ex.metrics !== undefined && { metrics: ex.metrics }),
+            ...(ex.loadMode !== undefined && { loadMode: ex.loadMode }),
           });
 
           for (const s of ex.sets) {

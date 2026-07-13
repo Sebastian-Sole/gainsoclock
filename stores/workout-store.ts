@@ -68,6 +68,7 @@ export const useWorkoutStore = create<WorkoutState>()(
           name: te.name,
           type: te.type,
           metrics: te.metrics,
+          loadMode: te.loadMode,
           sets,
           restTimeSeconds: te.restTimeSeconds,
         };
@@ -80,6 +81,7 @@ export const useWorkoutStore = create<WorkoutState>()(
         name: te.name,
         type: te.type,
         metrics: te.metrics,
+        loadMode: te.loadMode,
         sets: createDefaultSets(te.type, te.metrics, te.defaultSetsCount, {
           suggestedReps: te.suggestedReps,
           suggestedWeight: te.suggestedWeight,

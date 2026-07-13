@@ -8,7 +8,8 @@ import { SetInput } from './set-input';
 import { TimeInput } from '@/components/shared/time-input';
 import { RpeInput } from './rpe-input';
 import { IntervalSetInputs, MmSsInput } from './interval-set-inputs';
-import type { MetricId, WorkoutSet } from '@/lib/types';
+import type { LoadMode, MetricId, WorkoutSet } from '@/lib/types';
+import { loadModeFieldSuffix } from '@/lib/load-mode';
 import { METRICS, metricUpdate, resolveExerciseMetrics, type MetricSpec } from '@/lib/metrics';
 import { useSettingsStore } from '@/stores/settings-store';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,9 @@ interface SetRowProps {
   set: WorkoutSet;
   /** Resolved metric list of the parent exercise (drives which inputs render). */
   metrics: MetricId[];
+  /** Parent exercise's load mode — labels the weight input "per hand"/"per
+   *  side" (lib/load-mode.ts). Absent = 'total', unchanged rendering. */
+  loadMode?: LoadMode;
   index: number;
   onUpdate: (updates: Partial<WorkoutSet>) => void;
   onToggleComplete: () => void;
@@ -29,15 +33,21 @@ function MetricInput({
   spec,
   set,
   index,
+  loadMode,
   onUpdate,
 }: {
   spec: MetricSpec;
   set: WorkoutSet;
   index: number;
+  loadMode?: LoadMode;
   onUpdate: (updates: Partial<WorkoutSet>) => void;
 }) {
   const value = set[spec.field] ?? 0;
   const change = (v: number) => onUpdate(metricUpdate(spec.field, v));
+  // "Weight, per hand" for unilateral exercises (lib/load-mode.ts); other
+  // metrics and total/legacy exercises are unchanged.
+  const suffix = spec.id === 'weight' ? loadModeFieldSuffix(loadMode) : undefined;
+  const fieldLabel = suffix ? `${spec.label}, ${suffix}` : spec.label;
 
   switch (spec.inputKind) {
     case 'duration':
@@ -53,14 +63,14 @@ function MetricInput({
           placeholder="0"
           className="flex-1"
           allowDecimals={spec.inputKind === 'decimal'}
-          accessibilityLabel={`${spec.label}, set ${index + 1}`}
+          accessibilityLabel={`${fieldLabel}, set ${index + 1}`}
           testID={`set-${index}-${spec.id}`}
         />
       );
   }
 }
 
-export const SetRow = React.memo(function SetRow({ set, metrics, index, onUpdate, onToggleComplete, onRemove, editable = true }: SetRowProps) {
+export const SetRow = React.memo(function SetRow({ set, metrics, loadMode, index, onUpdate, onToggleComplete, onRemove, editable = true }: SetRowProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
@@ -84,7 +94,7 @@ export const SetRow = React.memo(function SetRow({ set, metrics, index, onUpdate
       return <IntervalSetInputs set={set} onUpdate={onUpdate} />;
     }
     return resolveExerciseMetrics(set.type, metrics).map((id) => (
-      <MetricInput key={id} spec={METRICS[id]} set={set} index={index} onUpdate={onUpdate} />
+      <MetricInput key={id} spec={METRICS[id]} set={set} index={index} loadMode={loadMode} onUpdate={onUpdate} />
     ));
   };
 

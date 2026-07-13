@@ -6,6 +6,7 @@ import { mergeQueueAware } from '@/lib/hydration-merge';
 import { api } from '@/convex/_generated/api';
 import type { WorkoutLog, WorkoutLogExercise, WorkoutSet } from '@/lib/types';
 import { resolveExerciseMetricsLoose } from '@/lib/metrics';
+import { coerceLoadMode } from '@/lib/load-mode';
 import { format, startOfMonth, subMonths } from 'date-fns';
 
 function flattenSet(s: WorkoutSet) {
@@ -78,6 +79,7 @@ interface HistoryState {
       name: string;
       type: string;
       metrics?: string[];
+      loadMode?: string;
       order: number;
       restTimeSeconds: number;
       sets: Array<{
@@ -142,6 +144,7 @@ export const useHistoryStore = create<HistoryState>()(
             clientId: e.id,
             exerciseClientId: e.exerciseId,
             metrics: e.metrics,
+            loadMode: e.loadMode,
             order: e.order,
             restTimeSeconds: e.restTimeSeconds,
             sets: e.sets.map((s, i) => ({
@@ -168,6 +171,7 @@ export const useHistoryStore = create<HistoryState>()(
               clientId: e.id,
               exerciseClientId: e.exerciseId,
               metrics: e.metrics,
+              loadMode: e.loadMode,
               order: e.order,
               restTimeSeconds: e.restTimeSeconds,
               sets: e.sets.map((s, i) => ({
@@ -226,6 +230,7 @@ export const useHistoryStore = create<HistoryState>()(
             name: e.name,
             type: e.type as WorkoutLogExercise['type'],
             metrics: resolveExerciseMetricsLoose(e.type, e.metrics),
+            loadMode: coerceLoadMode(e.loadMode),
             order: e.order,
             restTimeSeconds: e.restTimeSeconds,
             sets: e.sets.map((s) => ({
