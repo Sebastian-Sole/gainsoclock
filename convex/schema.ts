@@ -454,6 +454,23 @@ export default defineSchema({
     fat: v.number(),
   }).index("by_user", ["userId"]),
 
+  // Pending email-change requests (issue #123, verify-before-activate).
+  // At most one live request per user — initiating again replaces it. The
+  // plaintext code is never stored: `codeHash` = SHA-256(`${salt}:${code}`).
+  // Rows are short-lived (15 min expiry) and deleted on verify/cancel/
+  // password change; expired rows are replaced on the next initiation.
+  emailChangeRequests: defineTable({
+    userId: v.id("users"),
+    newEmail: v.string(),
+    codeHash: v.string(),
+    salt: v.string(),
+    createdAt: v.number(), // ms epoch — resends allowed only within 1h
+    expiresAt: v.number(), // ms epoch — code dead after 15 min
+    attempts: v.number(), // failed verify attempts (max 5, then dead)
+    sendCount: v.number(), // emails sent in the current rate window
+    windowStartedAt: v.number(), // ms epoch — send-rate window start
+  }).index("by_user", ["userId"]),
+
   // Transient ownership record for meal-photo uploads. Rows are deleted on
   // discard; the daily sweep removes orphans (crashed clients).
   mealPhotos: defineTable({

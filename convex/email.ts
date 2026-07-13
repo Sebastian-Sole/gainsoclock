@@ -287,6 +287,54 @@ export const sendWinback = internalAction({
   },
 });
 
+function emailChangeVerificationTemplate(args: { code: string }): {
+  html: string;
+  text: string;
+} {
+  const text = [
+    "Use this code to confirm your new Fitbull email address:",
+    "",
+    args.code,
+    "",
+    "The code expires in 15 minutes. If you didn't request this change,",
+    "you can ignore this email — your account is unchanged.",
+  ].join("\n");
+  const html = `<!doctype html><html><body style="font-family:sans-serif;line-height:1.5">
+<p>Use this code to confirm your new <strong>Fitbull</strong> email address:</p>
+<p style="font-size:28px;font-weight:bold;letter-spacing:6px">${args.code}</p>
+<p>The code expires in 15 minutes. If you didn't request this change,
+you can ignore this email — your account is unchanged.</p>
+</body></html>`;
+  return { html, text };
+}
+
+/**
+ * Verification code for an account email change (convex/user.ts, issue
+ * #123), sent to the NEW address. Transactional security email — no
+ * unsubscribe link, unlike the billing reminders above. The code must never
+ * be logged: keep it out of the subject (the no-API-key dev path logs the
+ * subject) and out of any error text.
+ */
+export const sendEmailChangeVerification = internalAction({
+  args: {
+    email: v.string(),
+    code: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { html, text } = emailChangeVerificationTemplate({
+      code: args.code,
+    });
+    await sendViaResend(ctx, {
+      from: FROM_ADDRESS,
+      to: [args.email],
+      reply_to: REPLY_TO,
+      subject: "Confirm your new Fitbull email address",
+      html,
+      text,
+    });
+  },
+});
+
 export const sendUnsubscribe = internalAction({
   args: {
     userId: v.id("users"),
