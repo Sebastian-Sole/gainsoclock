@@ -14,6 +14,7 @@ import { View } from 'react-native';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { formatDistance, formatDuration } from '@/lib/format';
+import { resolveHealthSourceName } from '@/lib/health-source';
 import { useSettingsStore, type DistanceUnit } from '@/stores/settings-store';
 import type { ExternalWorkout } from '@/hooks/use-external-workouts';
 
@@ -80,6 +81,12 @@ export function ExternalWorkoutCard({ workout }: ExternalWorkoutCardProps) {
   const activityLabel = humanizeActivityType(workout.activityType);
   const ActivityIcon = activityIcon(workout.activityType);
   const startTime = format(new Date(workout.startedAt), 'h:mm a');
+  // Re-sanitize at display time so rows persisted before the fix for
+  // issue #105 ("SourceProxy" leaking from HealthKit) also render cleanly.
+  const sourceLabel = resolveHealthSourceName(
+    workout.sourceName,
+    workout.sourceBundleId
+  );
 
   const distance =
     workout.distanceMeters !== undefined && workout.distanceMeters > 0
@@ -98,7 +105,7 @@ export function ExternalWorkoutCard({ workout }: ExternalWorkoutCardProps) {
   );
 
   const accessibilityLabel = [
-    `${activityLabel} workout from ${workout.sourceName}`,
+    `${activityLabel} workout from ${sourceLabel}`,
     `at ${startTime}`,
     spokenDuration(workout.durationSeconds),
     ...(distance
@@ -134,7 +141,7 @@ export function ExternalWorkoutCard({ workout }: ExternalWorkoutCardProps) {
           </View>
           <View className="rounded-full bg-secondary px-2 py-0.5">
             <Text className="text-xs text-secondary-foreground">
-              {workout.sourceName}
+              {sourceLabel}
             </Text>
           </View>
         </View>

@@ -31,7 +31,7 @@ interface WorkoutState {
   toggleSetComplete: (exerciseId: string, setId: string) => void;
 
   // Rest timer
-  startRestTimer: (seconds: number) => void;
+  startRestTimer: (seconds: number, exerciseName?: string) => void;
   tickRestTimer: () => void;
   stopRestTimer: () => void;
 }
@@ -314,7 +314,7 @@ export const useWorkoutStore = create<WorkoutState>()(
       };
     }),
 
-  startRestTimer: (seconds) =>
+  startRestTimer: (seconds, exerciseName) =>
     set((state) => {
       if (!state.activeWorkout) return state;
       return {
@@ -323,6 +323,10 @@ export const useWorkoutStore = create<WorkoutState>()(
           isRestTimerActive: true,
           restTimeRemaining: seconds,
           restTimerEndsAt: Date.now() + seconds * 1000,
+          // "+15" extends the running timer without exercise context — keep
+          // the name the timer was started with.
+          restTimerExerciseName:
+            exerciseName ?? state.activeWorkout.restTimerExerciseName,
         },
       };
     }),
@@ -340,6 +344,7 @@ export const useWorkoutStore = create<WorkoutState>()(
             isRestTimerActive: false,
             restTimeRemaining: 0,
             restTimerEndsAt: undefined,
+            restTimerExerciseName: undefined,
           },
         };
       }
@@ -360,6 +365,7 @@ export const useWorkoutStore = create<WorkoutState>()(
           isRestTimerActive: false,
           restTimeRemaining: 0,
           restTimerEndsAt: undefined,
+          restTimerExerciseName: undefined,
         },
       };
     }),

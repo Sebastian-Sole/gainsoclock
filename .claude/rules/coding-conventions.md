@@ -56,6 +56,17 @@ These rules are enforceable. If a rule can be enforced by ESLint/TypeScript, pre
 - Dark mode is driven by the `class` strategy — set via the root provider. Don't write `dark:` overrides based on `Platform`.
 - New UI primitives go in `components/ui/` and wrap `@rn-primitives/*`. Follow the `cva`-based variant pattern in `components/ui/button.tsx`.
 
+### Single-line text inputs (vertical-centering gotcha)
+
+**Enforced by lint**: importing `TextInput` from react-native is an ESLint error (`no-restricted-imports`) outside the allowlist in `eslint.config.js`. New form fields use the `Input` primitive; only multiline/display-style inputs earn an allowlist entry.
+
+A single-line `TextInput` on iOS renders its text/placeholder **off-centre** if either of two things is present. This has bitten us repeatedly; both have the same visible symptom (text sits low in the box) but different causes:
+
+- **`py-*` padding.** iOS does not split `paddingVertical` evenly around single-line text. Measured offset with `py-4`: ~8pt low. Use a fixed height + `py-0` and let UIKit centre the text.
+- **A Tailwind text-**size** class (`text-lg`, `text-base`, `text-sm`).** These inject a `line-height` (e.g. `text-lg` → font-size 18 / line-height 28), which offsets text inside a fixed-height input. Size with the arbitrary form `text-[18px]` (font-size only), not `text-lg`.
+
+Prefer the `components/ui/input.tsx` primitive for form fields — it sidesteps both problems structurally: the fixed height lives on a pressable wrapper `View` that flex-centres a self-sizing `TextInput` (value and placeholder share one auto-height line box, so neither can sit low), sizes text with `text-[Npx]` only, and auto-attaches the numeric keyboard "Done" bar. This IS the default for names, numbers, and search boxes. It IS NOT for multiline fields (the height/padding rule doesn't apply once `multiline` is set) or for the borderless display-style inputs like the Focus logger's `BigInput`. If you must hand-roll a bordered single-line `TextInput` (e.g. `SetInput`, `MmSsInput`), apply the same two rules: fixed height, `py-0`, `text-[Npx]` — or better, copy the primitive's wrapper structure.
+
 ## Accessibility (WCAG 2.1 AA equivalents on mobile)
 
 - Every interactive element has `accessibilityLabel` **and** `accessibilityRole`.

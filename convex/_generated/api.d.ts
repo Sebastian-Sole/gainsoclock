@@ -19,6 +19,7 @@ import type * as chatActions from "../chatActions.js";
 import type * as chatInternal from "../chatInternal.js";
 import type * as cronRunner from "../cronRunner.js";
 import type * as crons from "../crons.js";
+import type * as dataExport from "../dataExport.js";
 import type * as email from "../email.js";
 import type * as errorBoundary from "../errorBoundary.js";
 import type * as errorReporting from "../errorReporting.js";
@@ -27,6 +28,7 @@ import type * as exercises from "../exercises.js";
 import type * as fitnessMetrics from "../fitnessMetrics.js";
 import type * as healthData from "../healthData.js";
 import type * as http from "../http.js";
+import type * as ingredients from "../ingredients.js";
 import type * as mealLogs from "../mealLogs.js";
 import type * as metricsMap from "../metricsMap.js";
 import type * as migrations from "../migrations.js";
@@ -38,6 +40,7 @@ import type * as onboardingInternal from "../onboardingInternal.js";
 import type * as openaiConfig from "../openaiConfig.js";
 import type * as plans from "../plans.js";
 import type * as posthogServer from "../posthogServer.js";
+import type * as recipeVision from "../recipeVision.js";
 import type * as recipes from "../recipes.js";
 import type * as revenuecatTypes from "../revenuecatTypes.js";
 import type * as settings from "../settings.js";
@@ -49,6 +52,7 @@ import type * as validators from "../validators.js";
 import type * as weeklyReview from "../weeklyReview.js";
 import type * as workoutFeedback from "../workoutFeedback.js";
 import type * as workoutLogs from "../workoutLogs.js";
+import type * as workoutOverlap from "../workoutOverlap.js";
 
 import type {
   ApiFromModules,
@@ -68,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   chatInternal: typeof chatInternal;
   cronRunner: typeof cronRunner;
   crons: typeof crons;
+  dataExport: typeof dataExport;
   email: typeof email;
   errorBoundary: typeof errorBoundary;
   errorReporting: typeof errorReporting;
@@ -76,6 +81,7 @@ declare const fullApi: ApiFromModules<{
   fitnessMetrics: typeof fitnessMetrics;
   healthData: typeof healthData;
   http: typeof http;
+  ingredients: typeof ingredients;
   mealLogs: typeof mealLogs;
   metricsMap: typeof metricsMap;
   migrations: typeof migrations;
@@ -87,6 +93,7 @@ declare const fullApi: ApiFromModules<{
   openaiConfig: typeof openaiConfig;
   plans: typeof plans;
   posthogServer: typeof posthogServer;
+  recipeVision: typeof recipeVision;
   recipes: typeof recipes;
   revenuecatTypes: typeof revenuecatTypes;
   settings: typeof settings;
@@ -98,6 +105,7 @@ declare const fullApi: ApiFromModules<{
   weeklyReview: typeof weeklyReview;
   workoutFeedback: typeof workoutFeedback;
   workoutLogs: typeof workoutLogs;
+  workoutOverlap: typeof workoutOverlap;
 }>;
 
 /**

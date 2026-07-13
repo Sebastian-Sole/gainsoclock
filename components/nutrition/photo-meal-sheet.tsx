@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import * as ImagePicker from 'expo-image-picker';
 import { useAction, useMutation } from 'convex/react';
 import { Camera, Images, Sparkles, TriangleAlert, UtensilsCrossed, X } from 'lucide-react-native';
@@ -18,6 +19,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { parseLocaleNumber } from '@/lib/format';
 import { lightHaptic } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
@@ -325,14 +327,13 @@ export function PhotoMealSheet({ visible, onClose, date }: PhotoMealSheetProps) 
             )}
 
             <Text className="mb-2 mt-2 text-sm font-medium text-muted-foreground">MEAL NAME</Text>
-            <TextInput
+            <Input
               value={title}
               onChangeText={setTitle}
               placeholder="e.g. Chicken & rice bowl"
-              placeholderTextColor="#9ca3af"
               accessibilityLabel="Meal name"
               testID="photo-meal-title-input"
-              className="mb-4 rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
+              className="mb-4"
             />
 
             <Text className="mb-2 text-sm font-medium text-muted-foreground">MACROS</Text>
@@ -346,6 +347,7 @@ export function PhotoMealSheet({ visible, onClose, date }: PhotoMealSheetProps) 
                     placeholder="0"
                     placeholderTextColor="#9ca3af"
                     keyboardType="decimal-pad"
+                    inputAccessoryViewID={keyboardDoneAccessoryID}
                     accessibilityLabel={input.label}
                     testID={input.testID}
                     className="rounded-xl border border-input bg-card px-3 py-3 text-foreground text-center"

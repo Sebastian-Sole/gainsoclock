@@ -208,6 +208,9 @@ export default function WorkoutsScreen() {
           {activeWorkout && (
             <Pressable
               onPress={() => router.push('/workout/active')}
+              accessibilityRole="button"
+              accessibilityLabel={`Resume workout: ${activeWorkout.templateName}`}
+              testID="resume-workout-banner"
               className="mx-4 mb-3 flex-row items-center justify-between rounded-xl border border-green-500/30 bg-green-500/10 p-4"
             >
               <View className="flex-1">

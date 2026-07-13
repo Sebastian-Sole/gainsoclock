@@ -19,6 +19,9 @@ interface SettingsState {
   healthImportLastSyncAt: number | null; // epoch ms
   weekStartDay: WeekStartDay;
   prefillFromLastWorkout: boolean;
+  // Local-only: the last custom (non-preset) rest time the user entered, in
+  // seconds. Offered again as a quick-pick next to the presets. Not synced.
+  lastCustomRestTime: number | null;
   defaultSetsCount: number;
   defaultRepsCount: number;
   customRangeFrom: string | null; // ISO string
@@ -51,6 +54,7 @@ interface SettingsState {
   setWeightUnit: (unit: WeightUnit) => void;
   setDistanceUnit: (unit: DistanceUnit) => void;
   setDefaultRestTime: (seconds: number) => void;
+  setLastCustomRestTime: (seconds: number) => void;
   setHapticsEnabled: (enabled: boolean) => void;
   setHealthKitEnabled: (enabled: boolean) => void;
   setHealthImportEnabled: (enabled: boolean) => void;
@@ -113,6 +117,7 @@ export const useSettingsStore = create<SettingsState>()(
       weightUnit: 'kg',
       distanceUnit: 'km',
       defaultRestTime: 90,
+      lastCustomRestTime: null,
       hapticsEnabled: true,
       healthKitEnabled: false,
       healthImportEnabled: false,
@@ -153,6 +158,11 @@ export const useSettingsStore = create<SettingsState>()(
       setDefaultRestTime: (seconds) => {
         set({ defaultRestTime: seconds });
         syncSettings(get());
+      },
+
+      setLastCustomRestTime: (seconds) => {
+        set({ lastCustomRestTime: seconds });
+        // Not synced to Convex — per-device quick-pick convenience
       },
 
       setHapticsEnabled: (enabled) => {

@@ -8,7 +8,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { X, Search, UtensilsCrossed, SlidersHorizontal } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { useRecipeStore } from '@/stores/recipe-store';
@@ -203,13 +205,12 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
               </View>
 
               <Text className="mb-2 text-sm font-medium text-muted-foreground">PORTION SIZE</Text>
-              <TextInput
+              <Input
                 value={portion}
                 onChangeText={setPortion}
                 placeholder="1"
-                placeholderTextColor="#9ca3af"
                 keyboardType="decimal-pad"
-                className="mb-4 rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
+                className="mb-4"
               />
 
               {selectedRecipe.macros && (
@@ -253,14 +254,14 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
             // Recipe picker
             <View className="flex-1">
               <View className="px-4 mb-3">
-                <View className="flex-row items-center gap-2 rounded-xl border border-input bg-card px-3">
+                <View className="h-12 flex-row items-center gap-2 rounded-xl border border-input bg-card px-3">
                   <Icon as={Search} size={18} className="text-muted-foreground" />
                   <TextInput
                     value={search}
                     onChangeText={setSearch}
                     placeholder="Search recipes..."
                     placeholderTextColor="#9ca3af"
-                    className="flex-1 py-3 text-foreground"
+                    className="flex-1 py-0 text-foreground"
                   />
                   <Pressable onPress={() => setShowFilterModal(true)} className="p-1.5" hitSlop={8}>
                     <Icon
@@ -307,14 +308,13 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
           // Quick Add mode
           <View className="flex-1 px-4">
             <Text className="mb-2 text-sm font-medium text-muted-foreground">MEAL NAME</Text>
-            <TextInput
+            <Input
               value={quickTitle}
               onChangeText={setQuickTitle}
               placeholder="e.g. Protein shake"
-              placeholderTextColor="#9ca3af"
               autoFocus
               testID="log-meal-quick-title"
-              className="mb-4 rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
+              className="mb-4"
             />
 
             <Text className="mb-2 text-sm font-medium text-muted-foreground">MACROS</Text>
@@ -327,6 +327,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
                   placeholder="0"
                   placeholderTextColor="#9ca3af"
                   keyboardType="numeric"
+                  inputAccessoryViewID={keyboardDoneAccessoryID}
                   className="rounded-xl border border-input bg-card px-3 py-3 text-foreground text-center"
                 />
               </View>
@@ -338,6 +339,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
                   placeholder="0"
                   placeholderTextColor="#9ca3af"
                   keyboardType="numeric"
+                  inputAccessoryViewID={keyboardDoneAccessoryID}
                   className="rounded-xl border border-input bg-card px-3 py-3 text-foreground text-center"
                 />
               </View>
@@ -349,6 +351,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
                   placeholder="0"
                   placeholderTextColor="#9ca3af"
                   keyboardType="numeric"
+                  inputAccessoryViewID={keyboardDoneAccessoryID}
                   className="rounded-xl border border-input bg-card px-3 py-3 text-foreground text-center"
                 />
               </View>
@@ -360,6 +363,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
                   placeholder="0"
                   placeholderTextColor="#9ca3af"
                   keyboardType="numeric"
+                  inputAccessoryViewID={keyboardDoneAccessoryID}
                   className="rounded-xl border border-input bg-card px-3 py-3 text-foreground text-center"
                 />
               </View>

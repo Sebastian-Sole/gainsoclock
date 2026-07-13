@@ -8,7 +8,7 @@ import { useSettingsStore } from '@/stores/settings-store';
 interface TemplatePreviewData {
   name: string;
   notes?: string;
-  exercises: Array<{
+  exercises: {
     name: string;
     type: string;
     defaultSetsCount: number;
@@ -17,7 +17,7 @@ interface TemplatePreviewData {
     suggestedWeight?: number;
     suggestedTime?: number;
     suggestedDistance?: number;
-  }>;
+  }[];
 }
 
 interface TemplatePreviewProps {

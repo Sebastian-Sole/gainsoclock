@@ -25,6 +25,8 @@ import {
   ShieldCheck,
   Timer,
   Trash2,
+  Upload,
+  UserCog,
   UserX,
   Vibrate,
   Weight,
@@ -49,8 +51,7 @@ import { useHealthKit } from "@/hooks/use-healthkit";
 import { logOutPurchases, usePurchases } from "@/hooks/use-purchases";
 import { requestHealthImportPermissions } from "@/lib/healthkit";
 import { NumericInput } from "@/components/shared/numeric-input";
-import { REST_TIME_PRESETS } from "@/lib/constants";
-import { formatTime } from "@/lib/format";
+import { RestTimerPresets } from "@/components/workout/rest-timer-presets";
 import { cn } from "@/lib/utils";
 import { cancelAllNotifications } from "@/lib/notifications";
 import { useExerciseLibraryStore } from "@/stores/exercise-library-store";
@@ -415,30 +416,11 @@ export default function SettingsScreen() {
             <Icon as={Timer} size={20} className="text-primary" />
             <Text className="flex-1 font-medium">Rest Time</Text>
           </View>
-          <View className="mt-3 flex-row flex-wrap gap-2">
-            {REST_TIME_PRESETS.map((seconds) => (
-              <Pressable
-                key={seconds}
-                onPress={() => setDefaultRestTime(seconds)}
-                className={cn(
-                  "rounded-lg px-4 py-2",
-                  defaultRestTime === seconds
-                    ? "bg-primary"
-                    : "border border-border",
-                )}
-              >
-                <Text
-                  className={cn(
-                    "text-sm font-medium",
-                    defaultRestTime === seconds
-                      ? "text-primary-foreground"
-                      : "text-foreground",
-                  )}
-                >
-                  {formatTime(seconds)}
-                </Text>
-              </Pressable>
-            ))}
+          <View className="mt-3">
+            <RestTimerPresets
+              selected={defaultRestTime}
+              onSelect={setDefaultRestTime}
+            />
           </View>
         </View>
 
@@ -719,6 +701,23 @@ export default function SettingsScreen() {
           </Pressable>
           <Separator />
           <Pressable
+            onPress={() => router.push("/settings/export-data")}
+            className="flex-row items-center gap-3 px-4 py-4"
+            accessibilityRole="button"
+            accessibilityLabel="Export my data"
+            testID="settings-export-data"
+          >
+            <Icon as={Upload} size={20} className="text-primary" />
+            <View className="flex-1">
+              <Text className="font-medium">Export My Data</Text>
+              <Text className="text-sm text-muted-foreground">
+                Save everything as a JSON file
+              </Text>
+            </View>
+            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
+          </Pressable>
+          <Separator />
+          <Pressable
             onPress={() => setResetModalVisible(true)}
             className="flex-row items-center gap-3 px-4 py-4"
           >
@@ -760,6 +759,23 @@ export default function SettingsScreen() {
           ACCOUNT
         </Text>
         <View className="rounded-xl bg-card">
+          <Pressable
+            onPress={() => router.push("/settings/account")}
+            className="flex-row items-center gap-3 px-4 py-4"
+            accessibilityRole="button"
+            accessibilityLabel="Manage account"
+            testID="settings-account"
+          >
+            <Icon as={UserCog} size={20} className="text-primary" />
+            <View className="flex-1">
+              <Text className="font-medium">Manage account</Text>
+              <Text className="text-sm text-muted-foreground">
+                Change your name or password
+              </Text>
+            </View>
+            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
+          </Pressable>
+          <Separator />
           {Platform.OS === "ios" && (
             <>
               <Pressable

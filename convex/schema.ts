@@ -11,6 +11,7 @@ import {
   planStatusValidator,
   planDayStatusValidator,
   ingredientValidator,
+  ingredientSourceValidator,
   macrosValidator,
   weekStartDayValidator,
   goalValidator,
@@ -111,6 +112,7 @@ export default defineSchema({
     reps: v.optional(v.number()),
     weight: v.optional(v.number()),
     time: v.optional(v.number()),
+    restTime: v.optional(v.number()),
     distance: v.optional(v.number()),
     // Composed cardio/metric fields
     powerAvg: v.optional(v.number()),
@@ -361,6 +363,23 @@ export default defineSchema({
     .index("by_user_clientId", ["userId", "clientId"])
     .index("by_user_saved", ["userId", "saved"]),
 
+  // Per-user ingredient library (scanned/manual foods saved for recipe
+  // building). Macros are stored per 100 g and scaled at use time.
+  ingredients: defineTable({
+    userId: v.id("users"),
+    clientId: v.string(),
+    name: v.string(),
+    per100g: macrosValidator,
+    servingSizeG: v.optional(v.number()),
+    barcode: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    source: ingredientSourceValidator,
+    createdAt: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_clientId", ["userId", "clientId"])
+    .index("by_user_barcode", ["userId", "barcode"]),
+
   // Meal log entries
   mealLogs: defineTable({
     userId: v.id("users"),
@@ -390,9 +409,16 @@ export default defineSchema({
     activeEnergyKcal: v.optional(v.number()),
     distanceMeters: v.optional(v.number()),
     avgHeartRateBpm: v.optional(v.number()),
+    // Dedup link to the native workoutLogs row covering the same session
+    // (issue #117). Set server-side by the time-overlap matcher in
+    // convex/workoutOverlap.ts; cleared when the linked log is deleted.
+    linkedWorkoutLogClientId: v.optional(v.string()),
+    // User chose "Show separately" — suppresses auto re-matching for this row.
+    linkDismissed: v.optional(v.boolean()),
   })
     .index("by_user_uuid", ["userId", "healthKitUuid"])
-    .index("by_user_startedAt", ["userId", "startedAt"]),
+    .index("by_user_startedAt", ["userId", "startedAt"])
+    .index("by_user_linkedLog", ["userId", "linkedWorkoutLogClientId"]),
 
   // Daily health metrics from HealthKit — one row per user per local day
   healthDailyMetrics: defineTable({

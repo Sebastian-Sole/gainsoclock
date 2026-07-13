@@ -7,7 +7,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { X } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 
@@ -71,13 +73,12 @@ export function EditGoalsModal({ visible, onClose }: EditGoalsModalProps) {
 
         <View className="flex-1 px-4 pt-4">
           <Text className="mb-2 text-sm font-medium text-muted-foreground">DAILY CALORIES</Text>
-          <TextInput
+          <Input
             value={calories}
             onChangeText={setCalories}
             placeholder="2000"
-            placeholderTextColor="#9ca3af"
             keyboardType="numeric"
-            className="mb-4 rounded-xl border border-input bg-card px-4 py-4 text-[18px] text-foreground"
+            className="mb-4"
           />
 
           <Text className="mb-2 text-sm font-medium text-muted-foreground">MACROS (grams)</Text>
@@ -90,6 +91,7 @@ export function EditGoalsModal({ visible, onClose }: EditGoalsModalProps) {
                 placeholder="150"
                 placeholderTextColor="#9ca3af"
                 keyboardType="numeric"
+                inputAccessoryViewID={keyboardDoneAccessoryID}
                 className="rounded-xl border border-input bg-card px-3 py-3 text-foreground text-center"
               />
             </View>
@@ -101,6 +103,7 @@ export function EditGoalsModal({ visible, onClose }: EditGoalsModalProps) {
                 placeholder="250"
                 placeholderTextColor="#9ca3af"
                 keyboardType="numeric"
+                inputAccessoryViewID={keyboardDoneAccessoryID}
                 className="rounded-xl border border-input bg-card px-3 py-3 text-foreground text-center"
               />
             </View>
@@ -112,6 +115,7 @@ export function EditGoalsModal({ visible, onClose }: EditGoalsModalProps) {
                 placeholder="65"
                 placeholderTextColor="#9ca3af"
                 keyboardType="numeric"
+                inputAccessoryViewID={keyboardDoneAccessoryID}
                 className="rounded-xl border border-input bg-card px-3 py-3 text-foreground text-center"
               />
             </View>

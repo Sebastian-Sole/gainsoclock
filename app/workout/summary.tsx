@@ -12,6 +12,7 @@ import { useFinishWorkout } from '@/hooks/use-finish-workout';
 import { formatDuration } from '@/lib/format';
 import { sessionTotals } from '@/lib/stats';
 import { lightHaptic, mediumHaptic } from '@/lib/haptics';
+import { SectionHeader } from '@/components/shared/section-header';
 import { FocusGradient } from '@/components/workout/focus/focus-gradient';
 import { SummaryExerciseRow } from '@/components/workout/summary-exercise-row';
 
@@ -132,6 +133,12 @@ export default function WorkoutSummaryScreen() {
 
         {/* Per-exercise — tap the icon to mark done, tap the cell to edit,
             swipe right to delete. */}
+        <View className="mb-1 flex-row items-baseline justify-between">
+          <SectionHeader title="Exercise breakdown" className="mb-0" />
+          <Text className="text-sm text-muted-foreground">
+            {exercises.length} {exercises.length === 1 ? 'exercise' : 'exercises'}
+          </Text>
+        </View>
         <View className="gap-2">
           {exercises.map((e) => (
             <SummaryExerciseRow
@@ -148,7 +155,7 @@ export default function WorkoutSummaryScreen() {
       {/* CTAs */}
       <View className="gap-3 px-5 pb-2 pt-2">
         <Pressable
-          onPress={() => router.push('/exercise/create?source=active')}
+          onPress={() => router.push('/exercise/create?source=active&origin=summary')}
           accessibilityRole="button"
           accessibilityLabel="Add exercise"
           className="flex-row items-center justify-center gap-2 rounded-2xl border border-primary bg-accent py-4"

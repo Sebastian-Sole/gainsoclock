@@ -11,6 +11,7 @@ import { ThemeProvider } from "@react-navigation/native";
 import { Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { KeyboardDoneAccessory } from '@/components/shared/keyboard-done-accessory';
 import { useColorScheme } from "nativewind";
 import { PortalHost } from "@rn-primitives/portal";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -214,6 +215,9 @@ function RootNavigator() {
         </Stack>
         <PortalHost />
         <UnlockToastHost />
+        {/* Mounted once: any TextInput carrying `keyboardDoneAccessoryID`
+            (all numeric Inputs) attaches its "Done" bar to this. */}
+        <KeyboardDoneAccessory />
         <StatusBar style="auto" />
       </ThemeProvider>
     </SafeAreaProvider>
