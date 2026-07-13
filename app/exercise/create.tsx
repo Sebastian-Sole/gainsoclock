@@ -280,6 +280,9 @@ export default function CreateExerciseScreen() {
             ListHeaderComponent={
               <Pressable
                 onPress={handleCreateNew}
+                accessibilityRole="button"
+                accessibilityLabel={searchQuery ? `Create "${searchQuery}"` : 'Create new exercise'}
+                testID="exercise-create-new"
                 className="mb-2 flex-row items-center gap-3 rounded-xl border border-dashed border-primary bg-accent px-4 py-4"
               >
                 <Text className="text-2xl text-primary">+</Text>

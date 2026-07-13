@@ -40,7 +40,7 @@ tags:
 - tapOn:
     id: "workout-add-exercise"
 - tapOn:
-    text: "Create New Exercise"
+    id: "exercise-create-new"
 - tapOn:
     text: "Strength"
 - tapOn:
@@ -50,7 +50,6 @@ tags:
 - waitForAnimationToEnd:
     timeout: 1500
 - inputText: "Bench Press"
-- hideKeyboard
 - tapOn:
     text: "Next" # -> sets & reps (defaults)
 - tapOn:
@@ -69,7 +68,7 @@ tags:
 - tapOn:
     id: "workout-add-exercise"
 - tapOn:
-    text: "Create New Exercise"
+    id: "exercise-create-new"
 - tapOn:
     text: "Bodyweight"
 - tapOn:
@@ -79,7 +78,6 @@ tags:
 - waitForAnimationToEnd:
     timeout: 1500
 - inputText: "Squats"
-- hideKeyboard
 - tapOn:
     text: "Next" # -> sets & reps
 - tapOn:
@@ -104,7 +102,6 @@ tags:
 - tapOn:
     id: "focus-reps"
 - inputText: "5"
-- hideKeyboard
 - assertVisible: "Complete set"
 - tapOn:
     id: "focus-complete-set"
