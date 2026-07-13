@@ -3,6 +3,12 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { exerciseTypeValidator, metricIdValidator } from "./validators";
 
+// Returns ALL exercises, including archived ones. The sole consumer is the
+// sync provider (providers/convex-sync-provider.tsx), which hydrates the
+// client library store and treats any exercise embedded in local
+// templates/logs but missing from this list as "new" and re-upserts it —
+// filtering archived rows here would resurrect them. Pickers hide archived
+// exercises client-side via `archivedAt`.
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -37,6 +43,57 @@ export const create = mutation({
     if (existingById) return existingById._id;
 
     return await ctx.db.insert("exercises", { userId, ...args });
+  },
+});
+
+// Soft-delete: mark an exercise archived. Templates, plans, workout logs and
+// stats reference exercises by clientId with denormalized name/type, so an
+// archived exercise keeps working everywhere it's already used — it's only
+// hidden from the library's default view and from exercise pickers.
+// `archivedAt` comes from the client so an archive queued offline keeps the
+// moment the user actually performed it. Missing rows are a silent no-op:
+// the offline queue replays in order, but a dead-lettered create must not
+// wedge the archive behind it forever.
+export const archive = mutation({
+  args: {
+    clientId: v.string(),
+    archivedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const existing = await ctx.db
+      .query("exercises")
+      .withIndex("by_user_clientId", (q) =>
+        q.eq("userId", userId).eq("clientId", args.clientId)
+      )
+      .unique();
+    if (!existing) return null;
+
+    await ctx.db.patch(existing._id, { archivedAt: args.archivedAt });
+    return null;
+  },
+});
+
+export const unarchive = mutation({
+  args: {
+    clientId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const existing = await ctx.db
+      .query("exercises")
+      .withIndex("by_user_clientId", (q) =>
+        q.eq("userId", userId).eq("clientId", args.clientId)
+      )
+      .unique();
+    if (!existing) return null;
+
+    await ctx.db.patch(existing._id, { archivedAt: undefined });
+    return null;
   },
 });
 

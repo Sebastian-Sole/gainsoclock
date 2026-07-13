@@ -69,6 +69,10 @@ export interface ExerciseDefinition {
   type: ExerciseType;
   metrics: MetricId[]; // ordered composed metrics (empty for 'intervals')
   createdAt: string;
+  // Soft-delete marker (epoch ms). Archived exercises are hidden from
+  // pickers and the library's default view but keep working wherever they
+  // are already referenced (templates, plans, logs, stats).
+  archivedAt?: number;
 }
 
 // Exercise as configured in a template

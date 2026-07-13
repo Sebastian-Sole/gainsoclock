@@ -38,6 +38,10 @@ export default defineSchema({
     // resolved from `type` when absent (see lib/metrics.ts resolveExerciseMetrics).
     metrics: v.optional(v.array(metricIdValidator)),
     createdAt: v.string(),
+    // Soft-delete marker (epoch ms). Absent on active rows (and all
+    // pre-migration rows). Archived exercises stay referenceable from
+    // templates/plans/logs; they are only hidden from pickers client-side.
+    archivedAt: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_user_clientId", ["userId", "clientId"])

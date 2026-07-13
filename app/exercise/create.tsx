@@ -95,9 +95,13 @@ export default function CreateExerciseScreen() {
   }, []);
 
   const filteredExercises = useMemo(() => {
-    if (!searchQuery) return allExercises;
+    // Archived exercises are hidden from the picker; restore them from the
+    // exercise library screen (or by re-creating the same name, which
+    // unarchives via getOrCreate).
+    const active = allExercises.filter((e) => e.archivedAt === undefined);
+    if (!searchQuery) return active;
     const q = searchQuery.toLowerCase();
-    return allExercises.filter((e) => e.name.toLowerCase().includes(q));
+    return active.filter((e) => e.name.toLowerCase().includes(q));
   }, [allExercises, searchQuery]);
 
   const canProceed = useCallback(() => {
