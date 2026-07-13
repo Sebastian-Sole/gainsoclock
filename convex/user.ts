@@ -5,8 +5,9 @@ import {
   internalQuery,
   action,
 } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { DataModel } from "./_generated/dataModel";
+import type { DataModel, Id } from "./_generated/dataModel";
 import {
   getAuthSessionId,
   getAuthUserId,
@@ -290,19 +291,24 @@ export const deleteAllData = action({
   },
 });
 
-// --- Account management (issue #106): display name + password changes ------
+// --- Account management (issues #106/#123): name, password, email ----------
 //
-// Email change is deliberately NOT implemented. In `@convex-dev/auth@0.0.90`
-// the email address IS the password authAccount's `providerAccountId` (its
-// primary lookup key) — the library exposes `modifyAccountCredentials` for
-// the secret only, and no supported API to re-key an account. The only
-// sanctioned email flows are the Password provider's `reset`/`verify` OTP
-// sub-providers, which this app doesn't configure (no OTP token storage or
-// verification screens exist). Hand-editing `authAccounts.providerAccountId`
-// + `users.email` would bypass the library and activate an unverified
-// address — an account-takeover vector. Ship email change only with a
-// verify-before-activate flow (send an OTP to the NEW address via
-// `convex/email.ts`, store a pending-change token, swap on confirmation).
+// In `@convex-dev/auth@0.0.90` the email address IS the password
+// authAccount's `providerAccountId` (its primary lookup key) — the library
+// exposes `modifyAccountCredentials` for the secret only, and no supported
+// API to re-key an account. The only sanctioned email flows are the Password
+// provider's `reset`/`verify` OTP sub-providers, which this app doesn't
+// configure. Hand-editing `authAccounts.providerAccountId` + `users.email`
+// without verification would activate an unverified address — an
+// account-takeover vector.
+//
+// Email change (issue #123) therefore ships as verify-before-activate: the
+// user re-authenticates with their current password, we store a pending
+// `emailChangeRequests` row (hashed code, 15 min TTL, attempt- and
+// send-rate-limited) and email a code to the NEW address via
+// `convex/email.ts`. Only on a correct code does `consumeEmailChangeRequest`
+// re-key the password authAccount + patch `users.email`, atomically in one
+// mutation. Pending requests are invalidated on password change.
 // Re-check on any auth-package upgrade (see docs/auth-upgrade.md).
 
 const MAX_NAME_LENGTH = 80;
@@ -483,6 +489,10 @@ export const changePassword = action({
       account: { id: accountEmail, secret: newPassword },
     });
 
+    // A pending email change was authorized by the OLD password — kill it so
+    // a code already in flight can't finalize after the credential rotates.
+    await ctx.runMutation(internal.user.clearEmailChangeRequests, { userId });
+
     // Sign out every other session; keep the one that just proved it knows
     // the (old) password. `getAuthSessionId` is null only in exotic states —
     // then we invalidate everything and the client re-authenticates.
@@ -492,6 +502,528 @@ export const changePassword = action({
       except: sessionId ? [sessionId] : [],
     });
 
+    return "ok";
+  },
+});
+
+// --- Email change (issue #123): verify-before-activate ----------------------
+
+/** Verification codes die after 15 minutes. */
+const EMAIL_CHANGE_CODE_TTL_MS = 15 * 60 * 1000;
+/** Wrong-code guesses allowed before the pending request is destroyed. */
+const EMAIL_CHANGE_MAX_ATTEMPTS = 5;
+/** Codes emailed per rate window (initiations + resends combined). */
+const EMAIL_CHANGE_MAX_SENDS = 3;
+/** Send-rate window; also the max age at which a request can be resent. */
+const EMAIL_CHANGE_SEND_WINDOW_MS = 60 * 60 * 1000;
+// Mirrors the sign-up screen's client-side rule (app/(auth)/sign-up.tsx).
+const EMAIL_CHANGE_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Six crypto-random digits, rejection-sampled so each digit is uniform. */
+function generateEmailChangeCode(): string {
+  const digits: number[] = [];
+  const buf = new Uint8Array(16);
+  while (digits.length < 6) {
+    crypto.getRandomValues(buf);
+    for (const byte of buf) {
+      // 250 = largest multiple of 10 that fits in a byte — reject the rest.
+      if (byte < 250 && digits.length < 6) digits.push(byte % 10);
+    }
+  }
+  return digits.join("");
+}
+
+/** 16 crypto-random bytes, hex-encoded. */
+function generateEmailChangeSalt(): string {
+  const buf = new Uint8Array(16);
+  crypto.getRandomValues(buf);
+  return Array.from(buf)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * SHA-256(`${salt}:${code}`), hex. The plaintext code lives only in the
+ * action that generated it and in the verification email — never in the DB
+ * or logs. (A 6-digit space is trivially brute-forceable offline regardless
+ * of hashing; the real guards are the 15 min TTL, the 5-attempt cap, and
+ * single-use consumption. Hashing keeps a casual DB read from being enough.)
+ */
+async function hashEmailChangeCode(
+  salt: string,
+  code: string
+): Promise<string> {
+  const data = new TextEncoder().encode(`${salt}:${code}`);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * Is `email` already claimed by a DIFFERENT user? Checks both the password
+ * authAccounts keyspace (lookup key for sign-in) and `users.email` (which
+ * OAuth providers also populate). Runs inside `consumeEmailChangeRequest`'s
+ * transaction too: Convex records the scanned index ranges in the read set,
+ * so two users finalizing the same email concurrently conflict and retry —
+ * the second sees the first's row and bails (same argument as
+ * `attachAppleAccount` in convex/accountLinking.ts).
+ */
+async function emailTakenByOther(
+  ctx: { db: MutationCtx["db"] | QueryCtx["db"] },
+  email: string,
+  userId: Id<"users">
+): Promise<boolean> {
+  const account = await ctx.db
+    .query("authAccounts")
+    .withIndex("providerAndAccountId", (q) =>
+      q.eq("provider", "password").eq("providerAccountId", email)
+    )
+    .unique();
+  if (account && account.userId !== userId) return true;
+
+  const holders = await ctx.db
+    .query("users")
+    .withIndex("email", (q) => q.eq("email", email))
+    .collect();
+  return holders.some((u) => u._id !== userId);
+}
+
+export const emailTakenByOtherUser = internalQuery({
+  args: { email: v.string(), userId: v.id("users") },
+  returns: v.boolean(),
+  handler: async (ctx, { email, userId }) =>
+    emailTakenByOther(ctx, email, userId),
+});
+
+/**
+ * Create-or-replace the caller's single pending email change. The send-rate
+ * window (max 3 codes/hour) is carried across replacements so re-initiating
+ * can't be used to spam arbitrary inboxes.
+ */
+export const upsertEmailChangeRequest = internalMutation({
+  args: {
+    userId: v.id("users"),
+    newEmail: v.string(),
+    codeHash: v.string(),
+    salt: v.string(),
+  },
+  returns: v.union(v.literal("ok"), v.literal("rate_limited")),
+  handler: async (ctx, { userId, newEmail, codeHash, salt }) => {
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("emailChangeRequests")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    let sendCount = 1;
+    let windowStartedAt = now;
+    if (existing && now - existing.windowStartedAt < EMAIL_CHANGE_SEND_WINDOW_MS) {
+      if (existing.sendCount >= EMAIL_CHANGE_MAX_SENDS) return "rate_limited";
+      sendCount = existing.sendCount + 1;
+      windowStartedAt = existing.windowStartedAt;
+    }
+
+    const fields = {
+      userId,
+      newEmail,
+      codeHash,
+      salt,
+      createdAt: now,
+      expiresAt: now + EMAIL_CHANGE_CODE_TTL_MS,
+      attempts: 0,
+      sendCount,
+      windowStartedAt,
+    };
+    if (existing) {
+      await ctx.db.replace(existing._id, fields);
+    } else {
+      await ctx.db.insert("emailChangeRequests", fields);
+    }
+    return "ok";
+  },
+});
+
+/**
+ * Re-arm the caller's pending request with a fresh code (Resend button).
+ * No password re-auth here: the pending row itself proves a recent re-auth,
+ * and rows older than the send window are deleted instead — forcing a fresh
+ * `initiateEmailChange` (and therefore a fresh password check).
+ */
+export const refreshEmailChangeCode = internalMutation({
+  args: {
+    userId: v.id("users"),
+    codeHash: v.string(),
+    salt: v.string(),
+  },
+  returns: v.union(
+    v.literal("no_pending"),
+    v.literal("rate_limited"),
+    v.object({ newEmail: v.string() })
+  ),
+  handler: async (ctx, { userId, codeHash, salt }) => {
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("emailChangeRequests")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    if (!existing) return "no_pending";
+    if (now - existing.createdAt > EMAIL_CHANGE_SEND_WINDOW_MS) {
+      await ctx.db.delete(existing._id);
+      return "no_pending";
+    }
+
+    let sendCount = 1;
+    let windowStartedAt = now;
+    if (now - existing.windowStartedAt < EMAIL_CHANGE_SEND_WINDOW_MS) {
+      if (existing.sendCount >= EMAIL_CHANGE_MAX_SENDS) return "rate_limited";
+      sendCount = existing.sendCount + 1;
+      windowStartedAt = existing.windowStartedAt;
+    }
+
+    await ctx.db.patch(existing._id, {
+      codeHash,
+      salt,
+      expiresAt: now + EMAIL_CHANGE_CODE_TTL_MS,
+      attempts: 0,
+      sendCount,
+      windowStartedAt,
+    });
+    return { newEmail: existing.newEmail };
+  },
+});
+
+/** Salt for hashing the user-supplied code; null when nothing is pending. */
+export const getPendingEmailChange = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.union(v.null(), v.object({ salt: v.string() })),
+  handler: async (ctx, { userId }) => {
+    const request = await ctx.db
+      .query("emailChangeRequests")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    return request ? { salt: request.salt } : null;
+  },
+});
+
+/**
+ * The atomic core of the flow: attempt counting, code comparison, and — on a
+ * match — the authAccount re-key + `users.email` swap all commit in ONE
+ * transaction, so a request can never be consumed twice and the two email
+ * fields can never diverge.
+ */
+export const consumeEmailChangeRequest = internalMutation({
+  args: { userId: v.id("users"), codeHash: v.string() },
+  returns: v.union(
+    v.literal("ok"),
+    v.literal("invalid_code"),
+    v.literal("expired"),
+    v.literal("too_many_attempts"),
+    v.literal("no_pending"),
+    v.literal("email_in_use"),
+    v.literal("no_password_account")
+  ),
+  handler: async (ctx, { userId, codeHash }) => {
+    const now = Date.now();
+    const request = await ctx.db
+      .query("emailChangeRequests")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    // Keyed by the authenticated caller's own userId, so a request can only
+    // ever be consumed by the user it belongs to.
+    if (!request) return "no_pending";
+
+    if (now > request.expiresAt) {
+      await ctx.db.delete(request._id);
+      return "expired";
+    }
+    if (request.attempts >= EMAIL_CHANGE_MAX_ATTEMPTS) {
+      await ctx.db.delete(request._id);
+      return "too_many_attempts";
+    }
+    if (request.codeHash !== codeHash) {
+      const attempts = request.attempts + 1;
+      if (attempts >= EMAIL_CHANGE_MAX_ATTEMPTS) {
+        await ctx.db.delete(request._id);
+        return "too_many_attempts";
+      }
+      await ctx.db.patch(request._id, { attempts });
+      return "invalid_code";
+    }
+
+    // Code verified — re-check uniqueness inside this transaction (someone
+    // may have claimed the address since initiation).
+    if (await emailTakenByOther(ctx, request.newEmail, userId)) {
+      await ctx.db.delete(request._id);
+      return "email_in_use";
+    }
+
+    const account = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) =>
+        q.eq("userId", userId).eq("provider", "password")
+      )
+      .first();
+    if (!account) {
+      // Password account vanished since initiation (e.g. account deletion
+      // race) — nothing to re-key.
+      await ctx.db.delete(request._id);
+      return "no_password_account";
+    }
+
+    // The swap: re-key the sign-in lookup, mark the address verified (the
+    // library stores the verified email string on the account — see
+    // `verifyCodeAndSignIn`), and mirror onto the users doc.
+    await ctx.db.patch(account._id, {
+      providerAccountId: request.newEmail,
+      emailVerified: request.newEmail,
+    });
+    await ctx.db.patch(userId, {
+      email: request.newEmail,
+      emailVerificationTime: now,
+    });
+    await ctx.db.delete(request._id);
+    return "ok";
+  },
+});
+
+/** Drop every pending request for `userId` (cancel / password change). */
+export const clearEmailChangeRequests = internalMutation({
+  args: { userId: v.id("users") },
+  returns: v.null(),
+  handler: async (ctx, { userId }) => {
+    const requests = await ctx.db
+      .query("emailChangeRequests")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const request of requests) {
+      await ctx.db.delete(request._id);
+    }
+    return null;
+  },
+});
+
+/**
+ * Drives the Settings → Account email section: non-null while a code is
+ * outstanding, so the UI can resume the "enter code" state across app
+ * restarts. Never exposes the code hash or salt.
+ */
+export const getEmailChangeStatus = query({
+  args: {},
+  returns: v.union(
+    v.null(),
+    v.object({ newEmail: v.string(), expiresAt: v.number() })
+  ),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const request = await ctx.db
+      .query("emailChangeRequests")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    if (!request || Date.now() > request.expiresAt) return null;
+    return { newEmail: request.newEmail, expiresAt: request.expiresAt };
+  },
+});
+
+/** Abandon the pending email change. Idempotent. */
+export const cancelEmailChange = mutation({
+  args: {},
+  returns: v.literal("ok"),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("not_authenticated");
+    const requests = await ctx.db
+      .query("emailChangeRequests")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const request of requests) {
+      await ctx.db.delete(request._id);
+    }
+    return "ok" as const;
+  },
+});
+
+/**
+ * Step 1 of the email change: re-authenticate with the current password
+ * (same `retrieveAccount` guard — and library rate limit — as
+ * `changePassword`), then store a pending request and email a 6-digit code
+ * to the NEW address. Nothing about the account changes yet.
+ *
+ * Returns status literals instead of throwing — plain `Error` messages are
+ * scrubbed to "Server Error" in production (see `changePassword`).
+ */
+export const initiateEmailChange = action({
+  args: {
+    currentPassword: v.string(),
+    newEmail: v.string(),
+  },
+  returns: v.union(
+    v.literal("ok"),
+    v.literal("invalid_email"),
+    v.literal("email_in_use"),
+    v.literal("wrong_password"),
+    v.literal("too_many_attempts"),
+    v.literal("no_password_account"),
+    v.literal("rate_limited")
+  ),
+  // Explicit return type: same-module `internal.user.*` calls — see the
+  // circular-inference note on `changePassword`.
+  handler: async (
+    ctx,
+    { currentPassword, newEmail }
+  ): Promise<
+    | "ok"
+    | "invalid_email"
+    | "email_in_use"
+    | "wrong_password"
+    | "too_many_attempts"
+    | "no_password_account"
+    | "rate_limited"
+  > => {
+    const userId = await ctx.runQuery(internal.user.getAuthUser);
+    if (!userId) throw new Error("not_authenticated");
+
+    const email = newEmail.trim();
+    // Relay addresses are Apple-internal — never allow one as a target
+    // (the UI hides the section for relay accounts, but never trust it).
+    if (
+      !EMAIL_CHANGE_EMAIL_REGEX.test(email) ||
+      email.toLowerCase().endsWith(APPLE_RELAY_DOMAIN)
+    ) {
+      return "invalid_email";
+    }
+
+    const accountEmail: string | null = await ctx.runQuery(
+      internal.user.getPasswordAccountEmail,
+      { userId }
+    );
+    if (accountEmail === null) return "no_password_account";
+
+    // "Change" to the current address is a no-op; surface it as in-use.
+    if (email.toLowerCase() === accountEmail.toLowerCase()) {
+      return "email_in_use";
+    }
+    const taken: boolean = await ctx.runQuery(
+      internal.user.emailTakenByOtherUser,
+      { email, userId }
+    );
+    if (taken) return "email_in_use";
+
+    try {
+      const retrieved = await retrieveAccount<DataModel>(ctx, {
+        provider: "password",
+        account: { id: accountEmail, secret: currentPassword },
+      });
+      if (retrieved.user._id !== userId) {
+        return "no_password_account";
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (message.includes("InvalidSecret")) return "wrong_password";
+      if (message.includes("TooManyFailedAttempts")) {
+        return "too_many_attempts";
+      }
+      if (message.includes("InvalidAccountId")) return "no_password_account";
+      throw err;
+    }
+
+    const code = generateEmailChangeCode();
+    const salt = generateEmailChangeSalt();
+    const codeHash = await hashEmailChangeCode(salt, code);
+
+    const status: "ok" | "rate_limited" = await ctx.runMutation(
+      internal.user.upsertEmailChangeRequest,
+      { userId, newEmail: email, codeHash, salt }
+    );
+    if (status === "rate_limited") return "rate_limited";
+
+    // Fire-and-forget: a Resend failure is reported server-side
+    // (convex/email.ts) and the user can hit Resend. With no
+    // EMAIL_SERVICE_API_KEY (dev) the send no-ops gracefully.
+    await ctx.scheduler.runAfter(0, internal.email.sendEmailChangeVerification, {
+      email,
+      code,
+    });
+    return "ok";
+  },
+});
+
+/**
+ * Step 2: swap the account to the new address if the code matches. All
+ * mutation-side checks (ownership, expiry, attempts, uniqueness) live in
+ * `consumeEmailChangeRequest` so they commit atomically with the swap.
+ */
+export const verifyEmailChange = action({
+  args: { code: v.string() },
+  returns: v.union(
+    v.literal("ok"),
+    v.literal("invalid_code"),
+    v.literal("expired"),
+    v.literal("too_many_attempts"),
+    v.literal("no_pending"),
+    v.literal("email_in_use"),
+    v.literal("no_password_account")
+  ),
+  handler: async (
+    ctx,
+    { code }
+  ): Promise<
+    | "ok"
+    | "invalid_code"
+    | "expired"
+    | "too_many_attempts"
+    | "no_pending"
+    | "email_in_use"
+    | "no_password_account"
+  > => {
+    const userId = await ctx.runQuery(internal.user.getAuthUser);
+    if (!userId) throw new Error("not_authenticated");
+
+    const pending: { salt: string } | null = await ctx.runQuery(
+      internal.user.getPendingEmailChange,
+      { userId }
+    );
+    if (!pending) return "no_pending";
+
+    const codeHash = await hashEmailChangeCode(pending.salt, code.trim());
+    return await ctx.runMutation(internal.user.consumeEmailChangeRequest, {
+      userId,
+      codeHash,
+    });
+  },
+});
+
+/** Email a fresh code for the existing pending change (Resend button). */
+export const resendEmailChangeCode = action({
+  args: {},
+  returns: v.union(
+    v.literal("ok"),
+    v.literal("no_pending"),
+    v.literal("rate_limited")
+  ),
+  handler: async (
+    ctx
+  ): Promise<"ok" | "no_pending" | "rate_limited"> => {
+    const userId = await ctx.runQuery(internal.user.getAuthUser);
+    if (!userId) throw new Error("not_authenticated");
+
+    const code = generateEmailChangeCode();
+    const salt = generateEmailChangeSalt();
+    const codeHash = await hashEmailChangeCode(salt, code);
+
+    const result: "no_pending" | "rate_limited" | { newEmail: string } =
+      await ctx.runMutation(internal.user.refreshEmailChangeCode, {
+        userId,
+        codeHash,
+        salt,
+      });
+    if (result === "no_pending" || result === "rate_limited") return result;
+
+    await ctx.scheduler.runAfter(0, internal.email.sendEmailChangeVerification, {
+      email: result.newEmail,
+      code,
+    });
     return "ok";
   },
 });

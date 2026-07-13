@@ -23,6 +23,12 @@ import { cn } from "@/lib/utils";
 // Mirrors the sign-up rule and the Password provider default (>= 8 chars).
 const MIN_PASSWORD_LENGTH = 8;
 
+// Mirrors the sign-up screen's rule (app/(auth)/sign-up.tsx) and the server
+// check in convex/user.ts (initiateEmailChange).
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const EMAIL_CODE_LENGTH = 6;
+
 const PROVIDER_LABELS: Record<string, string> = {
   password: "Email & password",
   google: "Google",
@@ -33,24 +39,43 @@ type SaveState = "idle" | "saving" | "saved";
 
 /**
  * Settings → Account: change display name and (for password accounts)
- * password.
+ * password and email.
  *
- * Email change is intentionally absent: @convex-dev/auth keys the password
- * account by the email and has no supported re-key API, and a safe change
- * needs verify-before-activate infrastructure we don't have. Full rationale
- * lives next to the backend functions in `convex/user.ts`.
+ * Email change is verify-before-activate: @convex-dev/auth keys the password
+ * account by the email, so activating an unverified address would be an
+ * account-takeover vector. The user re-authenticates with their password, a
+ * 6-digit code goes to the NEW address, and only a correct code swaps the
+ * account. Full rationale lives next to the backend functions in
+ * `convex/user.ts` (issue #123). Apple relay addresses never see this UI.
  */
 export default function AccountScreen() {
   const router = useRouter();
   const info = useQuery(api.user.getAccountInfo);
+  const pendingEmailChange = useQuery(api.user.getEmailChangeStatus);
   const updateName = useMutation(api.user.updateName);
   const changePassword = useAction(api.user.changePassword);
+  const initiateEmailChange = useAction(api.user.initiateEmailChange);
+  const verifyEmailChange = useAction(api.user.verifyEmailChange);
+  const resendEmailChangeCode = useAction(api.user.resendEmailChangeCode);
+  const cancelEmailChange = useMutation(api.user.cancelEmailChange);
 
   // Name — draft is null until the user edits, so the query stays the source
   // of truth for the initial value without effect-based syncing.
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const [nameState, setNameState] = useState<SaveState>("idle");
   const [nameError, setNameError] = useState<string | null>(null);
+
+  // Email change flow. Which of the two sub-forms renders is driven by the
+  // server (`pendingEmailChange`), so the "enter code" state survives app
+  // restarts; only drafts and feedback live here.
+  const [newEmail, setNewEmail] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [emailBusy, setEmailBusy] = useState<
+    "none" | "send" | "verify" | "resend" | "cancel"
+  >("none");
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailNotice, setEmailNotice] = useState<string | null>(null);
 
   // Password form
   const [currentPassword, setCurrentPassword] = useState("");
@@ -79,6 +104,131 @@ export default function AccountScreen() {
       setNameError("Couldn't save your name. Try again in a moment.");
       setNameState("idle");
     }
+  };
+
+  const emailFormValid =
+    newEmail.trim().length > 0 && emailPassword.length > 0;
+  const emailCodeValid = emailCode.trim().length === EMAIL_CODE_LENGTH;
+
+  const clearEmailFeedback = () => {
+    setEmailError(null);
+    setEmailNotice(null);
+  };
+
+  const handleSendEmailCode = async () => {
+    clearEmailFeedback();
+    const email = newEmail.trim();
+    if (!EMAIL_REGEX.test(email)) {
+      setEmailError("Enter a valid email address.");
+      return;
+    }
+    setEmailBusy("send");
+    try {
+      const result = await initiateEmailChange({
+        currentPassword: emailPassword,
+        newEmail: email,
+      });
+      switch (result) {
+        case "ok":
+          // The pending query flips this section to the code form.
+          setNewEmail("");
+          setEmailPassword("");
+          setEmailCode("");
+          setEmailNotice("Verification code sent.");
+          break;
+        case "invalid_email":
+          setEmailError("Enter a valid email address.");
+          break;
+        case "email_in_use":
+          setEmailError("That email is already in use.");
+          break;
+        case "wrong_password":
+          setEmailError("Current password is incorrect.");
+          break;
+        case "too_many_attempts":
+          setEmailError("Too many attempts. Try again in a few minutes.");
+          break;
+        case "no_password_account":
+          setEmailError("This account doesn't sign in with a password.");
+          break;
+        case "rate_limited":
+          setEmailError("Too many codes requested. Try again in an hour.");
+          break;
+      }
+    } catch {
+      setEmailError("Couldn't start the email change. Try again in a moment.");
+    }
+    setEmailBusy("none");
+  };
+
+  const handleVerifyEmailCode = async () => {
+    clearEmailFeedback();
+    setEmailBusy("verify");
+    try {
+      const result = await verifyEmailChange({ code: emailCode.trim() });
+      switch (result) {
+        case "ok":
+          setEmailCode("");
+          setEmailNotice("Email updated.");
+          break;
+        case "invalid_code":
+          setEmailError("That code isn't right. Check the email and try again.");
+          break;
+        case "expired":
+          setEmailError("That code has expired. Start over to get a new one.");
+          break;
+        case "too_many_attempts":
+          setEmailError("Too many wrong codes. Start over to get a new one.");
+          break;
+        case "no_pending":
+          setEmailError("No email change in progress. Start over.");
+          break;
+        case "email_in_use":
+          setEmailError("That email is already in use.");
+          break;
+        case "no_password_account":
+          setEmailError("This account doesn't sign in with a password.");
+          break;
+      }
+    } catch {
+      setEmailError("Couldn't verify the code. Try again in a moment.");
+    }
+    setEmailBusy("none");
+  };
+
+  const handleResendEmailCode = async () => {
+    clearEmailFeedback();
+    setEmailBusy("resend");
+    try {
+      const result = await resendEmailChangeCode();
+      switch (result) {
+        case "ok":
+          setEmailCode("");
+          setEmailNotice("New code sent.");
+          break;
+        case "no_pending":
+          setEmailError("No email change in progress. Start over.");
+          break;
+        case "rate_limited":
+          setEmailError("Too many codes requested. Try again in an hour.");
+          break;
+      }
+    } catch {
+      setEmailError("Couldn't resend the code. Try again in a moment.");
+    }
+    setEmailBusy("none");
+  };
+
+  const handleCancelEmailChange = async () => {
+    clearEmailFeedback();
+    setEmailBusy("cancel");
+    try {
+      await cancelEmailChange();
+      setEmailCode("");
+    } catch {
+      setEmailError("Couldn't cancel. Try again in a moment.");
+    }
+    setEmailBusy("none");
   };
 
   const passwordFormValid =
@@ -245,11 +395,16 @@ export default function AccountScreen() {
                   <Text className="text-sm font-medium text-muted-foreground">
                     Email
                   </Text>
-                  <Text className="mt-1 text-foreground">{info.email}</Text>
-                  <Text className="mt-1 text-xs text-muted-foreground">
-                    Email can&apos;t be changed in the app yet. Contact
-                    support@fitbull.app if you need to move your account.
+                  <Text className="mt-1 text-foreground" testID="account-email">
+                    {info.email}
                   </Text>
+                  {!info.hasPassword ? (
+                    <Text className="mt-1 text-xs text-muted-foreground">
+                      Your email comes from your sign-in provider and
+                      can&apos;t be changed here. Contact support@fitbull.app
+                      if you need to move your account.
+                    </Text>
+                  ) : null}
                 </View>
                 <Separator />
               </>
@@ -267,6 +422,238 @@ export default function AccountScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Email change — password accounts only; Apple relay addresses
+              are excluded (the section would move an Apple-internal email). */}
+          {info.hasPassword && !info.isAppleRelay ? (
+            <>
+              <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+                CHANGE EMAIL
+              </Text>
+              <View
+                className="rounded-xl bg-card px-4 py-4"
+                testID="account-email-change-section"
+              >
+                {pendingEmailChange === undefined ? (
+                  <ActivityIndicator size="small" />
+                ) : pendingEmailChange !== null ? (
+                  <>
+                    <Text className="text-sm text-muted-foreground">
+                      We sent a {EMAIL_CODE_LENGTH}-digit code to{" "}
+                      <Text className="text-sm font-medium text-foreground">
+                        {pendingEmailChange.newEmail}
+                      </Text>
+                      . Your email changes only after you confirm it.
+                    </Text>
+
+                    <Text
+                      nativeID="account-email-code-label"
+                      className="mb-2 mt-4 text-sm font-medium text-muted-foreground"
+                    >
+                      Verification code
+                    </Text>
+                    <Input
+                      value={emailCode}
+                      onChangeText={(t) => {
+                        setEmailCode(t);
+                        clearEmailFeedback();
+                      }}
+                      placeholder={`${EMAIL_CODE_LENGTH}-digit code`}
+                      keyboardType="number-pad"
+                      maxLength={EMAIL_CODE_LENGTH}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="one-time-code"
+                      textContentType="oneTimeCode"
+                      returnKeyType="done"
+                      accessibilityLabel="Verification code"
+                      accessibilityLabelledBy="account-email-code-label"
+                      testID="account-email-code-input"
+                    />
+
+                    {emailError ? (
+                      <Text className="mt-3 text-sm text-destructive">
+                        {emailError}
+                      </Text>
+                    ) : emailNotice ? (
+                      <Text className="mt-3 text-sm text-muted-foreground">
+                        {emailNotice}
+                      </Text>
+                    ) : null}
+
+                    <Pressable
+                      onPress={() => {
+                        void handleVerifyEmailCode();
+                      }}
+                      disabled={!emailCodeValid || emailBusy !== "none"}
+                      accessibilityRole="button"
+                      accessibilityLabel="Verify code and change email"
+                      accessibilityState={{
+                        disabled: !emailCodeValid || emailBusy !== "none",
+                        busy: emailBusy === "verify",
+                      }}
+                      testID="account-verify-email-code"
+                      className={cn(
+                        "mt-4 min-h-[44px] items-center justify-center rounded-xl py-3",
+                        emailCodeValid && emailBusy === "none"
+                          ? "bg-primary"
+                          : "bg-primary/40"
+                      )}
+                    >
+                      {emailBusy === "verify" ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text className="font-medium text-primary-foreground">
+                          Verify code
+                        </Text>
+                      )}
+                    </Pressable>
+
+                    <View className="mt-2 flex-row gap-3">
+                      <Pressable
+                        onPress={() => {
+                          void handleResendEmailCode();
+                        }}
+                        disabled={emailBusy !== "none"}
+                        accessibilityRole="button"
+                        accessibilityLabel="Resend verification code"
+                        accessibilityState={{
+                          disabled: emailBusy !== "none",
+                          busy: emailBusy === "resend",
+                        }}
+                        testID="account-resend-email-code"
+                        className="min-h-[44px] flex-1 items-center justify-center rounded-xl py-3"
+                      >
+                        {emailBusy === "resend" ? (
+                          <ActivityIndicator size="small" />
+                        ) : (
+                          <Text className="font-medium text-primary">
+                            Resend code
+                          </Text>
+                        )}
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          void handleCancelEmailChange();
+                        }}
+                        disabled={emailBusy !== "none"}
+                        accessibilityRole="button"
+                        accessibilityLabel="Cancel email change"
+                        accessibilityState={{
+                          disabled: emailBusy !== "none",
+                          busy: emailBusy === "cancel",
+                        }}
+                        testID="account-cancel-email-change"
+                        className="min-h-[44px] flex-1 items-center justify-center rounded-xl py-3"
+                      >
+                        {emailBusy === "cancel" ? (
+                          <ActivityIndicator size="small" />
+                        ) : (
+                          <Text className="font-medium text-muted-foreground">
+                            Cancel
+                          </Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text
+                      nativeID="account-new-email-label"
+                      className="mb-2 text-sm font-medium text-muted-foreground"
+                    >
+                      New email
+                    </Text>
+                    <Input
+                      value={newEmail}
+                      onChangeText={(t) => {
+                        setNewEmail(t);
+                        clearEmailFeedback();
+                      }}
+                      placeholder="you@example.com"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="email"
+                      textContentType="emailAddress"
+                      inputAccessoryViewID={keyboardDoneAccessoryID}
+                      returnKeyType="done"
+                      accessibilityLabel="New email"
+                      accessibilityLabelledBy="account-new-email-label"
+                      testID="account-new-email-input"
+                    />
+
+                    <Text
+                      nativeID="account-email-password-label"
+                      className="mb-2 mt-4 text-sm font-medium text-muted-foreground"
+                    >
+                      Current password
+                    </Text>
+                    <Input
+                      value={emailPassword}
+                      onChangeText={(t) => {
+                        setEmailPassword(t);
+                        clearEmailFeedback();
+                      }}
+                      placeholder="Your current password"
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      textContentType="password"
+                      inputAccessoryViewID={keyboardDoneAccessoryID}
+                      returnKeyType="done"
+                      accessibilityLabel="Current password for email change"
+                      accessibilityLabelledBy="account-email-password-label"
+                      testID="account-email-password-input"
+                    />
+
+                    <Text className="mt-2 text-xs text-muted-foreground">
+                      We&apos;ll email a verification code to the new address.
+                      Your email only changes after you confirm the code.
+                    </Text>
+
+                    {emailError ? (
+                      <Text className="mt-3 text-sm text-destructive">
+                        {emailError}
+                      </Text>
+                    ) : emailNotice ? (
+                      <Text className="mt-3 text-sm text-muted-foreground">
+                        {emailNotice}
+                      </Text>
+                    ) : null}
+
+                    <Pressable
+                      onPress={() => {
+                        void handleSendEmailCode();
+                      }}
+                      disabled={!emailFormValid || emailBusy !== "none"}
+                      accessibilityRole="button"
+                      accessibilityLabel="Send verification code"
+                      accessibilityState={{
+                        disabled: !emailFormValid || emailBusy !== "none",
+                        busy: emailBusy === "send",
+                      }}
+                      testID="account-send-email-code"
+                      className={cn(
+                        "mt-4 min-h-[44px] items-center justify-center rounded-xl py-3",
+                        emailFormValid && emailBusy === "none"
+                          ? "bg-primary"
+                          : "bg-primary/40"
+                      )}
+                    >
+                      {emailBusy === "send" ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text className="font-medium text-primary-foreground">
+                          Send verification code
+                        </Text>
+                      )}
+                    </Pressable>
+                  </>
+                )}
+              </View>
+            </>
+          ) : null}
 
           {/* Password — only for accounts that actually have one */}
           {info.hasPassword ? (
