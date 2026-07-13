@@ -1,0 +1,69 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - workout
+  - load-mode
+---
+# #132 — per-hand load mode for unilateral (dumbbell) exercises.
+#
+# Create a new Strength exercise and pick "Per hand" (load-mode-per_hand) on the
+# Sets & Reps step. In the Focus logger, the weight metric's unit line then reads
+# "… · per hand", and entering a weight surfaces the doubled-total hint
+# (focus-weight-total, e.g. "= 40 kg total").
+#
+# Prereq: reach /(tabs) by completing onboarding.
+
+- runFlow: ../onboarding/01-happy-path.yaml
+
+- tapOn:
+    id: "tab-workouts"
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "start-empty-workout"
+- extendedWaitUntil:
+    visible:
+      id: "workout-add-exercise"
+    timeout: 10000
+- tapOn:
+    id: "workout-add-exercise"
+- tapOn:
+    id: "exercise-create-new"
+- tapOn:
+    text: "Strength"
+- tapOn:
+    text: "Next" # -> metrics (weight + reps preselected)
+- tapOn:
+    text: "Next" # -> name (auto-focused)
+- waitForAnimationToEnd:
+    timeout: 1500
+- inputText: "DB Curl"
+
+# Sets & Reps step: choose the per-hand load mode.
+- tapOn:
+    text: "Next"
+- extendedWaitUntil:
+    visible:
+      id: "load-mode-per_hand"
+    timeout: 6000
+- tapOn:
+    id: "load-mode-per_hand"
+- tapOn:
+    text: "Next" # -> rest time
+- tapOn:
+    text: "Add Exercise"
+- extendedWaitUntil:
+    visible:
+      id: "workout-active-screen"
+    timeout: 10000
+
+# The weight unit line carries the "per hand" qualifier.
+- assertVisible: ".*per hand.*"
+
+# Entering a weight surfaces the doubled-total hint.
+- tapOn:
+    id: "focus-weight"
+- inputText: "20"
+- extendedWaitUntil:
+    visible:
+      id: "focus-weight-total"
+    timeout: 6000

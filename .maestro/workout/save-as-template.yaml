@@ -1,0 +1,116 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - workout
+  - templates
+---
+# #133 — save an active workout as a reusable template.
+#
+# Flow: start an empty workout -> create one exercise -> complete a set ->
+# save it as a template from the top bar (workout-save-template) -> confirm the
+# "Template saved" alert -> verify the same affordance exists on the summary
+# (summary-save-template) -> finish -> assert the template shows in the
+# Workouts > Templates list.
+#
+# Prereq: reach /(tabs) by completing onboarding.
+
+- runFlow: ../onboarding/01-happy-path.yaml
+
+- tapOn:
+    id: "tab-workouts"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Start an empty workout and create a Strength exercise via the wizard.
+- tapOn:
+    id: "start-empty-workout"
+- extendedWaitUntil:
+    visible:
+      id: "workout-add-exercise"
+    timeout: 10000
+- tapOn:
+    id: "workout-add-exercise"
+- tapOn:
+    id: "exercise-create-new"
+- tapOn:
+    text: "Strength"
+- tapOn:
+    text: "Next" # -> metrics (weight + reps preselected)
+- tapOn:
+    text: "Next" # -> name (auto-focused)
+- waitForAnimationToEnd:
+    timeout: 1500
+- inputText: "Template Press"
+- tapOn:
+    text: "Next" # -> sets & reps
+- tapOn:
+    text: "Next" # -> rest time
+- tapOn:
+    text: "Add Exercise"
+- extendedWaitUntil:
+    visible:
+      id: "workout-active-screen"
+    timeout: 10000
+
+# Complete one set so the template carries a last-completed-set suggestion.
+- tapOn:
+    id: "focus-weight"
+- inputText: "60"
+- tapOn:
+    id: "focus-reps"
+- inputText: "5"
+- tapOn:
+    id: "focus-complete-set"
+# The first completion may raise the iOS notification-permission dialog.
+- runFlow:
+    when:
+      visible:
+        text: "Allow"
+    commands:
+      - tapOn:
+          text: "Allow"
+
+# Save as template from the top bar.
+- tapOn:
+    id: "workout-save-template"
+- extendedWaitUntil:
+    visible:
+      id: "save-template-name-input"
+    timeout: 8000
+- tapOn:
+    id: "save-template-name-input"
+- eraseText
+- inputText: "Maestro Template"
+# Submit via the name field's return key (returnKeyType=done -> onSubmitEditing);
+# the Save button sits under the keyboard, so a tap on it would not land.
+- pressKey: Enter
+
+# Confirmation alert, then back on the workout.
+- extendedWaitUntil:
+    visible:
+      text: "Template saved"
+    timeout: 8000
+- tapOn:
+    text: "OK"
+
+# The same affordance is offered from the summary screen.
+- tapOn:
+    id: "workout-finish"
+- extendedWaitUntil:
+    visible:
+      id: "summary-save-template"
+    timeout: 8000
+
+# Finish the workout and confirm the template landed in the Templates list.
+- tapOn:
+    id: "summary-finish"
+- extendedWaitUntil:
+    visible:
+      id: "workout-complete-screen"
+    timeout: 15000
+- tapOn:
+    text: "Done"
+- tapOn:
+    id: "tab-workouts"
+# The template card's label is composite ("Maestro Template, 1 exercise, …"),
+# so match the name as a substring.
+- assertVisible: ".*Maestro Template.*"
