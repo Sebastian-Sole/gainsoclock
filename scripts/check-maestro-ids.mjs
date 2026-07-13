@@ -33,6 +33,18 @@ const DYNAMIC_FAMILIES = [
     //   testID={`focus-${spec.id}`}
     source: /testID=\{`focus-\$\{spec\.id\}`\}/,
   },
+  {
+    test: /^load-mode-(total|per_hand|per_side)$/,
+    // create.tsx renders one radio per load-mode option:
+    //   testID={`load-mode-${option.id}`}
+    source: /testID=\{`load-mode-\$\{option\.id\}`\}/,
+  },
+  {
+    test: /^chat-bubble-(user|assistant)$/,
+    // chat-bubble.tsx renders the bubble keyed by message role:
+    //   testID={`chat-bubble-${role}`}
+    source: /testID=\{`chat-bubble-\$\{role\}`\}/,
+  },
 ];
 
 function walk(dir, exts, out = []) {

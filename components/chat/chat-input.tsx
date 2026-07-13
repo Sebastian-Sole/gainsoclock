@@ -114,6 +114,8 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         onSubmitEditing={handleSend}
         blurOnSubmit={false}
         autoFocus={false}
+        accessibilityLabel="Message your fitness coach"
+        testID="chat-composer-input"
       />
       {speechAvailable && (
         <Pressable
@@ -140,6 +142,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         accessibilityRole="button"
         accessibilityLabel="Send message"
         accessibilityState={{ disabled: !canSend }}
+        testID="chat-send"
         className="mb-0.5 h-11 w-11 items-center justify-center rounded-full"
         style={{ backgroundColor: canSend ? primaryColor : 'transparent' }}
       >
