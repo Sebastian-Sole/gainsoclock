@@ -30,8 +30,9 @@ tags:
 # Start an empty workout -> empty-state active screen.
 - tapOn:
     id: "start-empty-workout"
-- assertVisible:
-    id: "workout-add-exercise"
+- extendedWaitUntil:
+    visible:
+      id: "workout-add-exercise"
     timeout: 10000
 
 # Add "Bench Press" via the create wizard (empty-state entry point; the picker
@@ -58,8 +59,9 @@ tags:
     text: "Add Exercise"
 
 # #126: back on the logger with the new exercise focused in the pager.
-- assertVisible:
-    id: "workout-active-screen"
+- extendedWaitUntil:
+    visible:
+      id: "workout-active-screen"
     timeout: 10000
 - assertVisible: "Bench Press · 2 metrics"
 
@@ -114,8 +116,9 @@ tags:
     commands:
       - tapOn:
           text: "Allow"
-- assertVisible:
-    id: "workout-rest-skip"
+- extendedWaitUntil:
+    visible:
+      id: "workout-rest-skip"
     timeout: 5000
 - tapOn:
     id: "workout-rest-skip"
@@ -130,15 +133,17 @@ tags:
 - assertVisible: "Complete set"
 - tapOn:
     id: "focus-complete-set"
-- assertVisible:
-    id: "summary-finish"
+- extendedWaitUntil:
+    visible:
+      id: "summary-finish"
     timeout: 10000
 
 # #135: back on the logger, no rest timer survived finishing every set.
 - tapOn:
     id: "summary-back"
-- assertVisible:
-    id: "workout-rest-idle"
+- extendedWaitUntil:
+    visible:
+      id: "workout-rest-idle"
     timeout: 5000
 
 # Finish for real: logger top bar -> summary -> completion screen.
@@ -146,6 +151,7 @@ tags:
     id: "workout-finish"
 - tapOn:
     id: "summary-finish"
-- assertVisible:
-    id: "workout-complete-screen"
+- extendedWaitUntil:
+    visible:
+      id: "workout-complete-screen"
     timeout: 15000

@@ -12,8 +12,9 @@ appId: com.soleinnovations.fitbull
 # Run with:
 #   maestro test -e EMAIL=qa+run@example.com -e PASSWORD=hunter2hunter2 .maestro/...
 
-- assertVisible:
-    id: "signup-submit"
+- extendedWaitUntil:
+    visible:
+      id: "signup-submit"
     timeout: 15000
 
 - tapOn:
@@ -34,6 +35,7 @@ appId: com.soleinnovations.fitbull
     id: "signup-submit"
 
 # Auth-guard routes the new (unfinished) account into onboarding.
-- assertVisible:
-    id: "onboarding-welcome-continue"
+- extendedWaitUntil:
+    visible:
+      id: "onboarding-welcome-continue"
     timeout: 20000

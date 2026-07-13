@@ -39,6 +39,7 @@ tags:
           text: "OK"
 
 # We never left the Settings screen.
-- assertVisible:
-    text: "Settings"
+- extendedWaitUntil:
+    visible:
+      text: "Settings"
     timeout: 10000

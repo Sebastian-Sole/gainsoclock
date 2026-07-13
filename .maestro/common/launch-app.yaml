@@ -6,5 +6,26 @@ appId: com.soleinnovations.fitbull
     clearState: true
     clearKeychain: true
     stopApp: true
+# Dev-client only: clearState wipes the dev client's saved Metro URL, so it boots
+# to the Expo server-picker listing every running Metro. Wait for it and pick the
+# Fitbull Metro on :8082 (:8081 belongs to a different project). Tapping the row
+# loads the JS bundle directly without surfacing the developer-menu sheet. On a
+# standalone / CI build there is no picker; use a build that launches straight in.
+- extendedWaitUntil:
+    visible:
+      text: "http://localhost:8082"
+    timeout: 30000
+- tapOn:
+    text: "http://localhost:8082"
+# First connect after clearState shows the Expo dev-client menu sheet over the
+# app (its "Continue" only advances to the full menu). Tap its Close (X) button
+# to dismiss it so the app's UI is hittable. Standalone/CI never shows it.
+- tapOn:
+    text: "Close"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "signup-siwa-button"
+    timeout: 60000
 - waitForAnimationToEnd:
     timeout: 5000

@@ -78,6 +78,7 @@ tags:
           text: "X"
 
 # Soft paywall always lands on /(tabs).
-- assertVisible:
-    id: "tab-workouts"
+- extendedWaitUntil:
+    visible:
+      id: "tab-workouts"
     timeout: 30000

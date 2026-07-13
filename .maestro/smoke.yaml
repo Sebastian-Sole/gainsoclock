@@ -8,6 +8,7 @@ tags:
 
 - runFlow: common/launch-app.yaml
 
-- assertVisible:
-    id: "signup-siwa-button"
+- extendedWaitUntil:
+    visible:
+      id: "signup-siwa-button"
     timeout: 20000
