@@ -118,6 +118,9 @@ export default function ChatConversationScreen() {
               content={item.content}
               isStreaming={item.status === 'streaming'}
               isError={item.status === 'error'}
+              progressText={
+                item.status === 'streaming' ? item.progress : undefined
+              }
             />
             {item.role === 'assistant' &&
               (item.status === 'incomplete' || item.status === 'error') && (

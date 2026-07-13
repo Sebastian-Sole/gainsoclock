@@ -688,6 +688,24 @@ ${planSection}
 
 // ── Generation Core ────────────────────────────────────────────
 
+// Step labels shown in the chat UI while a tool call streams (issue #127).
+const TOOL_PROGRESS_LABELS: Record<string, string> = {
+  create_workout_plan: "Building your workout plan",
+  update_workout_plan: "Updating your workout plan",
+  create_workout_template: "Creating your workout template",
+  suggest_recipe: "Writing your recipe",
+  log_meal: "Logging your meal",
+  set_nutrition_goals: "Setting your nutrition goals",
+};
+
+// How often the generating action bumps the message's liveness timestamp
+// even when the model produces no deltas (long reasoning stretches).
+const HEARTBEAT_INTERVAL_MS = 5_000;
+
+// How often the step label (with its size counter) is refreshed while
+// tool-call arguments stream in.
+const PROGRESS_LABEL_INTERVAL_MS = 2_000;
+
 /**
  * Runs one assistant turn against OpenAI and persists the outcome onto an
  * existing placeholder assistant message. Shared by sendMessage (normal
@@ -707,69 +725,90 @@ async function generateAssistantResponse(
 ): Promise<Doc<"chatMessages">[] | null> {
   const { userId, conversationClientId, assistantMessageId } = params;
 
-  // Gather user context
-  const context = await ctx.runQuery(internal.chatInternal.getUserContext, {
-    userId,
-  });
+  // Liveness heartbeat (issues #127/#129): reasoning models can spend long
+  // stretches producing no deltas at all. Bump progressUpdatedAt every few
+  // seconds so the client can tell "still working" apart from "action died"
+  // (e.g. after an app restart mid-generation).
+  const heartbeat = setInterval(() => {
+    void ctx
+      .runMutation(internal.chat.updateMessageProgress, {
+        messageId: assistantMessageId,
+      })
+      .catch(() => {});
+  }, HEARTBEAT_INTERVAL_MS);
 
-  // Gather recent health & recovery context (Apple Health imports)
-  const healthContext = await ctx.runQuery(
-    internal.healthData.getHealthContextForUser,
-    { userId },
-  );
-
-  // Load conversation history
-  const history = await ctx.runQuery(internal.chat.getHistory, {
-    userId,
-    conversationClientId,
-  });
-
-  // Build messages array for OpenAI. Window to the most recent exchange so
-  // prompt size stays bounded as conversations grow. Exclude the placeholder
-  // being generated into, plus failed/abandoned turns — their content is
-  // either empty or an error fallback that would only confuse the model.
-  const recentHistory = history
-    .filter(
-      (m) =>
-        m.role !== "system" &&
-        m._id !== assistantMessageId &&
-        m.status !== "error" &&
-        m.status !== "incomplete" &&
-        m.status !== "streaming",
-    )
-    .slice(-OPENAI_HISTORY_WINDOW);
-  const systemPrompt = buildSystemPrompt(context, healthContext);
-  const messages: ChatCompletionMessageParam[] = [
-    { role: "system", content: systemPrompt },
-    ...recentHistory.map((m) => ({
-      role: m.role as "user" | "assistant",
-      content:
-        m.role === "assistant" && m.pendingApproval
-          ? m.content + approvalMarker(m.pendingApproval)
-          : m.content,
-    })),
-  ];
-
-  // Cost tripwire for backlog.md LATER #2 — counts only, never content.
+  // Immediate stage label on the placeholder while context loads and the
+  // model reasons before emitting anything.
   void ctx
-    .runAction(internal.analytics.captureServer, {
-      distinctId: userId,
-      eventName: "ai_context_size",
-      properties: {
-        systemPromptChars: systemPrompt.length,
-        historyMessages: recentHistory.length,
-        historyMessagesRaw: history.length,
-        historyChars: recentHistory.reduce((n, m) => n + m.content.length, 0),
-        totalWorkouts: context.stats.totalWorkouts,
-        exerciseCount: context.exercises.length,
-      },
+    .runMutation(internal.chat.updateMessageProgress, {
+      messageId: assistantMessageId,
+      progress: "Thinking…",
     })
     .catch(() => {});
 
-  // Call OpenAI with streaming
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
   try {
+    // Gather user context
+    const context = await ctx.runQuery(internal.chatInternal.getUserContext, {
+      userId,
+    });
+
+    // Gather recent health & recovery context (Apple Health imports)
+    const healthContext = await ctx.runQuery(
+      internal.healthData.getHealthContextForUser,
+      { userId },
+    );
+
+    // Load conversation history
+    const history = await ctx.runQuery(internal.chat.getHistory, {
+      userId,
+      conversationClientId,
+    });
+
+    // Build messages array for OpenAI. Window to the most recent exchange so
+    // prompt size stays bounded as conversations grow. Exclude the placeholder
+    // being generated into, plus failed/abandoned turns — their content is
+    // either empty or an error fallback that would only confuse the model.
+    const recentHistory = history
+      .filter(
+        (m) =>
+          m.role !== "system" &&
+          m._id !== assistantMessageId &&
+          m.status !== "error" &&
+          m.status !== "incomplete" &&
+          m.status !== "streaming",
+      )
+      .slice(-OPENAI_HISTORY_WINDOW);
+    const systemPrompt = buildSystemPrompt(context, healthContext);
+    const messages: ChatCompletionMessageParam[] = [
+      { role: "system", content: systemPrompt },
+      ...recentHistory.map((m) => ({
+        role: m.role as "user" | "assistant",
+        content:
+          m.role === "assistant" && m.pendingApproval
+            ? m.content + approvalMarker(m.pendingApproval)
+            : m.content,
+      })),
+    ];
+
+    // Cost tripwire for backlog.md LATER #2 — counts only, never content.
+    void ctx
+      .runAction(internal.analytics.captureServer, {
+        distinctId: userId,
+        eventName: "ai_context_size",
+        properties: {
+          systemPromptChars: systemPrompt.length,
+          historyMessages: recentHistory.length,
+          historyMessagesRaw: history.length,
+          historyChars: recentHistory.reduce((n, m) => n + m.content.length, 0),
+          totalWorkouts: context.stats.totalWorkouts,
+          exerciseCount: context.exercises.length,
+        },
+      })
+      .catch(() => {});
+
+    // Call OpenAI with streaming
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
     const stream = await openai.chat.completions.create({
       model: OPENAI_CHAT_MODEL,
       messages,
@@ -781,6 +820,9 @@ async function generateAssistantResponse(
     let fullContent = "";
     let lastUpdateTime = 0;
     let finishReason: string | null = null;
+    let contentStarted = false;
+    let toolStreamStarted = false;
+    let lastProgressLabelTime = 0;
 
     // Accumulate tool calls from stream deltas
     const toolCallAccumulator: Map<
@@ -799,6 +841,16 @@ async function generateAssistantResponse(
       // Accumulate text content
       if (delta?.content) {
         fullContent += delta.content;
+
+        // The streaming text is its own progress signal — drop the
+        // "Thinking…" label but keep heartbeating.
+        if (!contentStarted) {
+          contentStarted = true;
+          await ctx.runMutation(internal.chat.updateMessageProgress, {
+            messageId: assistantMessageId,
+            progress: "",
+          });
+        }
 
         // Update message content periodically (~200ms)
         const now = Date.now();
@@ -827,6 +879,41 @@ async function generateAssistantResponse(
             if (tc.function?.arguments)
               existing.arguments += tc.function.arguments;
           }
+        }
+
+        // Flush any streamed intro text the moment tool arguments start —
+        // it must not sit hidden behind a long tool-call stream (issue #127).
+        if (!toolStreamStarted) {
+          toolStreamStarted = true;
+          if (fullContent) {
+            await ctx.runMutation(internal.chat.updateMessageContent, {
+              messageId: assistantMessageId,
+              content: fullContent,
+            });
+            lastUpdateTime = Date.now();
+          }
+        }
+
+        // Refresh the step label every couple of seconds with a growing
+        // size counter, so the user sees active movement during long plan
+        // and template generations.
+        const now = Date.now();
+        if (now - lastProgressLabelTime > PROGRESS_LABEL_INTERVAL_MS) {
+          lastProgressLabelTime = now;
+          let argChars = 0;
+          let firstToolName = "";
+          for (const tc of toolCallAccumulator.values()) {
+            argChars += tc.arguments.length;
+            if (!firstToolName && tc.name) firstToolName = tc.name;
+          }
+          const label =
+            TOOL_PROGRESS_LABELS[firstToolName] ??
+            "Putting the details together";
+          const kb = Math.max(1, Math.round(argChars / 1024));
+          await ctx.runMutation(internal.chat.updateMessageProgress, {
+            messageId: assistantMessageId,
+            progress: `${label}… ${kb} KB drafted`,
+          });
         }
       }
     }
@@ -995,6 +1082,8 @@ async function generateAssistantResponse(
     });
 
     return null;
+  } finally {
+    clearInterval(heartbeat);
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,11 @@ interface ChatBubbleProps {
   content: string;
   isStreaming?: boolean;
   isError?: boolean;
+  /**
+   * Server-reported stage label for long generations (issue #127), e.g.
+   * "Building your workout plan… 12 KB drafted". Only shown while streaming.
+   */
+  progressText?: string;
 }
 
 function renderInlineMarkdown(text: string, isUser: boolean): React.ReactNode {
@@ -152,7 +157,38 @@ export function StreamingDots() {
   );
 }
 
-export function ChatBubble({ role, content, isStreaming, isError }: ChatBubbleProps) {
+/**
+ * Seconds elapsed since this indicator mounted. A cheap always-ticking
+ * liveness signal for long generations — the label text may hold still for
+ * a while (e.g. during model reasoning), but this visibly updates every
+ * second (issue #127).
+ */
+function ElapsedSeconds() {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      setSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (seconds < 1) return null;
+  return (
+    <Text className="text-xs text-muted-foreground tabular-nums">
+      {seconds}s
+    </Text>
+  );
+}
+
+export function ChatBubble({
+  role,
+  content,
+  isStreaming,
+  isError,
+  progressText,
+}: ChatBubbleProps) {
   const isUser = role === 'user';
   const markdownElements = useMemo(
     () => (!isUser && content ? renderMarkdown(content, false) : null),
@@ -184,10 +220,23 @@ export function ChatBubble({ role, content, isStreaming, isError }: ChatBubblePr
         ) : (
           markdownElements
         )
-      ) : isStreaming ? (
-        <StreamingDots />
       ) : null}
-      {isStreaming && content ? <StreamingDots /> : null}
+      {isStreaming ? (
+        <View
+          testID="chat-generation-progress"
+          className={cn('flex-row items-center gap-2', content ? 'pt-2' : '')}
+          accessibilityLabel={progressText || 'Generating response'}
+          accessibilityRole="progressbar"
+        >
+          <StreamingDots />
+          {progressText ? (
+            <Text className="text-xs text-muted-foreground">
+              {progressText}
+            </Text>
+          ) : null}
+          <ElapsedSeconds />
+        </View>
+      ) : null}
     </View>
   );
 }
