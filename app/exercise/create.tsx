@@ -15,8 +15,9 @@ import { StepIndicator } from '@/components/shared/step-indicator';
 import { NumericInput } from '@/components/shared/numeric-input';
 import { TimeInput } from '@/components/shared/time-input';
 
-import type { Exercise, ExerciseType, ExerciseDefinition, IntervalDistanceUnit, MetricId, TemplateExercise } from '@/lib/types';
+import type { Exercise, ExerciseType, ExerciseDefinition, IntervalDistanceUnit, LoadMode, MetricId, TemplateExercise } from '@/lib/types';
 import { createDefaultSets } from '@/lib/defaults';
+import { LOAD_MODE_OPTIONS, loadModeFieldSuffix } from '@/lib/load-mode';
 import { resolveExerciseMetrics } from '@/lib/metrics';
 import { generateId } from '@/lib/id';
 import { lightHaptic } from '@/lib/haptics';
@@ -61,6 +62,9 @@ export default function CreateExerciseScreen() {
   const [exerciseType, setExerciseType] = useState<ExerciseType | undefined>();
   const [metrics, setMetrics] = useState<MetricId[]>([]);
   const [name, setName] = useState('');
+  // How the entered weight relates to the total load (lib/load-mode.ts).
+  // 'total' is the default and what every legacy exercise means.
+  const [loadMode, setLoadMode] = useState<LoadMode>('total');
   const [setsCount, setSetsCount] = useState(userDefaultSetsCount);
   const [repsCount, setRepsCount] = useState(userDefaultRepsCount);
   const [restTime, setRestTime] = useState(userDefaultRestTime);
@@ -119,6 +123,7 @@ export default function CreateExerciseScreen() {
     setPresetId(preset.id);
     setExerciseType(preset.isIntervals ? 'intervals' : 'metrics');
     setMetrics(preset.isIntervals ? [] : preset.metrics);
+    setLoadMode('total');
     lightHaptic();
   };
 
@@ -128,6 +133,7 @@ export default function CreateExerciseScreen() {
     setPresetId('existing');
     setExerciseType(exercise.type);
     setMetrics(resolveExerciseMetrics(exercise.type, exercise.metrics));
+    setLoadMode(exercise.loadMode ?? 'total');
     lightHaptic();
     // Skip preset/metrics/name steps, go straight to sets config
     setStep(STEP_CONFIG);
@@ -165,6 +171,7 @@ export default function CreateExerciseScreen() {
       setExerciseType(undefined);
       setPresetId(undefined);
       setMetrics([]);
+      setLoadMode('total');
       setName('');
       setStep(-1);
     } else {
@@ -176,8 +183,11 @@ export default function CreateExerciseScreen() {
     if (!exerciseType) return;
     const trimmedName = name.trim();
 
-    // Ensure exercise exists in the library
-    const exerciseDef = getOrCreate(trimmedName, exerciseType, metrics);
+    // Ensure exercise exists in the library. For an existing name the library
+    // definition wins (including its loadMode) — the flag is a property of
+    // the exercise, not of this particular workout/template row.
+    const exerciseDef = getOrCreate(trimmedName, exerciseType, metrics, loadMode);
+    const rowLoadMode = exerciseDef.loadMode;
 
     const suggested = {
       ...(hasReps ? { suggestedReps: repsCount } : {}),
@@ -194,6 +204,7 @@ export default function CreateExerciseScreen() {
         name: trimmedName,
         type: exerciseType,
         metrics,
+        loadMode: rowLoadMode,
         sets: createDefaultSets(exerciseType, metrics, setsCount, suggested),
         restTimeSeconds: restTime,
       };
@@ -217,6 +228,7 @@ export default function CreateExerciseScreen() {
         name: trimmedName,
         type: exerciseType,
         metrics,
+        loadMode: rowLoadMode,
         order: useTemplateCreateStore.getState().exercises.length,
         restTimeSeconds: restTime,
         defaultSetsCount: setsCount,
@@ -361,6 +373,49 @@ export default function CreateExerciseScreen() {
                   : 'How many sets for this exercise?'}
             </Text>
             <View className="gap-6">
+              {hasWeight && !selectedExercise && (
+                <View>
+                  <Text className="mb-2 text-base font-medium">Weight is entered as</Text>
+                  <View
+                    className="flex-row rounded-lg bg-secondary"
+                    accessibilityRole="radiogroup"
+                    accessibilityLabel="Weight entry mode"
+                  >
+                    {LOAD_MODE_OPTIONS.map((option) => (
+                      <Pressable
+                        key={option.id}
+                        onPress={() => {
+                          lightHaptic();
+                          setLoadMode(option.id);
+                        }}
+                        className={cn(
+                          'min-h-[44px] flex-1 items-center justify-center rounded-lg px-2 py-3',
+                          loadMode === option.id && 'bg-primary'
+                        )}
+                        accessibilityRole="radio"
+                        accessibilityLabel={option.label}
+                        accessibilityHint={option.description}
+                        accessibilityState={{ checked: loadMode === option.id }}
+                        testID={`load-mode-${option.id}`}
+                      >
+                        <Text
+                          className={cn(
+                            'text-sm font-medium',
+                            loadMode === option.id
+                              ? 'text-primary-foreground'
+                              : 'text-secondary-foreground'
+                          )}
+                        >
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Text className="mt-1.5 text-xs text-muted-foreground" testID="load-mode-description">
+                    {LOAD_MODE_OPTIONS.find((o) => o.id === loadMode)?.description}
+                  </Text>
+                </View>
+              )}
               <View className="flex-row items-center justify-between">
                 <Text className="text-base font-medium">{countLabel}</Text>
                 <NumericInput value={setsCount} onValueChange={setSetsCount} min={1} max={20} />
@@ -373,7 +428,10 @@ export default function CreateExerciseScreen() {
               )}
               {isTemplateFlow && hasWeight && (
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-base font-medium">Weight ({weightUnit})</Text>
+                  <Text className="text-base font-medium">
+                    Weight ({weightUnit}
+                    {loadModeFieldSuffix(loadMode) ? `, ${loadModeFieldSuffix(loadMode)}` : ''})
+                  </Text>
                   <NumericInput value={suggestedWeight} onValueChange={setSuggestedWeight} min={0} max={2000} step={5} label="suggested weight" />
                 </View>
               )}

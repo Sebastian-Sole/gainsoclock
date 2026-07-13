@@ -4,6 +4,7 @@ import { authTables } from "@convex-dev/auth/server";
 import {
   exerciseTypeValidator,
   metricIdValidator,
+  loadModeValidator,
   chatMessageRoleValidator,
   chatMessageStatusValidator,
   pendingApprovalValidator,
@@ -37,6 +38,10 @@ export default defineSchema({
     // Composed metric list. Optional for back-compat with pre-migration rows;
     // resolved from `type` when absent (see lib/metrics.ts resolveExerciseMetrics).
     metrics: v.optional(v.array(metricIdValidator)),
+    // Whether the entered weight is the total load, per hand (two implements
+    // moved at once), or per side (one loaded side at a time). Optional for
+    // back-compat: absent means "total" (see lib/load-mode.ts).
+    loadMode: v.optional(loadModeValidator),
     createdAt: v.string(),
     // Soft-delete marker (epoch ms). Absent on active rows (and all
     // pre-migration rows). Archived exercises stay referenceable from
@@ -66,6 +71,9 @@ export default defineSchema({
     templateClientId: v.string(),
     exerciseClientId: v.string(),
     metrics: v.optional(v.array(metricIdValidator)),
+    // Denormalized from the exercise (like `metrics`); suggestedWeight follows
+    // the same per-hand convention. Absent = "total".
+    loadMode: v.optional(loadModeValidator),
     order: v.number(),
     restTimeSeconds: v.number(),
     defaultSetsCount: v.number(),
@@ -98,6 +106,9 @@ export default defineSchema({
     workoutLogClientId: v.string(),
     exerciseClientId: v.string(),
     metrics: v.optional(v.array(metricIdValidator)),
+    // Load mode AT LOG TIME (denormalized, like `metrics`). Absent (all
+    // pre-flag rows) means "total", keeping historical stats unchanged.
+    loadMode: v.optional(loadModeValidator),
     order: v.number(),
     restTimeSeconds: v.number(),
   })

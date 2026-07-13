@@ -64,6 +64,7 @@ export function useFinishWorkout() {
       name: e.name,
       type: e.type,
       metrics: e.metrics,
+      loadMode: e.loadMode,
       order: i,
       restTimeSeconds: e.restTimeSeconds,
       sets: e.sets,

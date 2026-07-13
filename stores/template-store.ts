@@ -7,6 +7,7 @@ import { mergeQueueAware } from '@/lib/hydration-merge';
 import { api } from '@/convex/_generated/api';
 import type { WorkoutTemplate, TemplateExercise } from '@/lib/types';
 import { resolveExerciseMetricsLoose } from '@/lib/metrics';
+import { coerceLoadMode } from '@/lib/load-mode';
 
 interface TemplateState {
   templates: WorkoutTemplate[];
@@ -26,6 +27,7 @@ interface TemplateState {
       name: string;
       type: string;
       metrics?: string[];
+      loadMode?: string;
       order: number;
       restTimeSeconds: number;
       defaultSetsCount: number;
@@ -46,6 +48,7 @@ function toSyncExercises(exercises: TemplateExercise[]) {
     exerciseName: e.name,
     exerciseType: e.type,
     exerciseMetrics: e.metrics,
+    exerciseLoadMode: e.loadMode,
     order: e.order,
     restTimeSeconds: e.restTimeSeconds,
     defaultSetsCount: e.defaultSetsCount,
@@ -158,6 +161,7 @@ export const useTemplateStore = create<TemplateState>()(
             name: e.name,
             type: e.type as TemplateExercise['type'],
             metrics: resolveExerciseMetricsLoose(e.type, e.metrics),
+            loadMode: coerceLoadMode(e.loadMode),
             order: e.order,
             restTimeSeconds: e.restTimeSeconds,
             defaultSetsCount: e.defaultSetsCount,

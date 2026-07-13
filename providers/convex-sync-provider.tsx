@@ -14,7 +14,7 @@ import { usePlanStore } from "@/stores/plan-store";
 import { setConvexClient, syncToConvex } from "@/lib/convex-sync";
 import { initAchievementEngine } from "@/lib/achievement-engine";
 import { setAnalyticsConsent } from "@/lib/analytics";
-import type { ExerciseType } from "@/lib/types";
+import type { ExerciseType, LoadMode } from "@/lib/types";
 import { useDataMigration } from "@/hooks/use-data-migration";
 import { useHealthImport } from "@/hooks/use-health-import";
 import { configurePurchases } from "@/hooks/use-purchases";
@@ -113,7 +113,7 @@ function SyncEngine() {
     if (exercises === undefined) return;
 
     const knownIds = new Set(exercises.map((e) => e.clientId));
-    const extras: Array<{ clientId: string; name: string; type: ExerciseType; createdAt: string }> = [];
+    const extras: Array<{ clientId: string; name: string; type: ExerciseType; loadMode?: LoadMode; createdAt: string }> = [];
 
     // Extract exercises embedded in local templates that may not exist in the exercises table
     const localTemplates = useTemplateStore.getState().templates;
@@ -125,6 +125,7 @@ function SyncEngine() {
             clientId: e.exerciseId,
             name: e.name,
             type: e.type,
+            loadMode: e.loadMode,
             createdAt: t.createdAt,
           });
         }
@@ -142,6 +143,7 @@ function SyncEngine() {
             clientId: e.exerciseId,
             name: e.name,
             type: e.type,
+            loadMode: e.loadMode,
             createdAt: log.completedAt,
           });
         }
@@ -158,6 +160,7 @@ function SyncEngine() {
           clientId: e.clientId,
           name: e.name,
           type: e.type,
+          loadMode: e.loadMode,
           createdAt: e.createdAt,
         })),
       });

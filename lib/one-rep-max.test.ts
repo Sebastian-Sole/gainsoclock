@@ -77,6 +77,21 @@ describe("sessionBestOneRm", () => {
     expect(sessionBestOneRm([set({ id: "a", time: 600 })])).toBeUndefined();
     expect(sessionBestOneRm([set({ id: "a", weight: 0, reps: 5 })])).toBeUndefined();
   });
+
+  // Load-mode effective-load math (issue #132): e1RM is computed on the
+  // effective TOTAL load so per-hand exercises aren't undercounted.
+  it("doubles the weight for per_hand exercises (2 × 10 kg dumbbells → 20)", () => {
+    const sets = [set({ id: "a", weight: 10, reps: 10 })];
+    const perHand = sessionBestOneRm(sets, "epley", "per_hand");
+    expect(perHand).toBeCloseTo(20 * (1 + 10 / 30), 10);
+  });
+
+  it("per_side and total match the legacy (loadMode-less) math", () => {
+    const sets = [set({ id: "a", weight: 24, reps: 8 })];
+    const legacy = sessionBestOneRm(sets);
+    expect(sessionBestOneRm(sets, "epley", "per_side")).toBe(legacy);
+    expect(sessionBestOneRm(sets, "epley", "total")).toBe(legacy);
+  });
 });
 
 describe("computeOneRmSeries", () => {
@@ -133,5 +148,23 @@ describe("computeOneRmSeries", () => {
 
   it("returns an empty series for an unknown exercise", () => {
     expect(computeOneRmSeries([], "bench")).toEqual([]);
+  });
+
+  // Load-mode series behavior (issue #132): each log row's OWN loadMode
+  // applies, so legacy sessions (flag absent = total) chart unchanged while
+  // per-hand sessions use the doubled effective load.
+  it("applies each log exercise's loadMode; legacy rows stay multiplier-1", () => {
+    const legacy = benchLog("b1", "2026-06-01T08:00:00Z", [
+      set({ id: "y", weight: 20, reps: 10 }),
+    ]);
+    const perHand = benchLog("b2", "2026-06-08T08:00:00Z", [
+      set({ id: "x", weight: 20, reps: 10 }),
+    ]);
+    perHand.exercises[0].loadMode = "per_hand";
+
+    const points = computeOneRmSeries([legacy, perHand], "bench");
+    expect(points).toHaveLength(2);
+    expect(points[0].value).toBeCloseTo(20 * (1 + 10 / 30), 10);
+    expect(points[1].value).toBeCloseTo(40 * (1 + 10 / 30), 10);
   });
 });

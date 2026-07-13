@@ -513,4 +513,54 @@ describe("sessionTotals", () => {
   it("returns zeros for an empty session", () => {
     expect(sessionTotals([])).toEqual({ volume: 0, distance: 0, reps: 0, time: 0 });
   });
+
+  // Load-mode effective load (issue #132): volume uses the exercise's
+  // effective total — per_hand doubles, per_side/total/absent are unchanged.
+  it("doubles per_hand volume, leaves per_side/total/legacy as entered", () => {
+    const totals = sessionTotals([
+      {
+        loadMode: "per_hand", // 2 × 10 kg dumbbells → 20 kg × 10 reps
+        sets: [{ id: "a", type: "metrics", weight: 10, reps: 10, completed: true }],
+      },
+      {
+        loadMode: "per_side",
+        sets: [{ id: "b", type: "metrics", weight: 24, reps: 5, completed: true }],
+      },
+      {
+        // legacy exercise: no loadMode, multiplier 1
+        sets: [{ id: "c", type: "metrics", weight: 100, reps: 2, completed: true }],
+      },
+    ]);
+    expect(totals.volume).toBe(200 + 120 + 200);
+  });
+});
+
+// Load-mode aggregate behavior (issue #132): derived volume and
+// totalWeightLifted use the effective total; the raw weight PB stays the
+// ENTERED number (what's on the dumbbell rack).
+describe("computeAllStats — per_hand load mode", () => {
+  it("doubles volume/totalWeightLifted but keeps bests.weight as entered", () => {
+    const dbBench: WorkoutLogExercise = {
+      ...exercise("dbbench", "DB Bench", [
+        { id: "p1", type: "metrics", reps: 10, weight: 10, completed: true },
+      ]),
+      loadMode: "per_hand",
+    };
+    const stats = computeAllStats([log("l1", "2026-06-01T10:00:00Z", 600, [dbBench])], NOW);
+
+    const ex = stats.exerciseStats.find((e) => e.exerciseId === "dbbench")!;
+    expect(ex.totalVolume).toBe(200); // 2 × 10 kg × 10 reps
+    expect(ex.maxVolume?.value).toBe(200);
+    expect(ex.bests.weight?.value).toBe(10); // entered, per hand
+    expect(stats.totals.totalWeightLifted).toBe(200);
+  });
+
+  it("legacy rows (loadMode absent) keep multiplier-1 math", () => {
+    const bench = exercise("bench", "Bench", [
+      { id: "p1", type: "metrics", reps: 10, weight: 10, completed: true },
+    ]);
+    const stats = computeAllStats([log("l1", "2026-06-01T10:00:00Z", 600, [bench])], NOW);
+    expect(stats.exerciseStats[0].totalVolume).toBe(100);
+    expect(stats.totals.totalWeightLifted).toBe(100);
+  });
 });

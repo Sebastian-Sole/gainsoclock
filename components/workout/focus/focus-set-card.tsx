@@ -11,6 +11,7 @@ import { IntervalSetInputs, MmSsInput } from '@/components/workout/interval-set-
 import { RpeInput } from '@/components/workout/rpe-input';
 import { useSettingsStore } from '@/stores/settings-store';
 import type { Exercise, MetricId, WorkoutSet } from '@/lib/types';
+import { effectiveLoad, loadModeFieldSuffix, resolveLoadMode } from '@/lib/load-mode';
 import {
   METRICS,
   metricUnitOverride,
@@ -110,6 +111,9 @@ export function FocusSetCard({
   const renderInput = (spec: MetricSpec) => {
     const value = set[spec.field];
     const change = (v: number | undefined) => onUpdate(metricUpdate(spec.field, v));
+    // Screen readers hear the load-mode qualifier too ("Weight, per hand").
+    const fieldSuffix = spec.id === 'weight' ? loadModeFieldSuffix(exercise.loadMode) : undefined;
+    const fieldLabel = fieldSuffix ? `${spec.label}, ${fieldSuffix}` : spec.label;
 
     if (spec.inputKind === 'duration') {
       return <TimeInput value={value ?? 0} onValueChange={change} className="flex-1" />;
@@ -133,7 +137,7 @@ export function FocusSetCard({
           onPress={() => step(-1)}
           disabled={!editable}
           accessibilityRole="button"
-          accessibilityLabel={`Decrease ${spec.label}`}
+          accessibilityLabel={`Decrease ${fieldLabel}`}
           className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card"
         >
           <Text className="text-xl font-medium leading-none text-muted-foreground">−</Text>
@@ -145,7 +149,7 @@ export function FocusSetCard({
             <Pressable
               onPress={() => valueInputRefs.current[spec.id]?.focus()}
               accessibilityRole="button"
-              accessibilityLabel={`Edit ${spec.label}`}
+              accessibilityLabel={`Edit ${fieldLabel}`}
               hitSlop={10}
             >
               <Icon as={Pencil} size={13} className="text-muted-foreground/60" />
@@ -156,7 +160,7 @@ export function FocusSetCard({
             onChange={change}
             allowDecimals={decimals}
             editable={editable}
-            accessibilityLabel={spec.label}
+            accessibilityLabel={fieldLabel}
             testID={`focus-${spec.id}`}
             inputRef={(r) => {
               valueInputRefs.current[spec.id] = r;
@@ -167,7 +171,7 @@ export function FocusSetCard({
           onPress={() => step(1)}
           disabled={!editable}
           accessibilityRole="button"
-          accessibilityLabel={`Increase ${spec.label}`}
+          accessibilityLabel={`Increase ${fieldLabel}`}
           className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card"
         >
           <Text className="text-xl font-medium leading-none text-muted-foreground">+</Text>
@@ -176,32 +180,52 @@ export function FocusSetCard({
     );
   };
 
+  // Weight-field qualifier for unilateral exercises: "per hand"/"per side"
+  // (lib/load-mode.ts). Undefined for 'total'/legacy — nothing changes.
+  const weightSuffix = loadModeFieldSuffix(exercise.loadMode);
+  const isPerHand = resolveLoadMode(exercise.loadMode) === 'per_hand';
+
   return (
     <View>
       {metrics.map((id, i) => {
         const spec = METRICS[id];
         const unit = unitFor(id);
+        const suffix = id === 'weight' ? weightSuffix : undefined;
+        const unitLine = suffix ? [unit, suffix].filter(Boolean).join(' · ') : unit;
+        // Lightweight derived total ("2 × 10 = 20 kg") — only where doubling
+        // actually happens (per_hand) and a weight is entered.
+        const totalHint =
+          id === 'weight' && isPerHand && set.weight !== undefined && set.weight > 0
+            ? `= ${effectiveLoad(set.weight, exercise.loadMode)} ${unit} total`
+            : undefined;
         return (
-          <View
-            key={id}
-            className={cn('flex-row items-center gap-2 py-3', i > 0 && 'border-t border-border')}
-          >
-            <View style={{ width: 94 }}>
-              <Text className="text-base font-semibold text-foreground">{spec.label}</Text>
-              {unit ? (
-                <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">{unit}</Text>
-              ) : null}
+          <View key={id} className={cn('py-3', i > 0 && 'border-t border-border')}>
+            <View className="flex-row items-center gap-2">
+              <View style={{ width: 94 }}>
+                <Text className="text-base font-semibold text-foreground">{spec.label}</Text>
+                {unitLine ? (
+                  <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">{unitLine}</Text>
+                ) : null}
+              </View>
+              {renderInput(spec)}
+              <Pressable
+                onPress={() => onRemoveMetric(id)}
+                disabled={!editable || metrics.length <= 1}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${spec.label} from this exercise`}
+                className="w-6 items-center justify-center"
+              >
+                <Icon as={X} size={13} className={cn('text-muted-foreground', metrics.length <= 1 && 'opacity-30')} />
+              </Pressable>
             </View>
-            {renderInput(spec)}
-            <Pressable
-              onPress={() => onRemoveMetric(id)}
-              disabled={!editable || metrics.length <= 1}
-              accessibilityRole="button"
-              accessibilityLabel={`Remove ${spec.label} from this exercise`}
-              className="w-6 items-center justify-center"
-            >
-              <Icon as={X} size={13} className={cn('text-muted-foreground', metrics.length <= 1 && 'opacity-30')} />
-            </Pressable>
+            {totalHint ? (
+              <Text
+                className="mt-1 text-right text-xs text-muted-foreground"
+                testID="focus-weight-total"
+              >
+                {totalHint}
+              </Text>
+            ) : null}
           </View>
         );
       })}

@@ -1,7 +1,8 @@
 import React from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
-import type { ExerciseType, MetricId } from '@/lib/types';
+import type { ExerciseType, LoadMode, MetricId } from '@/lib/types';
+import { loadModeFieldSuffix } from '@/lib/load-mode';
 import { METRICS, metricUnitOverride, resolveExerciseMetrics } from '@/lib/metrics';
 import { useSettingsStore } from '@/stores/settings-store';
 import { cn } from '@/lib/utils';
@@ -9,6 +10,9 @@ import { cn } from '@/lib/utils';
 interface SetHeaderRowProps {
   type: ExerciseType;
   metrics: MetricId[];
+  /** Parent exercise's load mode — the weight column reads "kg · per hand"
+   *  for unilateral exercises. Absent = 'total', unchanged header. */
+  loadMode?: LoadMode;
 }
 
 /**
@@ -16,13 +20,16 @@ interface SetHeaderRowProps {
  * they always line up with the inputs rendered by SetRow. Weight/distance show
  * the user's unit; intervals keep their combined "Effort & Time" column.
  */
-export function SetHeaderRow({ type, metrics }: SetHeaderRowProps) {
+export function SetHeaderRow({ type, metrics, loadMode }: SetHeaderRowProps) {
   const weightUnit = useSettingsStore((s) => s.weightUnit);
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
   const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
 
-  const columnLabel = (id: MetricId): string =>
-    metricUnitOverride(id, weightUnit, distanceUnit) ?? METRICS[id].columnLabel;
+  const columnLabel = (id: MetricId): string => {
+    const base = metricUnitOverride(id, weightUnit, distanceUnit) ?? METRICS[id].columnLabel;
+    const suffix = id === 'weight' ? loadModeFieldSuffix(loadMode) : undefined;
+    return suffix ? `${base} · ${suffix}` : base;
+  };
 
   return (
     <View className="flex-row items-center gap-2 px-3 py-1">

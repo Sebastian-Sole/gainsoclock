@@ -6,7 +6,9 @@ import type { ActiveWorkout, Exercise, TemplateExercise } from '@/lib/types';
 //
 // Mapping rules:
 // - Exercise order is preserved (order = array index).
-// - Metrics, rest time, and set count carry over as configured in the workout.
+// - Metrics, load mode, rest time, and set count carry over as configured in
+//   the workout — suggestedWeight keeps the per-hand convention its loadMode
+//   declares (lib/load-mode.ts).
 // - Suggested values seed from the LAST COMPLETED set of each exercise; an
 //   exercise with no completed sets gets no suggestions (left blank).
 export function workoutToTemplateExercises(
@@ -21,6 +23,7 @@ export function workoutToTemplateExercises(
       name: exercise.name,
       type: exercise.type,
       metrics: exercise.metrics,
+      ...(exercise.loadMode !== undefined ? { loadMode: exercise.loadMode } : {}),
       order: index,
       restTimeSeconds: exercise.restTimeSeconds,
       // A workout exercise can briefly have zero sets (all removed); a

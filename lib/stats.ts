@@ -1,6 +1,7 @@
 import { format, differenceInCalendarDays, isLeapYear, getDayOfYear, subDays } from 'date-fns';
+import { effectiveLoad } from './load-mode';
 import { METRICS, METRIC_LIST, readMetricValue } from './metrics';
-import type { MetricId, WorkoutLog, WorkoutSet } from './types';
+import type { LoadMode, MetricId, WorkoutLog, WorkoutSet } from './types';
 
 // ---- Date range types ----
 
@@ -200,8 +201,12 @@ export interface SessionTotals {
 
 /** Totals for one in-progress or finished session's exercises. Completed
  *  sets only, with the same rest-interval and stale-distance exclusions as
- *  the aggregate stats. */
-export function sessionTotals(exercises: readonly { sets: WorkoutSet[] }[]): SessionTotals {
+ *  the aggregate stats. Volume uses the exercise's EFFECTIVE load
+ *  (lib/load-mode.ts): per-hand weights count double, legacy/total count
+ *  as entered. */
+export function sessionTotals(
+  exercises: readonly { sets: WorkoutSet[]; loadMode?: LoadMode }[]
+): SessionTotals {
   const totals: SessionTotals = { volume: 0, distance: 0, reps: 0, time: 0 };
   for (const exercise of exercises) {
     for (const set of exercise.sets) {
@@ -214,7 +219,7 @@ export function sessionTotals(exercises: readonly { sets: WorkoutSet[] }[]): Ses
       if (time !== undefined) totals.time += time;
       if (distance !== undefined && metricCounts(set, 'distance')) totals.distance += distance;
       if (weight !== undefined && reps !== undefined) {
-        totals.volume += weight * reps;
+        totals.volume += effectiveLoad(weight, exercise.loadMode) * reps;
       }
     }
   }
@@ -283,11 +288,14 @@ function computeExerciseStats(logs: WorkoutLog[]): ExerciseStats[] {
           }
         }
 
-        // Volume (weight × reps) is derived, not a registry metric.
+        // Volume (effective weight × reps) is derived, not a registry
+        // metric. Effective load (lib/load-mode.ts) doubles per-hand rows so
+        // unilateral exercises aren't undercounted; the raw `weight` best
+        // above stays the entered number (what's on the dumbbell rack).
         const weight = readMetricValue(set, 'weight');
         const reps = readMetricValue(set, 'reps');
         if (weight !== undefined && reps !== undefined) {
-          const volume = reps * weight;
+          const volume = reps * effectiveLoad(weight, exercise.loadMode);
           if (!isRestInterval(set)) stats.totalVolume += volume;
           if (!stats.maxVolume || volume > stats.maxVolume.value) {
             stats.maxVolume = { value: volume, date: logDate };
@@ -325,6 +333,10 @@ export type ExerciseMetricSeries = Partial<Record<MetricId, MetricValuePoint[]>>
  * match the aggregate stats: completed sets only, interval 'rest' sub-sets
  * skipped, stale interval distance/pace/speed skipped, and non-positive
  * values ignored for lower-is-better metrics.
+ *
+ * The `weight` series is deliberately the ENTERED weight (per hand for
+ * unilateral exercises), matching the weight PBs — only the derived
+ * volume/e1RM aggregates use the effective total (lib/load-mode.ts).
  */
 export function computeExerciseSeries(
   logs: WorkoutLog[],
@@ -536,7 +548,8 @@ function computeTotals(logs: WorkoutLog[]): TotalStats {
             totalDistance += distance;
           }
           if (weight !== undefined && reps !== undefined) {
-            totalWeightLifted += reps * weight;
+            // Effective load: per-hand weights count double (lib/load-mode.ts).
+            totalWeightLifted += reps * effectiveLoad(weight, exercise.loadMode);
           }
         }
       }

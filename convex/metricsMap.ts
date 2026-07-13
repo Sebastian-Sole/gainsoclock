@@ -1,5 +1,9 @@
 import type { Infer } from "convex/values";
-import { metricIdValidator, exerciseTypeValidator } from "./validators";
+import {
+  metricIdValidator,
+  exerciseTypeValidator,
+  loadModeValidator,
+} from "./validators";
 
 // Convex-side mirror of the metric palette. The app's source of truth is
 // lib/metrics.ts; convex must not import app code, so this is hand-synced (the
@@ -7,6 +11,7 @@ import { metricIdValidator, exerciseTypeValidator } from "./validators";
 
 export type MetricId = Infer<typeof metricIdValidator>;
 export type ExerciseType = Infer<typeof exerciseTypeValidator>;
+export type LoadMode = Infer<typeof loadModeValidator>;
 
 /**
  * All metric ids, in palette display order. Kept in lockstep with
@@ -69,6 +74,28 @@ export function coerceMetricIds(input: unknown): MetricId[] {
     }
   }
   return out;
+}
+
+/**
+ * Convex-side mirror of lib/load-mode.ts (convex must not import app code).
+ * The stored weight is what the user physically picks up; `loadMode` says how
+ * it relates to the total load. Absent = "total" (legacy default), so
+ * pre-flag rows keep their interpretation. Only "per_hand" scales (×2 — two
+ * implements moved at once); "per_side" is a labeling/analytics flag, not a
+ * multiplier.
+ */
+export const LOAD_MODES: LoadMode[] = ["total", "per_hand", "per_side"];
+
+/** Keep a recognized load mode, drop anything else (undefined = "total"). */
+export function coerceLoadMode(input: unknown): LoadMode | undefined {
+  return typeof input === "string" && (LOAD_MODES as string[]).includes(input)
+    ? (input as LoadMode)
+    : undefined;
+}
+
+/** Entered-weight → effective-total multiplier. Mirrors lib/load-mode.ts. */
+export function loadMultiplier(loadMode: LoadMode | undefined): number {
+  return loadMode === "per_hand" ? 2 : 1;
 }
 
 /**

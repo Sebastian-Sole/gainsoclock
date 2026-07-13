@@ -5,19 +5,20 @@ import { generateId } from '@/lib/id';
 import { syncToConvex, getPendingClientIds, isQueueLoaded } from '@/lib/convex-sync';
 import { mergeQueueAware } from '@/lib/hydration-merge';
 import { api } from '@/convex/_generated/api';
-import type { ExerciseDefinition, ExerciseType, MetricId } from '@/lib/types';
+import type { ExerciseDefinition, ExerciseType, LoadMode, MetricId } from '@/lib/types';
 import { resolveExerciseMetricsLoose } from '@/lib/metrics';
+import { coerceLoadMode } from '@/lib/load-mode';
 
 interface ExerciseLibraryState {
   exercises: ExerciseDefinition[];
 
-  addExercise: (name: string, type: ExerciseType, metrics: MetricId[]) => ExerciseDefinition;
-  getOrCreate: (name: string, type: ExerciseType, metrics: MetricId[]) => ExerciseDefinition;
+  addExercise: (name: string, type: ExerciseType, metrics: MetricId[], loadMode?: LoadMode) => ExerciseDefinition;
+  getOrCreate: (name: string, type: ExerciseType, metrics: MetricId[], loadMode?: LoadMode) => ExerciseDefinition;
   /** Soft-delete: hide from pickers/library default view, keep references working. */
   archiveExercise: (id: string) => void;
   unarchiveExercise: (id: string) => void;
   searchByName: (query: string) => ExerciseDefinition[];
-  hydrateFromServer: (serverExercises: Array<{ clientId: string; name: string; type: ExerciseType; metrics?: string[]; createdAt: string; archivedAt?: number }>) => void;
+  hydrateFromServer: (serverExercises: Array<{ clientId: string; name: string; type: ExerciseType; metrics?: string[]; loadMode?: string; createdAt: string; archivedAt?: number }>) => void;
 }
 
 export const useExerciseLibraryStore = create<ExerciseLibraryState>()(
@@ -25,12 +26,15 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>()(
     (set, get) => ({
       exercises: [],
 
-      addExercise: (name, type, metrics) => {
+      addExercise: (name, type, metrics, loadMode) => {
         const exercise: ExerciseDefinition = {
           id: generateId(),
           name,
           type,
           metrics,
+          // Omit 'total' — absent IS total (lib/load-mode.ts), matching
+          // legacy rows.
+          ...(loadMode !== undefined && loadMode !== 'total' ? { loadMode } : {}),
           createdAt: new Date().toISOString(),
         };
         set((state) => ({ exercises: [...state.exercises, exercise] }));
@@ -40,13 +44,14 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>()(
           name: exercise.name,
           type: exercise.type,
           metrics: exercise.metrics,
+          loadMode: exercise.loadMode,
           createdAt: exercise.createdAt,
         });
 
         return exercise;
       },
 
-      getOrCreate: (name, type, metrics) => {
+      getOrCreate: (name, type, metrics, loadMode) => {
         const existing = get().exercises.find(
           (e) => e.name.toLowerCase() === name.toLowerCase()
         );
@@ -59,7 +64,7 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>()(
           }
           return existing;
         }
-        return get().addExercise(name, type, metrics);
+        return get().addExercise(name, type, metrics, loadMode);
       },
 
       archiveExercise: (id) => {
@@ -101,14 +106,18 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>()(
           server: serverExercises,
           localId: (e) => e.id,
           serverId: (s) => s.clientId,
-          toLocal: (s) => ({
-            id: s.clientId,
-            name: s.name,
-            type: s.type,
-            metrics: resolveExerciseMetricsLoose(s.type, s.metrics),
-            createdAt: s.createdAt,
-            ...(s.archivedAt !== undefined ? { archivedAt: s.archivedAt } : {}),
-          }),
+          toLocal: (s) => {
+            const loadMode = coerceLoadMode(s.loadMode);
+            return {
+              id: s.clientId,
+              name: s.name,
+              type: s.type,
+              metrics: resolveExerciseMetricsLoose(s.type, s.metrics),
+              ...(loadMode !== undefined ? { loadMode } : {}),
+              createdAt: s.createdAt,
+              ...(s.archivedAt !== undefined ? { archivedAt: s.archivedAt } : {}),
+            };
+          },
           pending: getPendingClientIds(),
           queueKnown: isQueueLoaded(),
           dropLocalOnly: () => true,
