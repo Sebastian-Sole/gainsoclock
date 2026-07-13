@@ -27,6 +27,7 @@ function flattenSet(s: WorkoutSet) {
     ...(s.metric !== undefined && { metric: s.metric }),
     ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
     ...(s.speed !== undefined && { speed: s.speed }),
+    ...(s.incline !== undefined && { incline: s.incline }),
     ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
   };
 }
@@ -96,6 +97,7 @@ interface HistoryState {
         metric?: string;
         paceSeconds?: number;
         speed?: number;
+        incline?: number;
         distanceUnit?: string;
       }>;
     }>;
@@ -243,6 +245,7 @@ export const useHistoryStore = create<HistoryState>()(
               ...(s.metric !== undefined && { metric: s.metric }),
               ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
               ...(s.speed !== undefined && { speed: s.speed }),
+              ...(s.incline !== undefined && { incline: s.incline }),
               ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
             })) as WorkoutSet[],
           })),

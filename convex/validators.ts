@@ -11,17 +11,20 @@ export const exerciseTypeValidator = v.union(
   v.literal("metrics")
 );
 
-// Curated metric palette. Source of truth: lib/metrics.ts (kept in lockstep via
-// the drift tripwire lib/types-drift.test-types.ts).
+// Curated metric palette, in palette display order (weight before reps). Source
+// of truth: lib/metrics.ts `METRIC_LIST` (kept in lockstep via the drift
+// tripwire lib/types-drift.test-types.ts). Order mirrors METRIC_IDS in
+// convex/metricsMap.ts, which the AI tool schema exposes as an enum.
 export const metricIdValidator = v.union(
-  v.literal("reps"),
   v.literal("weight"),
+  v.literal("reps"),
   v.literal("duration"),
   v.literal("distance"),
-  v.literal("power_avg"),
-  v.literal("heart_rate_avg"),
   v.literal("pace"),
   v.literal("speed"),
+  v.literal("incline"),
+  v.literal("power_avg"),
+  v.literal("heart_rate_avg"),
   v.literal("cadence"),
   v.literal("calories")
 );
@@ -53,6 +56,7 @@ export const workoutSetValidator = v.object({
   calories: v.optional(v.number()),
   speed: v.optional(v.number()),
   paceSeconds: v.optional(v.number()),
+  incline: v.optional(v.number()),
   metric: v.optional(intervalMetricValidator),
   distanceUnit: v.optional(distanceUnitValidator),
 });
@@ -86,6 +90,7 @@ export const flatSetValidator = v.object({
   metric: v.optional(intervalMetricValidator),
   paceSeconds: v.optional(v.number()),
   speed: v.optional(v.number()),
+  incline: v.optional(v.number()),
   distanceUnit: v.optional(distanceUnitValidator),
 });
 

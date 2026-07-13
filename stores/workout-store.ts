@@ -4,7 +4,12 @@ import { zustandStorage } from '@/lib/storage';
 import type { ActiveWorkout, Exercise, MetricId, TemplateExercise, WorkoutLog, WorkoutSet } from '@/lib/types';
 import { generateId } from '@/lib/id';
 import { createDefaultSets } from '@/lib/defaults';
-import { MAX_METRICS_PER_EXERCISE, resolveExerciseMetrics } from '@/lib/metrics';
+import {
+  MAX_METRICS_PER_EXERCISE,
+  resolveExerciseMetrics,
+  editedCardioField,
+  solveCardioTriple,
+} from '@/lib/metrics';
 
 interface WorkoutState {
   activeWorkout: ActiveWorkout | null;
@@ -228,19 +233,28 @@ export const useWorkoutStore = create<WorkoutState>()(
   updateSet: (exerciseId, setId, updates) =>
     set((state) => {
       if (!state.activeWorkout) return state;
+      // Duration/distance/pace stay consistent as a triple: editing any one
+      // recomputes a dependent field from the other two (lib/metrics.ts,
+      // solveCardioTriple), so the three can never contradict each other.
+      const edited = editedCardioField(updates);
       return {
         activeWorkout: {
           ...state.activeWorkout,
-          exercises: state.activeWorkout.exercises.map((e) =>
-            e.id === exerciseId
-              ? {
-                  ...e,
-                  sets: e.sets.map((s) =>
-                    s.id === setId ? ({ ...s, ...updates } as WorkoutSet) : s
-                  ),
+          exercises: state.activeWorkout.exercises.map((e) => {
+            if (e.id !== exerciseId) return e;
+            const resolved = edited ? resolveExerciseMetrics(e.type, e.metrics) : undefined;
+            return {
+              ...e,
+              sets: e.sets.map((s) => {
+                if (s.id !== setId) return s;
+                const next = { ...s, ...updates } as WorkoutSet;
+                if (resolved && edited) {
+                  Object.assign(next, solveCardioTriple(resolved, next, edited));
                 }
-              : e
-          ),
+                return next;
+              }),
+            };
+          }),
         },
       };
     }),

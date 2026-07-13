@@ -23,6 +23,7 @@ export type MetricId =
   | 'heart_rate_avg'
   | 'pace'
   | 'speed'
+  | 'incline'
   | 'cadence'
   | 'calories';
 
@@ -55,6 +56,7 @@ export interface WorkoutSet {
   calories?: number; // kcal
   speed?: number; // per hour, e.g. 12 = 12 km/h
   paceSeconds?: number; // seconds per distance unit, e.g. 330 = 5:30/km
+  incline?: number; // percent grade, e.g. 1.5 = 1.5%
   // Intervals-only
   metric?: IntervalMetric;
   distanceUnit?: IntervalDistanceUnit;

@@ -7,6 +7,8 @@ import {
   coerceMetricIds,
   metricUpdate,
   isExerciseType,
+  solveCardioTriple,
+  editedCardioField,
   EXERCISE_PRESETS,
 } from "@/lib/metrics";
 import type { MetricId } from "@/lib/types";
@@ -86,6 +88,69 @@ describe("metricUpdate", () => {
     expect(metricUpdate("time", 600)).toEqual({ time: 600 });
     expect(metricUpdate("paceSeconds", 330)).toEqual({ paceSeconds: 330 });
     expect(metricUpdate("heartRateAvg", 150)).toEqual({ heartRateAvg: 150 });
+    expect(metricUpdate("incline", 1.5)).toEqual({ incline: 1.5 });
+  });
+});
+
+describe("solveCardioTriple", () => {
+  const ALL: MetricId[] = ["duration", "distance", "pace"];
+
+  it("derives pace from duration and distance", () => {
+    // 30 min over 6 km = 300 s/km = 5:00/km
+    expect(solveCardioTriple(ALL, { time: 1800, distance: 6 }, "time")).toEqual({
+      paceSeconds: 300,
+    });
+    // rounds to whole seconds
+    expect(solveCardioTriple(ALL, { time: 1000, distance: 3 }, "distance")).toEqual({
+      paceSeconds: 333,
+    });
+  });
+
+  it("derives duration when pace is edited with distance set", () => {
+    // 5:00/km over 6 km = 30 min
+    expect(solveCardioTriple(ALL, { distance: 6, paceSeconds: 300 }, "paceSeconds")).toEqual({
+      time: 1800,
+    });
+  });
+
+  it("derives distance when it is the only blank field", () => {
+    // 30 min at 5:00/km = 6 km
+    expect(solveCardioTriple(ALL, { time: 1800, paceSeconds: 300 }, "time")).toEqual({
+      distance: 6,
+    });
+    expect(solveCardioTriple(ALL, { time: 1000, paceSeconds: 333 }, "paceSeconds")).toEqual({
+      distance: 3, // rounded to 2 decimals
+    });
+  });
+
+  it("keeps the triple consistent when all three are set: time/distance edits recompute pace, pace edits recompute time", () => {
+    const full = { time: 1800, distance: 6, paceSeconds: 999 };
+    expect(solveCardioTriple(ALL, full, "time")).toEqual({ paceSeconds: 300 });
+    expect(solveCardioTriple(ALL, full, "distance")).toEqual({ paceSeconds: 300 });
+    expect(solveCardioTriple(ALL, { time: 999, distance: 6, paceSeconds: 300 }, "paceSeconds")).toEqual({
+      time: 1800,
+    });
+  });
+
+  it("solves nothing unless the exercise tracks all three metrics", () => {
+    expect(solveCardioTriple(["duration", "distance"], { time: 1800, distance: 6 }, "time")).toEqual({});
+    expect(solveCardioTriple(["duration", "pace"], { time: 1800, paceSeconds: 300 }, "time")).toEqual({});
+  });
+
+  it("solves nothing when the edited value or both partners are missing or zero", () => {
+    expect(solveCardioTriple(ALL, { time: 0, distance: 6 }, "time")).toEqual({});
+    expect(solveCardioTriple(ALL, { time: undefined, distance: 6 }, "time")).toEqual({});
+    expect(solveCardioTriple(ALL, { time: 1800 }, "time")).toEqual({});
+    expect(solveCardioTriple(ALL, { paceSeconds: 300 }, "paceSeconds")).toEqual({});
+  });
+});
+
+describe("editedCardioField", () => {
+  it("returns the triple field an update touches, even when set to undefined (a clear)", () => {
+    expect(editedCardioField({ time: 600 })).toBe("time");
+    expect(editedCardioField({ distance: undefined })).toBe("distance");
+    expect(editedCardioField({ paceSeconds: 300 })).toBe("paceSeconds");
+    expect(editedCardioField({ reps: 10 })).toBeUndefined();
   });
 });
 

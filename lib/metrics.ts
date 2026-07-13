@@ -25,7 +25,8 @@ export type MetricField =
   | 'cadence'
   | 'calories'
   | 'speed'
-  | 'paceSeconds';
+  | 'paceSeconds'
+  | 'incline';
 
 // How the value is entered in the set row.
 export type MetricInputKind =
@@ -143,6 +144,18 @@ export const METRICS: Record<MetricId, MetricSpec> = {
     prDirection: 'higher',
     defaultValue: 0,
   },
+  incline: {
+    id: 'incline',
+    label: 'Incline',
+    columnLabel: 'Incline',
+    unit: '%',
+    field: 'incline',
+    inputKind: 'decimal',
+    aggregation: 'avg',
+    prDirection: 'none',
+    defaultValue: 0,
+    step: 0.5,
+  },
   cadence: {
     id: 'cadence',
     label: 'Cadence',
@@ -176,6 +189,7 @@ export const METRIC_LIST: MetricSpec[] = [
   METRICS.distance,
   METRICS.pace,
   METRICS.speed,
+  METRICS.incline,
   METRICS.power_avg,
   METRICS.heart_rate_avg,
   METRICS.cadence,
@@ -213,6 +227,64 @@ export function readMetricValue(set: WorkoutSet, id: MetricId): number | undefin
   return set[METRICS[id].field];
 }
 
+/** The three interdependent cardio fields: duration ÷ distance = pace. */
+export type CardioTripleField = 'time' | 'distance' | 'paceSeconds';
+
+const CARDIO_TRIPLE_FIELDS: readonly CardioTripleField[] = ['time', 'distance', 'paceSeconds'];
+
+/** The cardio-triple field an update touches, if any (first wins). */
+export function editedCardioField(updates: Partial<WorkoutSet>): CardioTripleField | undefined {
+  return CARDIO_TRIPLE_FIELDS.find((f) => f in updates);
+}
+
+/**
+ * Multi-way duration/distance/pace solver. Editing any one of the three
+ * recomputes a dependent field from the other two, so the triple can never
+ * disagree — which is why there is no "inconsistent values" state to warn
+ * about. Only solves when the exercise tracks all three metrics (with fewer,
+ * the missing field isn't shown and there's nothing to reconcile).
+ *
+ * When all three have values, the recomputed field is deterministic: editing
+ * duration or distance recomputes pace (time and distance are the ground
+ * truth, pace derives from them), and editing pace recomputes duration (the
+ * route's distance is the fixed quantity). With only one partner filled in,
+ * the remaining blank field is solved instead.
+ *
+ * Returns {} when nothing can be derived (edited value cleared/zero, partners
+ * blank) so callers leave existing values alone rather than storing
+ * 0/Infinity.
+ */
+export function solveCardioTriple(
+  metrics: MetricId[],
+  set: Pick<WorkoutSet, 'time' | 'distance' | 'paceSeconds'>,
+  edited: CardioTripleField
+): Partial<WorkoutSet> {
+  if (!metrics.includes('pace') || !metrics.includes('duration') || !metrics.includes('distance')) {
+    return {};
+  }
+  const has = (v: number | undefined): v is number => v !== undefined && v > 0;
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const { time, distance, paceSeconds: pace } = set;
+
+  switch (edited) {
+    case 'time':
+      if (!has(time)) return {};
+      if (has(distance)) return { paceSeconds: Math.round(time / distance) };
+      if (has(pace)) return { distance: round2(time / pace) };
+      return {};
+    case 'distance':
+      if (!has(distance)) return {};
+      if (has(time)) return { paceSeconds: Math.round(time / distance) };
+      if (has(pace)) return { time: Math.round(pace * distance) };
+      return {};
+    case 'paceSeconds':
+      if (!has(pace)) return {};
+      if (has(distance)) return { time: Math.round(pace * distance) };
+      if (has(time)) return { distance: round2(time / pace) };
+      return {};
+  }
+}
+
 /**
  * A single-field WorkoutSet patch, typed exhaustively so callers avoid `as`
  * casts on a dynamic key. Used by the default-set factory and the set row.
@@ -239,6 +311,8 @@ export function metricUpdate(field: MetricField, value: number | undefined): Par
       return { speed: value };
     case 'paceSeconds':
       return { paceSeconds: value };
+    case 'incline':
+      return { incline: value };
   }
 }
 

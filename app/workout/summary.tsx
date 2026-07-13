@@ -3,21 +3,24 @@ import { View, Pressable, ScrollView, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Check, Plus, Dumbbell } from 'lucide-react-native';
+import { ChevronLeft, Plus } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 
 import { useWorkoutStore } from '@/stores/workout-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useFinishWorkout } from '@/hooks/use-finish-workout';
-import { formatDuration, exerciseTypeLabel } from '@/lib/format';
+import { formatDuration } from '@/lib/format';
 import { sessionTotals } from '@/lib/stats';
-import { cn } from '@/lib/utils';
+import { lightHaptic, mediumHaptic } from '@/lib/haptics';
 import { SectionHeader } from '@/components/shared/section-header';
 import { FocusGradient } from '@/components/workout/focus/focus-gradient';
+import { SummaryExerciseRow } from '@/components/workout/summary-exercise-row';
 
 export default function WorkoutSummaryScreen() {
   const router = useRouter();
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
+  const updateAllSets = useWorkoutStore((s) => s.updateAllSets);
+  const removeExercise = useWorkoutStore((s) => s.removeExercise);
   const weightUnit = useSettingsStore((s) => s.weightUnit);
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
   const { finishWorkout, discardWorkout } = useFinishWorkout();
@@ -51,6 +54,34 @@ export default function WorkoutSummaryScreen() {
     Alert.alert('Discard workout?', 'This workout won’t be saved.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Discard', style: 'destructive', onPress: discardWorkout },
+    ]);
+  };
+
+  const toggleExerciseComplete = (exerciseId: string) => {
+    const ex = exercises.find((e) => e.id === exerciseId);
+    if (!ex) return;
+    const full = ex.sets.length > 0 && ex.sets.every((s) => s.completed);
+    lightHaptic();
+    updateAllSets(exerciseId, { completed: !full });
+  };
+
+  const goToExercise = (exerciseId: string) => {
+    lightHaptic();
+    router.navigate({ pathname: '/workout/active', params: { focusExerciseId: exerciseId } });
+  };
+
+  const confirmRemoveExercise = (exerciseId: string, name: string) => {
+    if (exercises.length <= 1) {
+      Alert.alert(
+        'Keep one exercise',
+        'A workout needs at least one exercise. Discard the workout instead to clear it.'
+      );
+      return;
+    }
+    mediumHaptic();
+    Alert.alert('Remove exercise', `Remove “${name}” from this workout?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => removeExercise(exerciseId) },
     ]);
   };
 
@@ -100,7 +131,8 @@ export default function WorkoutSummaryScreen() {
           </View>
         </View>
 
-        {/* Per-exercise */}
+        {/* Per-exercise — tap the icon to mark done, tap the cell to edit,
+            swipe right to delete. */}
         <View className="mb-1 flex-row items-baseline justify-between">
           <SectionHeader title="Exercise breakdown" className="mb-0" />
           <Text className="text-sm text-muted-foreground">
@@ -108,31 +140,15 @@ export default function WorkoutSummaryScreen() {
           </Text>
         </View>
         <View className="gap-2">
-          {exercises.map((e) => {
-            const done = e.sets.filter((s) => s.completed).length;
-            const full = e.sets.length > 0 && done === e.sets.length;
-            return (
-              <View key={e.id} className="flex-row items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-                <View
-                  className={cn(
-                    'h-7 w-7 items-center justify-center rounded-full',
-                    full ? 'bg-green-500' : 'bg-secondary'
-                  )}
-                >
-                  {full ? <Check size={15} color="#fff" strokeWidth={3} /> : <Icon as={Dumbbell} size={14} className="text-muted-foreground" />}
-                </View>
-                <View className="flex-1">
-                  <Text className="font-medium text-foreground">{e.name}</Text>
-                  <Text className="text-xs text-muted-foreground">
-                    {exerciseTypeLabel(e.type, e.metrics)}
-                  </Text>
-                </View>
-                <Text className="font-mono text-xs text-muted-foreground">
-                  {done}/{e.sets.length} sets
-                </Text>
-              </View>
-            );
-          })}
+          {exercises.map((e) => (
+            <SummaryExerciseRow
+              key={e.id}
+              exercise={e}
+              onToggleComplete={() => toggleExerciseComplete(e.id)}
+              onNavigate={() => goToExercise(e.id)}
+              onDelete={() => confirmRemoveExercise(e.id, e.name)}
+            />
+          ))}
         </View>
       </ScrollView>
 

@@ -89,7 +89,7 @@ export default function HistoryScreen() {
         <Calendar
           currentMonth={currentMonth}
           selectedDate={selectedDate}
-          workoutDates={workoutDates}
+          markedDates={workoutDates}
           isLoading={startOfMonth(currentMonth).toISOString() < fetchedRangeFrom}
           onSelectDate={setSelectedDate}
           onPrevMonth={() => {

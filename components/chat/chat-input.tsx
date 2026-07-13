@@ -15,17 +15,33 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
-  const [text, setText] = useState('');
+  // The field is UNCONTROLLED while the user types: passing `value` back on
+  // every keystroke races iOS auto-capitalization when a render lags a
+  // keystroke, and the keyboard then shifts the wrong character ("hELLO").
+  // Native owns the text; we mirror it in a ref and only take control
+  // (`dictationText`) for programmatic writes from dictation, releasing it on
+  // the next keystroke or send.
+  const inputRef = useRef<TextInput>(null);
+  const textRef = useRef('');
+  const [hasText, setHasText] = useState(false);
+  const [dictationText, setDictationText] = useState<string | undefined>(undefined);
   const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
   const isDark = colorScheme === 'dark';
   const palette = Colors[isDark ? 'dark' : 'light'];
   const primaryColor = palette.tint;
-  const canSend = text.trim().length > 0 && !disabled;
+  const canSend = hasText && !disabled;
 
   // Snapshot of the field when dictation starts, so interim transcripts append
   // to what the user already typed instead of overwriting it.
   const dictationBaseRef = useRef('');
+
+  const handleChangeText = (t: string) => {
+    textRef.current = t;
+    setHasText(t.trim().length > 0);
+    // A manual keystroke hands ownership back to the native field.
+    if (dictationText !== undefined) setDictationText(undefined);
+  };
 
   const {
     available: speechAvailable,
@@ -39,7 +55,10 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     // mic-press snapshot always yields the full message.
     onResult: (transcript) => {
       const base = dictationBaseRef.current;
-      setText((base ? `${base} ${transcript}` : transcript).slice(0, MAX_LENGTH));
+      const full = (base ? `${base} ${transcript}` : transcript).slice(0, MAX_LENGTH);
+      textRef.current = full;
+      setHasText(full.trim().length > 0);
+      setDictationText(full);
     },
     onError: (code) => {
       if (code === 'not-allowed') {
@@ -60,8 +79,11 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     // repopulate the input after the clear below.
     if (listening) abort();
     dictationBaseRef.current = '';
-    onSend(text);
-    setText('');
+    onSend(textRef.current);
+    textRef.current = '';
+    setHasText(false);
+    setDictationText(undefined);
+    inputRef.current?.clear();
   };
 
   const handleMicPress = () => {
@@ -70,7 +92,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       stop();
       return;
     }
-    dictationBaseRef.current = text.trim();
+    dictationBaseRef.current = textRef.current.trim();
     start();
   };
 
@@ -80,8 +102,9 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       style={{ paddingBottom: Math.max(insets.bottom, 8) }}
     >
       <TextInput
-        value={text}
-        onChangeText={setText}
+        ref={inputRef}
+        value={dictationText}
+        onChangeText={handleChangeText}
         placeholder="Ask your fitness coach..."
         placeholderTextColor={isDark ? '#6b7280' : '#9ca3af'}
         multiline
