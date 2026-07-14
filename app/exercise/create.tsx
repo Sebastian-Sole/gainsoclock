@@ -258,7 +258,7 @@ export default function CreateExerciseScreen() {
 
           {/* Search */}
           <View className="px-4 pb-2">
-            <View className="h-12 flex-row items-center rounded-xl border border-input bg-card px-3">
+            <View className="min-h-[48px] flex-row items-center rounded-xl border border-input bg-card px-3 py-1">
               <Icon as={Search} size={18} className="text-muted-foreground" />
               <TextInput
                 value={searchQuery}

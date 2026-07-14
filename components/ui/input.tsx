@@ -20,14 +20,20 @@ import { cn } from '@/lib/utils';
  *
  * For a multi-line field, use TextInput directly — none of this applies once
  * `multiline` is set.
+ *
+ * The wrapper height is a *minimum*, not fixed: with Dynamic Type the font
+ * scales but a fixed box doesn't, and the placeholder gets clipped by the
+ * border at accessibility sizes. min-height + wrapper padding lets the box
+ * grow with the text (wrapper padding is safe — the iOS centering quirk only
+ * concerns padding on the TextInput itself).
  */
-const inputVariants = cva('justify-center rounded-xl border border-input bg-card px-4', {
+const inputVariants = cva('justify-center rounded-xl border border-input bg-card px-4 py-1', {
   variants: {
     size: {
       /** Prominent form field (workout/template/recipe names). */
-      default: 'h-14',
+      default: 'min-h-[56px]',
       /** Dense field inside cards and rows. */
-      sm: 'h-11',
+      sm: 'min-h-[44px]',
     },
   },
   defaultVariants: { size: 'default' },

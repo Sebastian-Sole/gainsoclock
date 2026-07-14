@@ -77,7 +77,7 @@ export function ExercisesTab({
   return (
     <View className="gap-3">
       {/* Search */}
-      <View className="h-12 flex-row items-center gap-2 rounded-xl border border-border bg-card px-3">
+      <View className="min-h-[48px] flex-row items-center gap-2 rounded-xl border border-border bg-card px-3 py-1">
         <Icon as={Search} size={18} className="text-muted-foreground" />
         <TextInput
           placeholder="Search exercises..."
