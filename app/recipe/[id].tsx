@@ -238,7 +238,7 @@ export default function RecipeDetailScreen() {
                 <View
                   className="h-6 w-6 items-center justify-center rounded-full bg-primary"
                 >
-                  <Text className="text-xs font-bold text-white">{i + 1}</Text>
+                  <Text className="text-xs font-bold text-primary-foreground">{i + 1}</Text>
                 </View>
                 <Text className="text-sm flex-1 leading-5 pt-0.5">{step}</Text>
               </View>

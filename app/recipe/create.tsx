@@ -600,7 +600,7 @@ export default function CreateRecipeScreen() {
               <View
                 className="h-6 w-6 items-center justify-center rounded-full mt-3 bg-primary"
               >
-                <Text className="text-xs font-bold text-white">{index + 1}</Text>
+                <Text className="text-xs font-bold text-primary-foreground">{index + 1}</Text>
               </View>
               <TextInput
                 value={step}

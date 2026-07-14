@@ -24,6 +24,7 @@ import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
 import { LinkAppleSheet } from "@/components/auth/link-apple-sheet";
 import { capture } from "@/lib/analytics";
 import { SIWA_COLLISION_COPY } from "@/lib/privacy-notice";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const TERMS_URL = "https://www.fitbull.app/terms";
 const PRIVACY_URL = "https://www.fitbull.app/privacy";
@@ -46,6 +47,7 @@ function getSignUpErrorMessage(error: unknown): string {
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
   const { signIn } = useAuthActions();
   const checkAppleSignIn = useAction(api.accountLinking.checkAppleSignIn);
   const checkEmailExists = useAction(api.accountLinking.checkEmailExists);
@@ -376,12 +378,12 @@ export default function SignUpScreen() {
             testID="signup-submit"
           >
             {isLoading ? (
-              <ActivityIndicator color="white" size="small" />
+              <ActivityIndicator
+                color={colorScheme === "dark" ? "#000" : "#fff"}
+                size="small"
+              />
             ) : (
-              <Text
-                className="text-base font-semibold"
-                style={{ color: "#fff" }}
-              >
+              <Text className="text-base font-semibold text-primary-foreground">
                 Create Account
               </Text>
             )}

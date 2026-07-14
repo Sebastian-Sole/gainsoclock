@@ -25,6 +25,7 @@ import { LinkAppleSheet } from "@/components/auth/link-apple-sheet";
 import { capture } from "@/lib/analytics";
 import { SIWA_COLLISION_COPY } from "@/lib/privacy-notice";
 import { useOnboardingStatus } from "@/hooks/use-onboarding-status";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const TERMS_URL = "https://www.fitbull.app/terms";
 const PRIVACY_URL = "https://www.fitbull.app/privacy";
@@ -51,6 +52,7 @@ function getSignInErrorMessage(error: unknown): string {
 
 export default function SignInScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
   const { signIn } = useAuthActions();
   const checkAppleSignIn = useAction(api.accountLinking.checkAppleSignIn);
   const { isAuthenticated } = useConvexAuth();
@@ -322,12 +324,12 @@ export default function SignInScreen() {
             testID="signin-submit"
           >
             {isLoading ? (
-              <ActivityIndicator color="white" size="small" />
+              <ActivityIndicator
+                color={colorScheme === "dark" ? "#000" : "#fff"}
+                size="small"
+              />
             ) : (
-              <Text
-                className="text-base font-semibold"
-                style={{ color: "#fff" }}
-              >
+              <Text className="text-base font-semibold text-primary-foreground">
                 Sign in
               </Text>
             )}

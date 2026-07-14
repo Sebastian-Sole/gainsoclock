@@ -148,8 +148,8 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       >
         <Send
           size={20}
-          color={canSend ? '#fff' : isDark ? '#4b5563' : '#d1d5db'}
-          fill={canSend ? '#fff' : 'none'}
+          color={canSend ? (isDark ? '#000' : '#fff') : isDark ? '#4b5563' : '#d1d5db'}
+          fill={canSend ? (isDark ? '#000' : '#fff') : 'none'}
         />
       </Pressable>
     </View>
