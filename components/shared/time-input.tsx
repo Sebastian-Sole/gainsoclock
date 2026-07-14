@@ -43,8 +43,10 @@ export function TimeInput({ value, onValueChange, className, accessibilityLabel 
     onValueChange(hours * 3600 + minutes * 60 + secs);
   };
 
+  // min-h (not a fixed h-9): at large Dynamic Type sizes a fixed height clips
+  // the digits against the border. min-height lets the cell grow with the font.
   const fieldClass =
-    'flex-1 h-9 min-w-[28px] rounded-md border border-input bg-background px-1 text-center text-foreground';
+    'flex-1 min-h-[36px] min-w-[28px] rounded-md border border-input bg-background px-1 text-center text-foreground';
   const labelBase = accessibilityLabel ?? 'Time';
 
   return (

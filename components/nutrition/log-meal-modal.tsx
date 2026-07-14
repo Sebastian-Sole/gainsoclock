@@ -254,7 +254,7 @@ export function LogMealModal({ visible, onClose, date }: LogMealModalProps) {
             // Recipe picker
             <View className="flex-1">
               <View className="px-4 mb-3">
-                <View className="h-12 flex-row items-center gap-2 rounded-xl border border-input bg-card px-3">
+                <View className="min-h-[48px] flex-row items-center gap-2 rounded-xl border border-input bg-card px-3">
                   <Icon as={Search} size={18} className="text-muted-foreground" />
                   <TextInput
                     value={search}

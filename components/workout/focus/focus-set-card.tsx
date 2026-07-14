@@ -50,6 +50,7 @@ function BigInput({
   const colors = useTokenColors();
 
   return (
+    // input-height-ok: borderless display-style BigInput — self-sizing, no box to clip against
     <TextInput
       ref={inputRef}
       value={text}

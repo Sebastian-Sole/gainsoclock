@@ -12,6 +12,12 @@ const expoConfig = require('eslint-config-expo/flat');
 // fields (chat), borderless display-style inputs (SetInput/BigInput/MmSs/
 // time), inputs needing a TextInput ref type, and files that predate the
 // rule. Do NOT add a new file here for a plain single-line form field.
+// Every file here has been audited against the single-line input rules
+// (.claude/rules/coding-conventions.md → "Single-line text inputs"):
+// min-h boxes (never fixed h), py-0 + text-[Npx] on the input. The
+// `pnpm check:inputs` tripwire re-checks them on every /verify. Search
+// rows use the Input primitive's leftIcon/rightIcon — they no longer
+// justify an entry here.
 const RAW_TEXT_INPUT_ALLOWLIST = [
   'components/ui/input.tsx',
   // multiline / display-style / composite inputs
@@ -22,20 +28,10 @@ const RAW_TEXT_INPUT_ALLOWLIST = [
   'components/workout/focus/focus-set-card.tsx',
   'components/workout/interval-set-inputs.tsx',
   'components/workout/set-input.tsx',
-  // search rows (bordered composite rows: icon + input + button; centring via
-  // fixed-height container + py-0 input)
-  'components/nutrition/recipes-tab.tsx',
-  'components/stats/exercises-tab.tsx',
-  // pre-rule legacy — migrate opportunistically, then remove from this list
+  // ref-chained or styling the Input primitive can't express (audited 2026-07)
   'app/(auth)/sign-in.tsx',
   'app/(auth)/sign-up.tsx',
-  'app/calculator/calorie.tsx',
   'app/calculator/converter.tsx',
-  'app/calculator/one-rm.tsx',
-  'app/calculator/pace.tsx',
-  'app/calculator/plate.tsx',
-  'app/calculator/speed.tsx',
-  'app/exercise/create.tsx',
   'app/plan/\\[id\\].tsx', // brackets escaped: [id] would parse as a glob character class
   'app/recipe/create.tsx',
   'app/scan/index.tsx',
@@ -45,7 +41,6 @@ const RAW_TEXT_INPUT_ALLOWLIST = [
   'components/nutrition/edit-goals-modal.tsx',
   'components/nutrition/log-meal-modal.tsx',
   'components/nutrition/photo-meal-sheet.tsx',
-  'components/nutrition/recipe-filter-modal.tsx',
 ];
 
 module.exports = defineConfig([

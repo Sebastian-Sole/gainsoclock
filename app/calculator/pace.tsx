@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TextInput, Pressable, Keyboard } from 'react-native';
+import { View, ScrollView, Pressable, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
@@ -62,8 +63,6 @@ export default function PaceCalculator() {
     });
   };
 
-  const inputClass = 'rounded-lg border border-border bg-card px-4 py-3 text-[16px] text-foreground';
-
   // Common race distances
   const commonDistances = [
     { label: '5K', km: 5, mi: 3.11 },
@@ -104,14 +103,14 @@ export default function PaceCalculator() {
             <Text className="mb-2 text-sm font-medium text-muted-foreground">
               DISTANCE ({unit.toUpperCase()})
             </Text>
-            <TextInput
-              className={inputClass}
+            <Input
+              size="sm"
+              className="rounded-lg border-border"
               placeholder={`e.g. ${unit === 'km' ? '5' : '3.1'}`}
               placeholderTextColor={isDark ? '#78716c' : '#a8a29e'}
               keyboardType="numeric"
               value={distance}
               onChangeText={setDistance}
-              textAlignVertical="center"
             />
           </View>
 
@@ -133,36 +132,36 @@ export default function PaceCalculator() {
             <Text className="mb-2 text-sm font-medium text-muted-foreground">TIME</Text>
             <View className="flex-row gap-2">
               <View className="flex-1">
-                <TextInput
-                  className={inputClass}
+                <Input
+                  size="sm"
+                  className="rounded-lg border-border"
                   placeholder="HH"
                   placeholderTextColor={isDark ? '#78716c' : '#a8a29e'}
                   keyboardType="numeric"
                   value={hours}
                   onChangeText={setHours}
-                  textAlignVertical="center"
                 />
               </View>
               <View className="flex-1">
-                <TextInput
-                  className={inputClass}
+                <Input
+                  size="sm"
+                  className="rounded-lg border-border"
                   placeholder="MM"
                   placeholderTextColor={isDark ? '#78716c' : '#a8a29e'}
                   keyboardType="numeric"
                   value={minutes}
                   onChangeText={setMinutes}
-                  textAlignVertical="center"
                 />
               </View>
               <View className="flex-1">
-                <TextInput
-                  className={inputClass}
+                <Input
+                  size="sm"
+                  className="rounded-lg border-border"
                   placeholder="SS"
                   placeholderTextColor={isDark ? '#78716c' : '#a8a29e'}
                   keyboardType="numeric"
                   value={seconds}
                   onChangeText={setSeconds}
-                  textAlignVertical="center"
                 />
               </View>
             </View>

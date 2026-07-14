@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { View, TextInput, Pressable } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { Search, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { format } from 'date-fns';
@@ -77,20 +78,17 @@ export function ExercisesTab({
   return (
     <View className="gap-3">
       {/* Search */}
-      <View className="min-h-[48px] flex-row items-center gap-2 rounded-xl border border-border bg-card px-3 py-1">
-        <Icon as={Search} size={18} className="text-muted-foreground" />
-        <TextInput
-          placeholder="Search exercises..."
-          placeholderTextColor={mutedColor}
-          value={search}
-          onChangeText={setSearch}
-          className="flex-1 py-0 text-[16px] text-foreground"
-          autoCapitalize="none"
-          autoCorrect={false}
-          textAlignVertical="center"
-          accessibilityLabel="Search exercises"
-        />
-      </View>
+      <Input
+        size="sm"
+        leftIcon={<Icon as={Search} size={18} className="text-muted-foreground" />}
+        placeholder="Search exercises..."
+        placeholderTextColor={mutedColor}
+        value={search}
+        onChangeText={setSearch}
+        autoCapitalize="none"
+        autoCorrect={false}
+        accessibilityLabel="Search exercises"
+      />
 
       {/* Results count */}
       <Text className="text-xs text-muted-foreground">

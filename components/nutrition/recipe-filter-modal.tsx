@@ -3,13 +3,12 @@ import {
   View,
   Modal,
   Pressable,
-  TextInput,
   ScrollView,
   Keyboard,
   Platform,
 } from 'react-native';
-import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { X, Check } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { Colors } from '@/constants/theme';
@@ -161,7 +160,8 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
 
           {/* Cook Time */}
           <Text className="mb-2 mt-6 text-sm font-medium text-muted-foreground">MAX COOK TIME (minutes)</Text>
-          <TextInput
+          <Input
+            size="sm"
             value={local.maxCookTime?.toString() ?? ''}
             onChangeText={(v) =>
               setLocal((p) => ({ ...p, maxCookTime: v ? parseInt(v, 10) || undefined : undefined }))
@@ -169,8 +169,6 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
             placeholder="e.g. 30"
             placeholderTextColor="#9ca3af"
             keyboardType="numeric"
-            inputAccessoryViewID={keyboardDoneAccessoryID}
-            className="rounded-xl border border-input bg-card px-4 py-3 text-foreground"
           />
 
           {/* Macros & Calories */}
@@ -178,7 +176,8 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
           <View className="gap-3">
             <View>
               <Text className="text-xs text-muted-foreground mb-1">Max Calories</Text>
-              <TextInput
+              <Input
+                size="sm"
                 value={local.maxCalories?.toString() ?? ''}
                 onChangeText={(v) =>
                   setLocal((p) => ({ ...p, maxCalories: v ? parseInt(v, 10) || undefined : undefined }))
@@ -186,14 +185,14 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
                 placeholder="e.g. 500"
                 placeholderTextColor="#9ca3af"
                 keyboardType="numeric"
-                inputAccessoryViewID={keyboardDoneAccessoryID}
-                className="rounded-xl border border-input bg-card px-4 py-3 text-foreground"
               />
             </View>
             <View className="flex-row gap-3">
               <View className="flex-1">
                 <Text className="text-xs text-muted-foreground mb-1">Min Protein (g)</Text>
-                <TextInput
+                <Input
+                  size="sm"
+                  className="px-3"
                   value={local.minProtein?.toString() ?? ''}
                   onChangeText={(v) =>
                     setLocal((p) => ({ ...p, minProtein: v ? parseInt(v, 10) || undefined : undefined }))
@@ -201,13 +200,13 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
                   placeholder="e.g. 20"
                   placeholderTextColor="#9ca3af"
                   keyboardType="numeric"
-                  inputAccessoryViewID={keyboardDoneAccessoryID}
-                  className="rounded-xl border border-input bg-card px-3 py-3 text-foreground"
                 />
               </View>
               <View className="flex-1">
                 <Text className="text-xs text-muted-foreground mb-1">Max Carbs (g)</Text>
-                <TextInput
+                <Input
+                  size="sm"
+                  className="px-3"
                   value={local.maxCarbs?.toString() ?? ''}
                   onChangeText={(v) =>
                     setLocal((p) => ({ ...p, maxCarbs: v ? parseInt(v, 10) || undefined : undefined }))
@@ -215,13 +214,13 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
                   placeholder="e.g. 50"
                   placeholderTextColor="#9ca3af"
                   keyboardType="numeric"
-                  inputAccessoryViewID={keyboardDoneAccessoryID}
-                  className="rounded-xl border border-input bg-card px-3 py-3 text-foreground"
                 />
               </View>
               <View className="flex-1">
                 <Text className="text-xs text-muted-foreground mb-1">Max Fat (g)</Text>
-                <TextInput
+                <Input
+                  size="sm"
+                  className="px-3"
                   value={local.maxFat?.toString() ?? ''}
                   onChangeText={(v) =>
                     setLocal((p) => ({ ...p, maxFat: v ? parseInt(v, 10) || undefined : undefined }))
@@ -229,8 +228,6 @@ export function RecipeFilterModal({ visible, onClose, filters, onApply }: Recipe
                   placeholder="e.g. 20"
                   placeholderTextColor="#9ca3af"
                   keyboardType="numeric"
-                  inputAccessoryViewID={keyboardDoneAccessoryID}
-                  className="rounded-xl border border-input bg-card px-3 py-3 text-foreground"
                 />
               </View>
             </View>

@@ -59,8 +59,10 @@ export function MmSsInput({
   // text-[18px] sets font-size only. A Tailwind size class like `text-lg` would
   // also inject line-height:28, which offsets the text vertically inside a
   // fixed-height TextInput on iOS (same trap the Input primitive avoids).
+  // min-h (not a fixed h-11) so large Dynamic Type sizes grow the cell instead
+  // of clipping the digits against the border.
   const fieldClass =
-    'h-11 w-14 rounded-md border border-input bg-background px-1 text-center text-[18px] text-foreground';
+    'min-h-[44px] w-14 rounded-md border border-input bg-background px-1 text-center text-[18px] text-foreground';
 
   return (
     <View className={cn('flex-row items-center gap-1', className)}>
@@ -175,7 +177,7 @@ export function IntervalSetInputs({ set, onUpdate, editable = true }: IntervalSe
               placeholder="0"
               allowDecimals
               accessibilityLabel="Work distance"
-              className="h-11 w-24 text-[18px]"
+              className="min-h-[44px] w-24 text-[18px]"
             />
           </>
         )}
@@ -188,7 +190,7 @@ export function IntervalSetInputs({ set, onUpdate, editable = true }: IntervalSe
               placeholder="0"
               allowDecimals
               accessibilityLabel="Work speed"
-              className="h-11 w-24 text-[18px]"
+              className="min-h-[44px] w-24 text-[18px]"
             />
           </>
         )}

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, FlatList, Keyboard } from 'react-native';
+import { View, ScrollView, Pressable, KeyboardAvoidingView, Platform, FlatList, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -258,17 +258,16 @@ export default function CreateExerciseScreen() {
 
           {/* Search */}
           <View className="px-4 pb-2">
-            <View className="min-h-[48px] flex-row items-center rounded-xl border border-input bg-card px-3 py-1">
-              <Icon as={Search} size={18} className="text-muted-foreground" />
-              <TextInput
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Search exercises..."
-                placeholderTextColor="#9ca3af"
-                autoFocus
-                className="flex-1 px-3 py-0 text-[16px] text-foreground"
-              />
-            </View>
+            <Input
+              size="sm"
+              leftIcon={<Icon as={Search} size={18} className="text-muted-foreground" />}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search exercises..."
+              autoFocus
+              testID="exercise-picker-search"
+              accessibilityLabel="Search exercises"
+            />
           </View>
 
           {/* Exercise List */}

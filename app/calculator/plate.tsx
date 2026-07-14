@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, TextInput, Pressable, Keyboard } from 'react-native';
+import { View, ScrollView, Pressable, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
@@ -141,8 +142,6 @@ export default function PlateCalculator() {
     };
   }, [targetWeight, inputUnit]);
 
-  const inputClass = 'rounded-lg border border-border bg-card px-4 py-3 text-[16px] text-foreground';
-
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['bottom']}>
       <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -174,14 +173,14 @@ export default function PlateCalculator() {
             <Text className="mb-2 text-sm font-medium text-muted-foreground">
               TARGET WEIGHT ({inputUnit.toUpperCase()})
             </Text>
-            <TextInput
-              className={inputClass}
+            <Input
+              size="sm"
+              className="rounded-lg border-border"
               placeholder={`e.g. ${inputUnit === 'lbs' ? '225' : '100'}`}
               placeholderTextColor={isDark ? '#78716c' : '#a8a29e'}
               keyboardType="numeric"
               value={targetWeight}
               onChangeText={setTargetWeight}
-              textAlignVertical="center"
             />
           </View>
         </View>

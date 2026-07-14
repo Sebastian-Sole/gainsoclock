@@ -70,7 +70,7 @@ You are a careful collaborator on a small fitness-app codebase. Favor narrow, re
 
 ## Gotchas
 
-- **Never hand-roll a single-line `TextInput` — use `components/ui/input.tsx`.** Raw single-line TextInputs render their text/placeholder off-centre on iOS; this has regressed 10+ times. Raw `TextInput` imports are lint-blocked (`no-restricted-imports`) outside the allowlist in `eslint.config.js`; only multiline/display-style fields belong on that list. Full rule: `.claude/rules/coding-conventions.md` → "Single-line text inputs".
+- **Never hand-roll a single-line `TextInput` — use `components/ui/input.tsx`.** Raw single-line TextInputs render their text/placeholder off-centre on iOS (regressed 10+ times), and a fixed-height box clips the text at larger Dynamic Type sizes — input box heights must be `min-h`, never `h`. Raw `TextInput` imports are lint-blocked (`no-restricted-imports`) outside the allowlist in `eslint.config.js`, and `pnpm check:inputs` (in `/verify`) catches fixed-height/named-text-size violations on the survivors. The primitive takes `leftIcon`/`rightIcon`, so search rows don't justify hand-rolling. Full rule: `.claude/rules/coding-conventions.md` → "Single-line text inputs".
 - **`pnpm` is required** — the `pnpm.overrides` block in `package.json` pins `react-native-nitro-modules` to `0.32.2`. Using npm/yarn silently drops the override and breaks iOS builds. `.npmrc` sets `node-linker=hoisted` so Metro can resolve modules; don't switch to the symlinked layout.
 - **`@/*` resolves to repo root**, not `src/`. `@/components/ui/button` → `./components/ui/button.tsx`.
 - **Expo Router typed routes** regenerate on dev-server start. If route types look stale, restart `pnpm start`.

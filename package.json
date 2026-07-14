@@ -12,6 +12,7 @@
     "convex:dev": "convex dev",
     "clean:build": "npx expo prebuild --clean --platform ios",
     "test": "vitest run",
+    "check:inputs": "node scripts/check-input-heights.mjs",
     "version:check": "node scripts/check-app-version.mjs",
     "release:build": "node scripts/bump-version.mjs build",
     "release:patch": "node scripts/bump-version.mjs patch",

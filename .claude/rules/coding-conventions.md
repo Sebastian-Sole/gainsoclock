@@ -56,16 +56,17 @@ These rules are enforceable. If a rule can be enforced by ESLint/TypeScript, pre
 - Dark mode is driven by the `class` strategy — set via the root provider. Don't write `dark:` overrides based on `Platform`.
 - New UI primitives go in `components/ui/` and wrap `@rn-primitives/*`. Follow the `cva`-based variant pattern in `components/ui/button.tsx`.
 
-### Single-line text inputs (vertical-centering gotcha)
+### Single-line text inputs (vertical-centering + Dynamic Type gotchas)
 
-**Enforced by lint**: importing `TextInput` from react-native is an ESLint error (`no-restricted-imports`) outside the allowlist in `eslint.config.js`. New form fields use the `Input` primitive; only multiline/display-style inputs earn an allowlist entry.
+**Enforced twice**: (1) importing `TextInput` from react-native is an ESLint error (`no-restricted-imports`) outside the allowlist in `eslint.config.js` — new form fields use the `Input` primitive; only multiline/display-style inputs earn an allowlist entry. (2) `pnpm check:inputs` (`scripts/check-input-heights.mjs`, part of `/verify`) flags any remaining single-line `TextInput` with a fixed-height box or a named text-size class.
 
-A single-line `TextInput` on iOS renders its text/placeholder **off-centre** if either of two things is present. This has bitten us repeatedly; both have the same visible symptom (text sits low in the box) but different causes:
+A single-line `TextInput` on iOS renders wrong if any of three things is present. All have bitten us repeatedly:
 
-- **`py-*` padding.** iOS does not split `paddingVertical` evenly around single-line text. Measured offset with `py-4`: ~8pt low. Use a fixed height + `py-0` and let UIKit centre the text.
-- **A Tailwind text-**size** class (`text-lg`, `text-base`, `text-sm`).** These inject a `line-height` (e.g. `text-lg` → font-size 18 / line-height 28), which offsets text inside a fixed-height input. Size with the arbitrary form `text-[18px]` (font-size only), not `text-lg`.
+- **`py-*` padding on the TextInput itself.** iOS does not split `paddingVertical` evenly around single-line text. Measured offset with `py-4`: ~8pt low. Keep `py-0` on the TextInput; padding belongs on the wrapper.
+- **A Tailwind text-size class (`text-lg`, `text-base`, `text-sm`).** These inject a `line-height` (e.g. `text-lg` → font-size 18 / line-height 28), which offsets text inside the box. Size with the arbitrary form `text-[18px]` (font-size only), not `text-lg`.
+- **A fixed height (`h-12`, `h-[44px]`) on the box.** Dynamic Type scales the font but not the box, so at larger accessibility text sizes the text is **clipped against the border**. Heights on input boxes must be minimums: `min-h-[48px]` plus wrapper padding, so the box grows with the text. This applies to the wrapper *and* to any raw TextInput that carries its own height.
 
-Prefer the `components/ui/input.tsx` primitive for form fields — it sidesteps both problems structurally: the fixed height lives on a pressable wrapper `View` that flex-centres a self-sizing `TextInput` (value and placeholder share one auto-height line box, so neither can sit low), sizes text with `text-[Npx]` only, and auto-attaches the numeric keyboard "Done" bar. This IS the default for names, numbers, and search boxes. It IS NOT for multiline fields (the height/padding rule doesn't apply once `multiline` is set) or for the borderless display-style inputs like the Focus logger's `BigInput`. If you must hand-roll a bordered single-line `TextInput` (e.g. `SetInput`, `MmSsInput`), apply the same two rules: fixed height, `py-0`, `text-[Npx]` — or better, copy the primitive's wrapper structure.
+Use the `components/ui/input.tsx` primitive for form fields — it implements all three rules structurally: a min-height pressable wrapper flex-centres a self-sizing `TextInput` (value and placeholder share one auto-height line box, so neither can sit low, and the box grows with Dynamic Type), sizes text with `text-[Npx]` only, and auto-attaches the numeric keyboard "Done" bar. It supports `leftIcon`/`rightIcon` adornments, so search rows (icon + field + trailing button) do NOT justify hand-rolling. It IS the default for names, numbers, and search boxes. It IS NOT for multiline fields (none of this applies once `multiline` is set) or for borderless display-style inputs like the Focus logger's `BigInput`. If you must hand-roll (e.g. `SetInput`, `MmSsInput`, fields needing a ref): `min-h` on the box, `py-0` + `text-[Npx]` on the TextInput, centering via flex — and expect `pnpm check:inputs` to hold you to it.
 
 ## Accessibility (WCAG 2.1 AA equivalents on mobile)
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TextInput, Pressable, Keyboard } from 'react-native';
+import { View, ScrollView, Pressable, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
@@ -73,8 +74,6 @@ export default function SpeedCalculator() {
     });
   };
 
-  const inputClass = 'rounded-lg border border-border bg-card px-4 py-3 text-[16px] text-foreground';
-
   // Common paces for quick selection
   const commonPaces = [
     { label: 'Walk', min: 12, sec: 0 },
@@ -118,26 +117,26 @@ export default function SpeedCalculator() {
             </Text>
             <View className="flex-row items-center gap-2">
               <View className="flex-1">
-                <TextInput
-                  className={inputClass}
+                <Input
+                  size="sm"
+                  className="rounded-lg border-border"
                   placeholder="MIN"
                   placeholderTextColor={isDark ? '#78716c' : '#a8a29e'}
                   keyboardType="numeric"
                   value={paceMin}
                   onChangeText={setPaceMin}
-                  textAlignVertical="center"
                 />
               </View>
               <Text className="text-lg font-bold text-muted-foreground">:</Text>
               <View className="flex-1">
-                <TextInput
-                  className={inputClass}
+                <Input
+                  size="sm"
+                  className="rounded-lg border-border"
                   placeholder="SEC"
                   placeholderTextColor={isDark ? '#78716c' : '#a8a29e'}
                   keyboardType="numeric"
                   value={paceSec}
                   onChangeText={setPaceSec}
-                  textAlignVertical="center"
                 />
               </View>
             </View>

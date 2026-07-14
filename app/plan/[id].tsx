@@ -249,6 +249,7 @@ export default function PlanDetailScreen() {
         </Pressable>
         {isEditingName ? (
           <View className="flex-1 flex-row items-center">
+            {/* input-height-ok: self-sizing padded box (no fixed height) matching the title's text-lg display style — grows with Dynamic Type */}
             <TextInput
               value={editName}
               onChangeText={setEditName}

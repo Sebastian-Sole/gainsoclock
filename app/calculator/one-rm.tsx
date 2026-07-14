@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TextInput, Keyboard } from 'react-native';
+import { View, ScrollView, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
@@ -36,8 +37,6 @@ export default function OneRMCalculator() {
     }
   };
 
-  const inputClass = 'rounded-lg border border-border bg-card px-4 py-3 text-[16px] text-foreground';
-
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['bottom']}>
       <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -46,27 +45,27 @@ export default function OneRMCalculator() {
             <Text className="mb-2 text-sm font-medium text-muted-foreground">
               WEIGHT LIFTED ({weightUnit.toUpperCase()})
             </Text>
-            <TextInput
-              className={inputClass}
+            <Input
+              size="sm"
+              className="rounded-lg border-border"
               placeholder={`e.g. ${weightUnit === 'kg' ? '100' : '225'}`}
               placeholderTextColor={isDark ? '#78716c' : '#a8a29e'}
               keyboardType="numeric"
               value={weight}
               onChangeText={setWeight}
-              textAlignVertical="center"
             />
           </View>
 
           <View>
             <Text className="mb-2 text-sm font-medium text-muted-foreground">REPS PERFORMED</Text>
-            <TextInput
-              className={inputClass}
+            <Input
+              size="sm"
+              className="rounded-lg border-border"
               placeholder="e.g. 5"
               placeholderTextColor={isDark ? '#78716c' : '#a8a29e'}
               keyboardType="numeric"
               value={reps}
               onChangeText={setReps}
-              textAlignVertical="center"
             />
           </View>
 

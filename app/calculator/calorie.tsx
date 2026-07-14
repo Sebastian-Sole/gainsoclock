@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { View, ScrollView, TextInput, Pressable, Platform, Keyboard } from 'react-native';
+import { View, ScrollView, Pressable, Platform, Keyboard } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Icon } from '@/components/ui/icon';
@@ -227,8 +228,6 @@ export default function CalorieCalculator() {
     appliedTimeoutRef.current = setTimeout(() => setApplied(false), 2500);
   };
 
-  const inputClass = 'rounded-lg border border-border bg-card px-4 py-3 text-[16px] text-foreground';
-
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['bottom']}>
       <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -258,40 +257,40 @@ export default function CalorieCalculator() {
 
           <View>
             <Text className="mb-2 text-sm font-medium text-muted-foreground">AGE</Text>
-            <TextInput
-              className={inputClass}
+            <Input
+              size="sm"
+              className="rounded-lg border-border"
               placeholder="e.g. 25"
               placeholderTextColor={isDark ? '#78716c' : '#a8a29e'}
               keyboardType="numeric"
               value={age}
               onChangeText={setAge}
-              textAlignVertical="center"
             />
           </View>
 
           <View>
             <Text className="mb-2 text-sm font-medium text-muted-foreground">WEIGHT (KG)</Text>
-            <TextInput
-              className={inputClass}
+            <Input
+              size="sm"
+              className="rounded-lg border-border"
               placeholder="e.g. 80"
               placeholderTextColor={isDark ? '#78716c' : '#a8a29e'}
               keyboardType="numeric"
               value={weight}
               onChangeText={setWeight}
-              textAlignVertical="center"
             />
           </View>
 
           <View>
             <Text className="mb-2 text-sm font-medium text-muted-foreground">HEIGHT (CM)</Text>
-            <TextInput
-              className={inputClass}
+            <Input
+              size="sm"
+              className="rounded-lg border-border"
               placeholder="e.g. 180"
               placeholderTextColor={isDark ? '#78716c' : '#a8a29e'}
               keyboardType="numeric"
               value={height}
               onChangeText={setHeight}
-              textAlignVertical="center"
             />
           </View>
 

@@ -31,10 +31,14 @@ Run in this order. Stop and report on the first hard failure (types or Convex ty
    - `grep -rnE 'console\.(log|debug|warn|error)\(' app components hooks lib providers stores | grep -v __DEV__`
    - Report locations.
 
-5. **Dependency Audit** -- only on `pre-pr`.
+5. **Input Height Audit**
+   - `pnpm check:inputs` (`scripts/check-input-heights.mjs`)
+   - Flags single-line TextInputs whose box has a fixed height (clips at large Dynamic Type sizes) or a named text-size class (iOS off-centre bug). Fix with `min-h-[Npx]`/`text-[Npx]` or a `// input-height-ok:` waiver.
+
+6. **Dependency Audit** -- only on `pre-pr`.
    - `pnpm audit --audit-level=high`
 
-6. **Git Status**
+7. **Git Status**
    - `git status --porcelain`
    - `git diff --stat HEAD`
 
@@ -47,6 +51,7 @@ Types (app):    [OK | X errors]
 Types (Convex): [OK | X errors | skipped]
 Lint:           [OK | X issues]
 Console.log:    [OK | X unguarded]
+Inputs:         [OK | X clipping risks]
 Audit:          [OK | X advisories | skipped]
 
 Ready for PR: [YES | NO]
@@ -59,6 +64,6 @@ List critical failures with the exact fix.
 `$ARGUMENTS` can be:
 
 - `quick` -- types only (steps 1-2)
-- `full` -- steps 1-4 (default)
-- `pre-commit` -- steps 1, 3, 4
-- `pre-pr` -- all six steps
+- `full` -- steps 1-5 (default)
+- `pre-commit` -- steps 1, 3, 4, 5
+- `pre-pr` -- all seven steps

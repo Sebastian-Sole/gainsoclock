@@ -39,7 +39,7 @@ const inputVariants = cva('justify-center rounded-xl border border-input bg-card
   defaultVariants: { size: 'default' },
 });
 
-const inputTextVariants = cva('w-full py-0 text-foreground', {
+const inputTextVariants = cva('py-0 text-foreground', {
   variants: {
     size: {
       default: 'text-[18px]',
@@ -51,7 +51,17 @@ const inputTextVariants = cva('w-full py-0 text-foreground', {
 
 const NUMERIC_KEYBOARDS = new Set(['number-pad', 'decimal-pad', 'numeric', 'phone-pad']);
 
-type InputProps = Omit<TextInputProps, 'multiline'> & VariantProps<typeof inputVariants>;
+type InputProps = Omit<TextInputProps, 'multiline'> &
+  VariantProps<typeof inputVariants> & {
+    /**
+     * Leading adornment (e.g. a search icon) rendered inside the box, left of
+     * the text. Exists so search rows never hand-roll the box around a raw
+     * TextInput — that pattern is what regresses.
+     */
+    leftIcon?: React.ReactNode;
+    /** Trailing adornment (e.g. a filter button). May be its own Pressable. */
+    rightIcon?: React.ReactNode;
+  };
 
 export function Input({
   className,
@@ -59,6 +69,8 @@ export function Input({
   placeholderTextColor,
   inputAccessoryViewID,
   keyboardType,
+  leftIcon,
+  rightIcon,
   ...props
 }: InputProps) {
   const colors = useTokenColors();
@@ -72,20 +84,33 @@ export function Input({
       ? keyboardDoneAccessoryID
       : undefined);
 
+  const field = (
+    <TextInput
+      ref={inputRef}
+      className={cn(
+        inputTextVariants({ size }),
+        leftIcon || rightIcon ? 'flex-1' : 'w-full',
+      )}
+      placeholderTextColor={placeholderTextColor ?? colors.mutedForeground}
+      keyboardType={keyboardType}
+      inputAccessoryViewID={accessoryID}
+      {...props}
+    />
+  );
+
   return (
     <Pressable
-      className={cn(inputVariants({ size }), className)}
+      className={cn(
+        inputVariants({ size }),
+        (leftIcon || rightIcon) && 'flex-row items-center gap-2',
+        className,
+      )}
       onPress={() => inputRef.current?.focus()}
       accessible={false}
     >
-      <TextInput
-        ref={inputRef}
-        className={inputTextVariants({ size })}
-        placeholderTextColor={placeholderTextColor ?? colors.mutedForeground}
-        keyboardType={keyboardType}
-        inputAccessoryViewID={accessoryID}
-        {...props}
-      />
+      {leftIcon}
+      {field}
+      {rightIcon}
     </Pressable>
   );
 }

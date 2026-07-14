@@ -43,7 +43,9 @@ export function SetInput({
       keyboardType={allowDecimals ? 'decimal-pad' : 'number-pad'}
       inputAccessoryViewID={keyboardDoneAccessoryID}
       className={cn(
-        'h-9 min-w-[56px] rounded-md border border-input bg-background px-2 text-center text-foreground',
+        // min-height, never fixed: a fixed height clips the digits against the
+        // border once Dynamic Type scales the font. min-height grows the cell.
+        'min-h-[36px] min-w-[56px] rounded-md border border-input bg-background px-2 text-center text-foreground',
         className
       )}
     />

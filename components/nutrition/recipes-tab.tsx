@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { View, FlatList, Pressable, TextInput } from 'react-native';
+import { View, FlatList, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
 import { Pin, Flame, Clock, UtensilsCrossed, Search, SlidersHorizontal } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
@@ -101,23 +102,29 @@ export function RecipesTab() {
     <View className="flex-1">
       {/* Search + Filter */}
       <View className="px-4 mb-3">
-        <View className="h-12 flex-row items-center gap-2 rounded-xl border border-input bg-card px-3">
-          <Icon as={Search} size={18} className="text-muted-foreground" />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search recipes..."
-            placeholderTextColor="#9ca3af"
-            className="flex-1 py-0 text-foreground"
-          />
-          <Pressable onPress={() => setShowFilterModal(true)} className="p-1.5" hitSlop={8}>
-            <Icon
-              as={SlidersHorizontal}
-              size={18}
-              className={filtersActive ? 'text-primary' : 'text-muted-foreground'}
-            />
-          </Pressable>
-        </View>
+        <Input
+          size="sm"
+          leftIcon={<Icon as={Search} size={18} className="text-muted-foreground" />}
+          rightIcon={
+            <Pressable
+              onPress={() => setShowFilterModal(true)}
+              className="p-1.5"
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Filter recipes"
+            >
+              <Icon
+                as={SlidersHorizontal}
+                size={18}
+                className={filtersActive ? 'text-primary' : 'text-muted-foreground'}
+              />
+            </Pressable>
+          }
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search recipes..."
+          accessibilityLabel="Search recipes"
+        />
       </View>
 
       {recipes.length === 0 && !search.trim() && !filtersActive ? (
