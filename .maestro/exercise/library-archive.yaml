@@ -1,0 +1,90 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - exercise
+  - library
+---
+# #131 — archive (soft-delete) and restore an exercise from the library.
+#
+# A fresh account's library is empty, so first create an exercise (via the
+# workout wizard, which persists the definition), then open Settings > Exercise
+# Library, archive it (moves to the Archived section), and restore it.
+#
+# The archive/restore controls use dynamic per-id testIDs (exercise-archive-<id>),
+# so this selects them by their accessibility labels ("Archive <name>" /
+# "Restore <name>") which are stable and name-based.
+#
+# Prereq: reach /(tabs) by completing onboarding.
+
+- runFlow: ../onboarding/01-happy-path.yaml
+
+# Create an exercise named "Library Test" so it exists in the library.
+- tapOn:
+    id: "tab-workouts"
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "start-empty-workout"
+- extendedWaitUntil:
+    visible:
+      id: "workout-add-exercise"
+    timeout: 10000
+- tapOn:
+    id: "workout-add-exercise"
+- tapOn:
+    id: "exercise-create-new"
+- tapOn:
+    text: "Strength"
+- tapOn:
+    text: "Next"
+- tapOn:
+    text: "Next"
+- waitForAnimationToEnd:
+    timeout: 1500
+- inputText: "Library Test"
+- tapOn:
+    text: "Next"
+- tapOn:
+    text: "Next"
+- tapOn:
+    text: "Add Exercise"
+- extendedWaitUntil:
+    visible:
+      id: "workout-active-screen"
+    timeout: 10000
+
+# Leave the workout running and head to the Exercise Library via Settings.
+- tapOn:
+    text: "Minimize workout"
+- tapOn:
+    id: "tab-workouts"
+- tapOn:
+    id: "open-settings"
+- tapOn:
+    id: "settings-exercise-library"
+- extendedWaitUntil:
+    visible:
+      id: "exercise-library-screen"
+    timeout: 8000
+
+# Archive "Library Test" (icon button labelled "Archive Library Test"), confirm.
+- tapOn:
+    text: "Archive Library Test"
+- tapOn:
+    text: "Archive"
+
+# It moves to the Archived section (restore control now present).
+- extendedWaitUntil:
+    visible:
+      text: "Restore Library Test"
+    timeout: 8000
+- assertVisible: "Archived"
+
+# Restore it — it returns to the active list (archive control back, restore gone).
+- tapOn:
+    text: "Restore Library Test"
+- extendedWaitUntil:
+    visible:
+      text: "Archive Library Test"
+    timeout: 8000
+- assertNotVisible:
+    text: "Restore Library Test"
