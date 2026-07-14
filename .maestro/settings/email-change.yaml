@@ -1,0 +1,81 @@
+appId: com.soleinnovations.fitbull
+tags:
+  - settings
+  - account
+---
+# #123 — verify-before-activate email change.
+#
+# The email only changes after a code sent to the new address is confirmed. This
+# flow drives the UI state machine (a real code can't be received in e2e):
+#   1. wrong current password -> stays on the initiation form (errors, no code
+#      step),
+#   2. correct current password -> advances to the code-entry step,
+#   3. cancel -> back to the initiation form.
+#
+# Uses ${PASSWORD} (the account's real password) from the flow env.
+#
+# Prereq: reach /(tabs) by completing onboarding.
+
+- runFlow: ../onboarding/01-happy-path.yaml
+
+# Workouts header -> Settings -> Account.
+- tapOn:
+    id: "tab-workouts"
+- tapOn:
+    id: "open-settings"
+# The Account row is near the bottom of the settings screen.
+- scrollUntilVisible:
+    element:
+      id: "settings-account"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: "settings-account"
+
+# The Change-email section lives further down the account screen.
+- scrollUntilVisible:
+    element:
+      id: "account-email-change-section"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: "account-email-change-section"
+
+# 1. Wrong current password must not advance the flow. (The password field needs
+# the simulator's "Suggest Strong Passwords" turned OFF — see .maestro/README.md —
+# so it accepts typed input instead of iOS's strong-password sheet.)
+- tapOn:
+    id: "account-new-email-input"
+- inputText: "qa+changed@example.com"
+- tapOn:
+    id: "account-email-password-input"
+- inputText: "definitely-wrong-password"
+- tapOn:
+    id: "account-send-email-code"
+- waitForAnimationToEnd:
+    timeout: 4000
+# Still on the initiation form — the code-entry field never appeared.
+- assertVisible:
+    id: "account-new-email-input"
+- assertNotVisible:
+    id: "account-email-code-input"
+
+# 2. Correct current password advances to the code-entry step.
+- tapOn:
+    id: "account-email-password-input"
+- eraseText
+- inputText: ${PASSWORD}
+- tapOn:
+    id: "account-send-email-code"
+- extendedWaitUntil:
+    visible:
+      id: "account-email-code-input"
+    timeout: 15000
+
+# 3. Cancel returns to the initiation form.
+- tapOn:
+    id: "account-cancel-email-change"
+- extendedWaitUntil:
+    visible:
+      id: "account-new-email-input"
+    timeout: 8000
