@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Text } from "@/components/ui/text";
 import { api } from "@/convex/_generated/api";
+import { EMAIL_REGEX } from "@/lib/email-change";
 import { cn } from "@/lib/utils";
 
 // Mirrors the sign-up rule and the Password provider default (>= 8 chars).
@@ -32,25 +33,36 @@ const PROVIDER_LABELS: Record<string, string> = {
 type SaveState = "idle" | "saving" | "saved";
 
 /**
- * Settings → Account: change display name and (for password accounts)
+ * Settings → Account: change display name, email, and (for password accounts)
  * password.
  *
- * Email change is intentionally absent: @convex-dev/auth keys the password
- * account by the email and has no supported re-key API, and a safe change
- * needs verify-before-activate infrastructure we don't have. Full rationale
- * lives next to the backend functions in `convex/user.ts`.
+ * Email change uses a verify-before-activate flow: the new address gets a
+ * one-time link and nothing swaps until it's clicked. It's only offered for
+ * password accounts (re-auth is required and the account is keyed by email);
+ * OAuth-only and Apple-relay accounts still fall back to support. Backend and
+ * full rationale live in `convex/emailChange.ts`.
  */
 export default function AccountScreen() {
   const router = useRouter();
   const info = useQuery(api.user.getAccountInfo);
   const updateName = useMutation(api.user.updateName);
   const changePassword = useAction(api.user.changePassword);
+  const requestEmailChange = useAction(api.emailChange.requestEmailChange);
 
   // Name — draft is null until the user edits, so the query stays the source
   // of truth for the initial value without effect-based syncing.
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const [nameState, setNameState] = useState<SaveState>("idle");
   const [nameError, setNameError] = useState<string | null>(null);
+
+  // Email-change form
+  const [emailDraft, setEmailDraft] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
+  const [emailState, setEmailState] = useState<SaveState>("idle");
+  const [emailError, setEmailError] = useState<string | null>(null);
+  // The address the last verification link was sent to (drives the success
+  // copy). Nulled whenever the form is edited again.
+  const [emailSentTo, setEmailSentTo] = useState<string | null>(null);
 
   // Password form
   const [currentPassword, setCurrentPassword] = useState("");
@@ -78,6 +90,56 @@ export default function AccountScreen() {
     } catch {
       setNameError("Couldn't save your name. Try again in a moment.");
       setNameState("idle");
+    }
+  };
+
+  const emailFormValid =
+    EMAIL_REGEX.test(emailDraft.trim()) && emailPassword.length > 0;
+
+  const handleRequestEmailChange = async () => {
+    setEmailError(null);
+    setEmailSentTo(null);
+    const newEmail = emailDraft.trim();
+    if (!EMAIL_REGEX.test(newEmail)) {
+      setEmailError("Enter a valid email address.");
+      return;
+    }
+    setEmailState("saving");
+    try {
+      const result = await requestEmailChange({
+        currentPassword: emailPassword,
+        newEmail,
+      });
+      switch (result) {
+        case "ok":
+          setEmailSentTo(newEmail);
+          setEmailDraft("");
+          setEmailPassword("");
+          setEmailState("saved");
+          return;
+        case "wrong_password":
+          setEmailError("Current password is incorrect.");
+          break;
+        case "invalid_email":
+          setEmailError("Enter a valid email address.");
+          break;
+        case "same_email":
+          setEmailError("That's already your email address.");
+          break;
+        case "email_in_use":
+          setEmailError("That email is already in use by another account.");
+          break;
+        case "too_many_attempts":
+          setEmailError("Too many attempts. Try again in a few minutes.");
+          break;
+        case "no_password_account":
+          setEmailError("This account doesn't sign in with a password.");
+          break;
+      }
+      setEmailState("idle");
+    } catch {
+      setEmailError("Couldn't start the email change. Try again in a moment.");
+      setEmailState("idle");
     }
   };
 
@@ -246,10 +308,13 @@ export default function AccountScreen() {
                     Email
                   </Text>
                   <Text className="mt-1 text-foreground">{info.email}</Text>
-                  <Text className="mt-1 text-xs text-muted-foreground">
-                    Email can&apos;t be changed in the app yet. Contact
-                    support@fitbull.app if you need to move your account.
-                  </Text>
+                  {!info.hasPassword ? (
+                    <Text className="mt-1 text-xs text-muted-foreground">
+                      Email can&apos;t be changed in the app for this sign-in
+                      method. Contact support@fitbull.app if you need to move
+                      your account.
+                    </Text>
+                  ) : null}
                 </View>
                 <Separator />
               </>
@@ -267,6 +332,113 @@ export default function AccountScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Change email — password accounts only (re-auth required; the
+              account is keyed by email). Apple-relay addresses are hidden. */}
+          {info.hasPassword && !info.isAppleRelay ? (
+            <>
+              <Text className="mb-3 mt-8 text-sm font-medium text-muted-foreground">
+                CHANGE EMAIL
+              </Text>
+              <View className="rounded-xl bg-card px-4 py-4">
+                <Text
+                  nativeID="account-new-email-label"
+                  className="mb-2 text-sm font-medium text-muted-foreground"
+                >
+                  New email
+                </Text>
+                <Input
+                  value={emailDraft}
+                  onChangeText={(t) => {
+                    setEmailDraft(t);
+                    setEmailState("idle");
+                    setEmailError(null);
+                    setEmailSentTo(null);
+                  }}
+                  placeholder="you@example.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="emailAddress"
+                  inputAccessoryViewID={keyboardDoneAccessoryID}
+                  returnKeyType="done"
+                  accessibilityLabel="New email"
+                  accessibilityLabelledBy="account-new-email-label"
+                  testID="account-new-email-input"
+                />
+
+                <Text
+                  nativeID="account-email-password-label"
+                  className="mb-2 mt-4 text-sm font-medium text-muted-foreground"
+                >
+                  Current password
+                </Text>
+                <Input
+                  value={emailPassword}
+                  onChangeText={(t) => {
+                    setEmailPassword(t);
+                    setEmailState("idle");
+                    setEmailError(null);
+                    setEmailSentTo(null);
+                  }}
+                  placeholder="Your current password"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                  inputAccessoryViewID={keyboardDoneAccessoryID}
+                  returnKeyType="done"
+                  accessibilityLabel="Current password"
+                  accessibilityLabelledBy="account-email-password-label"
+                  testID="account-email-password-input"
+                />
+
+                {emailError ? (
+                  <Text className="mt-3 text-sm text-destructive">
+                    {emailError}
+                  </Text>
+                ) : emailState === "saved" && emailSentTo ? (
+                  <Text className="mt-3 text-sm text-muted-foreground">
+                    We sent a verification link to {emailSentTo}. Open it to
+                    confirm — your email won&apos;t change until you do.
+                  </Text>
+                ) : (
+                  <Text className="mt-3 text-xs text-muted-foreground">
+                    We&apos;ll email a link to the new address. Your email
+                    changes only after you confirm it.
+                  </Text>
+                )}
+
+                <Pressable
+                  onPress={() => {
+                    void handleRequestEmailChange();
+                  }}
+                  disabled={!emailFormValid || emailState === "saving"}
+                  accessibilityRole="button"
+                  accessibilityLabel="Send verification link"
+                  accessibilityState={{
+                    disabled: !emailFormValid || emailState === "saving",
+                    busy: emailState === "saving",
+                  }}
+                  testID="account-request-email-change"
+                  className={cn(
+                    "mt-4 min-h-[44px] items-center justify-center rounded-xl py-3",
+                    emailFormValid && emailState !== "saving"
+                      ? "bg-primary"
+                      : "bg-primary/40"
+                  )}
+                >
+                  {emailState === "saving" ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text className="font-medium text-primary-foreground">
+                      Send verification link
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+            </>
+          ) : null}
 
           {/* Password — only for accounts that actually have one */}
           {info.hasPassword ? (

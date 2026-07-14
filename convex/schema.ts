@@ -454,6 +454,26 @@ export default defineSchema({
     fat: v.number(),
   }).index("by_user", ["userId"]),
 
+  // Pending verify-before-activate email changes (issue #106). A row is
+  // created when a password user requests an email change (after re-auth) and
+  // deleted once the verification link is confirmed or superseded. Only the
+  // SHA-256 of the emailed token is stored, so a leaked row can't be replayed.
+  // The email is NOT changed until confirmation — the whole point is to never
+  // activate an unverified address (account-takeover vector). See
+  // convex/emailChange.ts.
+  pendingEmailChanges: defineTable({
+    userId: v.id("users"),
+    // The password authAccount's providerAccountId (its lookup key) at request
+    // time — re-checked before re-keying so a stale request can't apply.
+    currentAccountId: v.string(),
+    newEmail: v.string(),
+    tokenHash: v.string(), // SHA-256 hex of the emailed token
+    expiresAt: v.number(), // ms epoch
+    createdAt: v.number(), // ms epoch
+  })
+    .index("by_user", ["userId"])
+    .index("by_tokenHash", ["tokenHash"]),
+
   // Transient ownership record for meal-photo uploads. Rows are deleted on
   // discard; the daily sweep removes orphans (crashed clients).
   mealPhotos: defineTable({

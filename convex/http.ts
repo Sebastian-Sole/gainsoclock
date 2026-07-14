@@ -3,6 +3,7 @@ import { auth } from "./auth";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { isRevenueCatEvent } from "./revenuecatTypes";
+import { hashEmailChangeToken } from "../lib/email-change";
 
 const http = httpRouter();
 
@@ -171,6 +172,67 @@ http.route({
       "You have been unsubscribed from Fitbull legal/billing reminder emails.",
       { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8" } },
     );
+  }),
+});
+
+// Plain-text confirmation page. text/plain (not HTML) so a reflected address
+// can never execute — same choice as the unsubscribe route.
+function confirmPage(message: string): Response {
+  return new Response(message, {
+    status: 200,
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
+}
+
+// Confirmation link from the verify-before-activate email change (issue #106).
+// Clicking it is what actually re-keys the password account and updates
+// users.email — nothing changes until this fires. See convex/emailChange.ts.
+http.route({
+  path: "/webhooks/email/confirm-email-change",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const token = url.searchParams.get("token");
+    if (!token) {
+      return confirmPage("This confirmation link is missing its token.");
+    }
+
+    const tokenHash = await hashEmailChangeToken(token);
+    try {
+      const result = await ctx.runMutation(
+        internal.emailChange.applyPendingChange,
+        { tokenHash },
+      );
+      if (result.status === "ok") {
+        // Tell the previous inbox — an account-takeover safety net.
+        await ctx.scheduler.runAfter(
+          0,
+          internal.email.sendEmailChangeNotice,
+          { oldEmail: result.oldEmail, newEmail: result.newEmail },
+        );
+        return confirmPage(
+          `Your Fitbull email was changed to ${result.newEmail}. You can close this page and return to the app.`,
+        );
+      }
+      if (result.status === "expired") {
+        return confirmPage(
+          "This confirmation link has expired. Request a new email change from the app.",
+        );
+      }
+      if (result.status === "taken") {
+        return confirmPage(
+          "That email address is now in use by another account. Request a different one from the app.",
+        );
+      }
+      return confirmPage(
+        "This confirmation link is invalid or has already been used.",
+      );
+    } catch (error) {
+      console.error("[EmailChange] applyPendingChange failed:", error);
+      return confirmPage(
+        "Something went wrong confirming your email. Try the link again, or contact support@fitbull.app.",
+      );
+    }
   }),
 });
 
