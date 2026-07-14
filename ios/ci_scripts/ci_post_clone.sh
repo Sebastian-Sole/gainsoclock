@@ -39,7 +39,10 @@ for v in EXPO_PUBLIC_CONVEX_URL \
          EXPO_PUBLIC_POSTHOG_API_KEY \
          EXPO_PUBLIC_REVENUECAT_API_KEY_IOS \
          EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID \
-         EXPO_PUBLIC_SENTRY_DSN; do
+         EXPO_PUBLIC_SENTRY_DSN \
+         SENTRY_AUTH_TOKEN \
+         SENTRY_ORG \
+         SENTRY_PROJECT; do
   eval "val=\${$v:-}"
   if [ -n "$val" ]; then
     echo "  $v: set (${#val} chars)"
