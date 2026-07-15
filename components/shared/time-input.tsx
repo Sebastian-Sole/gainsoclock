@@ -43,6 +43,12 @@ export function TimeInput({ value, onValueChange, className, accessibilityLabel 
     onValueChange(hours * 3600 + minutes * 60 + secs);
   };
 
+  // On focus, show the raw value so it can be edited — but blank out a zero
+  // field entirely. Otherwise the padded "00" collapses to "0" on tap, leaving
+  // a stray zero the user has to delete before typing (selectTextOnFocus can't
+  // reliably re-select once the controlled value shrinks under it).
+  const focusText = (n: number) => (n === 0 ? '' : String(n));
+
   // min-h (not a fixed h-9): at large Dynamic Type sizes a fixed height clips
   // the digits against the border. min-height lets the cell grow with the font.
   const fieldClass =
@@ -54,7 +60,7 @@ export function TimeInput({ value, onValueChange, className, accessibilityLabel 
       <TextInput
         value={hoursText ?? String(hours)}
         onChangeText={handleHoursChange}
-        onFocus={() => setHoursText(String(hours))}
+        onFocus={() => setHoursText(focusText(hours))}
         onBlur={() => setHoursText(null)}
         accessibilityLabel={`${labelBase}, hours`}
         keyboardType="numeric"
@@ -69,7 +75,7 @@ export function TimeInput({ value, onValueChange, className, accessibilityLabel 
       <TextInput
         value={minutesText ?? String(minutes).padStart(2, '0')}
         onChangeText={handleMinutesChange}
-        onFocus={() => setMinutesText(String(minutes))}
+        onFocus={() => setMinutesText(focusText(minutes))}
         onBlur={() => setMinutesText(null)}
         accessibilityLabel={`${labelBase}, minutes`}
         keyboardType="numeric"
@@ -82,7 +88,7 @@ export function TimeInput({ value, onValueChange, className, accessibilityLabel 
       <TextInput
         value={secondsText ?? String(seconds).padStart(2, '0')}
         onChangeText={handleSecondsChange}
-        onFocus={() => setSecondsText(String(seconds))}
+        onFocus={() => setSecondsText(focusText(seconds))}
         onBlur={() => setSecondsText(null)}
         accessibilityLabel={`${labelBase}, seconds`}
         keyboardType="numeric"
