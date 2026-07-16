@@ -2,15 +2,12 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   TextInput,
   View,
 } from 'react-native';
-import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import * as ImagePicker from 'expo-image-picker';
 import { useAction, useMutation } from 'convex/react';
 import { Camera, Images, Sparkles, TriangleAlert, UtensilsCrossed, X } from 'lucide-react-native';
@@ -206,10 +203,11 @@ export function PhotoMealSheet({ visible, onClose, date }: PhotoMealSheetProps) 
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1 bg-background"
-      >
+      {/* No KeyboardAvoidingView: it under-pads inside a pageSheet (its frame
+          math misses the sheet's top offset). The review ScrollView handles
+          the keyboard itself via automaticallyAdjustKeyboardInsets, and on
+          Android the window resizes. */}
+      <View className="flex-1 bg-background">
         {/* Header */}
         <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
           <Text className="text-xl font-bold">Snap a Photo</Text>
@@ -302,6 +300,7 @@ export function PhotoMealSheet({ visible, onClose, date }: PhotoMealSheetProps) 
           <ScrollView
             className="flex-1 px-4"
             keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
             contentContainerClassName="pb-8"
           >
             <Image
@@ -347,7 +346,7 @@ export function PhotoMealSheet({ visible, onClose, date }: PhotoMealSheetProps) 
                     placeholder="0"
                     placeholderTextColor="#9ca3af"
                     keyboardType="decimal-pad"
-                    inputAccessoryViewID={keyboardDoneAccessoryID}
+                    returnKeyType="done"
                     accessibilityLabel={input.label}
                     testID={input.testID}
                     className="rounded-xl border border-input bg-card px-3 py-3 text-foreground text-center"
@@ -442,7 +441,7 @@ export function PhotoMealSheet({ visible, onClose, date }: PhotoMealSheetProps) 
             )}
           </View>
         )}
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }

@@ -1,6 +1,5 @@
 import React from 'react';
 import { TextInput } from 'react-native';
-import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { useNumericField } from '@/hooks/use-numeric-field';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { cn } from '@/lib/utils';
@@ -41,7 +40,7 @@ export function SetInput({
       placeholderTextColor={colors.mutedForeground}
       accessibilityLabel={accessibilityLabel}
       keyboardType={allowDecimals ? 'decimal-pad' : 'number-pad'}
-      inputAccessoryViewID={keyboardDoneAccessoryID}
+      returnKeyType="done"
       className={cn(
         // min-height, never fixed: a fixed height clips the digits against the
         // border once Dynamic Type scales the font. min-height grows the cell.

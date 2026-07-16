@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { Pressable, TextInput, type TextInputProps } from 'react-native';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { cn } from '@/lib/utils';
 
@@ -67,7 +66,7 @@ export function Input({
   className,
   size,
   placeholderTextColor,
-  inputAccessoryViewID,
+  returnKeyType,
   keyboardType,
   leftIcon,
   rightIcon,
@@ -76,13 +75,13 @@ export function Input({
   const colors = useTokenColors();
   const inputRef = React.useRef<TextInput>(null);
 
-  // Numeric keypads have no return key, so without the accessory bar there is
-  // no way to dismiss them. Opt in automatically; an explicit id still wins.
-  const accessoryID =
-    inputAccessoryViewID ??
-    (keyboardType && NUMERIC_KEYBOARDS.has(keyboardType)
-      ? keyboardDoneAccessoryID
-      : undefined);
+  // Numeric keypads have no return key, so they are otherwise undismissable.
+  // With returnKeyType set, iOS (New Architecture) renders a native "Done"
+  // toolbar above the keypad — per input, so it works inside modals, where a
+  // shared InputAccessoryView never attaches. An explicit returnKeyType wins.
+  const resolvedReturnKeyType =
+    returnKeyType ??
+    (keyboardType && NUMERIC_KEYBOARDS.has(keyboardType) ? 'done' : undefined);
 
   const field = (
     <TextInput
@@ -93,7 +92,7 @@ export function Input({
       )}
       placeholderTextColor={placeholderTextColor ?? colors.mutedForeground}
       keyboardType={keyboardType}
-      inputAccessoryViewID={accessoryID}
+      returnKeyType={resolvedReturnKeyType}
       {...props}
     />
   );

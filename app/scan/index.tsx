@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, TextInput, View } from 'react-native';
-import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { useAction } from 'convex/react';
@@ -13,6 +12,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { LogMealModal } from '@/components/nutrition/log-meal-modal';
 import { parseLocaleNumber } from '@/lib/format';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { lightHaptic } from '@/lib/haptics';
 import { scalePer100gMacros } from '@/lib/ingredient-macros';
 import { cn } from '@/lib/utils';
@@ -56,6 +56,7 @@ function getToday(): string {
 export default function ScanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   const [permission, requestPermission] = useCameraPermissions();
   const addMeal = useMealLogStore((s) => s.addMeal);
   const addIngredient = useIngredientStore((s) => s.addIngredient);
@@ -250,11 +251,16 @@ export default function ScanScreen() {
         </View>
       )}
 
-      {/* Bottom card */}
+      {/* Bottom card. Lifted above the keyboard by hand — it's absolutely
+          positioned over the camera, where KeyboardAvoidingView mis-measures
+          inside this pageSheet-presented route. */}
       {state.kind !== 'scanning' && (
         <View
-          className="absolute bottom-0 left-0 right-0 rounded-t-2xl bg-background px-4 pt-4"
-          style={{ paddingBottom: insets.bottom + 16 }}
+          className="absolute left-0 right-0 rounded-t-2xl bg-background px-4 pt-4"
+          style={{
+            bottom: keyboardHeight,
+            paddingBottom: keyboardHeight > 0 ? 16 : insets.bottom + 16,
+          }}
         >
           {state.kind === 'looking_up' && (
             <View className="flex-row items-center justify-center gap-3 py-6">
@@ -282,7 +288,7 @@ export default function ScanScreen() {
                 placeholder="100"
                 placeholderTextColor="#9ca3af"
                 keyboardType="decimal-pad"
-                inputAccessoryViewID={keyboardDoneAccessoryID}
+                returnKeyType="done"
                 accessibilityLabel="Quantity in grams"
                 testID="scan-quantity-input"
                 className="rounded-xl border border-input bg-card px-4 py-3 text-[18px] text-foreground"
