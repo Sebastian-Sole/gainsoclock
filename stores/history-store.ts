@@ -49,6 +49,96 @@ function ensureCurrentRange(persisted: { from: string; to: string }) {
   };
 }
 
+/**
+ * One server workout-log payload. `exercises` is absent on metadata-only
+ * (listMeta) rows and present on full seeds (listFull) / single-log detail
+ * (getLogDetail).
+ */
+export type ServerLog = {
+  clientId: string;
+  templateId?: string;
+  templateName: string;
+  startedAt: string;
+  completedAt: string;
+  durationSeconds: number;
+  exercises?: Array<{
+    clientId: string;
+    exerciseClientId: string;
+    name: string;
+    type: string;
+    metrics?: string[];
+    loadMode?: string;
+    order: number;
+    restTimeSeconds: number;
+    sets: Array<{
+      clientId: string;
+      completed: boolean;
+      type: string;
+      reps?: number;
+      weight?: number;
+      time?: number;
+      distance?: number;
+      powerAvg?: number;
+      heartRateAvg?: number;
+      cadence?: number;
+      calories?: number;
+      rpe?: number;
+      variant?: string;
+      metric?: string;
+      paceSeconds?: number;
+      speed?: number;
+      incline?: number;
+      distanceUnit?: string;
+    }>;
+  }>;
+};
+
+/**
+ * Map a server payload into the local WorkoutLog shape. A metadata-only
+ * (listMeta) payload has no `exercises` and maps to an empty list; a full
+ * payload (listFull / getLogDetail) carries the exercise/set detail.
+ */
+function serverLogToLocal(sl: ServerLog): WorkoutLog {
+  return {
+    id: sl.clientId,
+    templateId: sl.templateId,
+    templateName: sl.templateName,
+    exercises: (sl.exercises ?? []).map((e) => ({
+      id: e.clientId,
+      exerciseId: e.exerciseClientId,
+      name: e.name,
+      type: e.type as WorkoutLogExercise['type'],
+      metrics: resolveExerciseMetricsLoose(e.type, e.metrics),
+      loadMode: coerceLoadMode(e.loadMode),
+      order: e.order,
+      restTimeSeconds: e.restTimeSeconds,
+      sets: e.sets.map((s) => ({
+        id: s.clientId,
+        completed: s.completed,
+        type: s.type,
+        ...(s.reps !== undefined && { reps: s.reps }),
+        ...(s.weight !== undefined && { weight: s.weight }),
+        ...(s.time !== undefined && { time: s.time }),
+        ...(s.distance !== undefined && { distance: s.distance }),
+        ...(s.powerAvg !== undefined && { powerAvg: s.powerAvg }),
+        ...(s.heartRateAvg !== undefined && { heartRateAvg: s.heartRateAvg }),
+        ...(s.cadence !== undefined && { cadence: s.cadence }),
+        ...(s.calories !== undefined && { calories: s.calories }),
+        ...(s.rpe !== undefined && { rpe: s.rpe }),
+        ...(s.variant !== undefined && { variant: s.variant }),
+        ...(s.metric !== undefined && { metric: s.metric }),
+        ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
+        ...(s.speed !== undefined && { speed: s.speed }),
+        ...(s.incline !== undefined && { incline: s.incline }),
+        ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
+      })) as WorkoutSet[],
+    })),
+    startedAt: sl.startedAt,
+    completedAt: sl.completedAt,
+    durationSeconds: sl.durationSeconds,
+  };
+}
+
 interface HistoryState {
   logs: WorkoutLog[];
   loadedRange: { from: string; to: string };
@@ -66,44 +156,13 @@ interface HistoryState {
   getDatesWithWorkouts: (year: number, month: number) => Set<string>;
   extendRange: (viewingMonth: Date) => void;
   markRangeFetched: () => void;
-  hydrateFromServer: (serverLogs: Array<{
-    clientId: string;
-    templateId?: string;
-    templateName: string;
-    startedAt: string;
-    completedAt: string;
-    durationSeconds: number;
-    exercises?: Array<{
-      clientId: string;
-      exerciseClientId: string;
-      name: string;
-      type: string;
-      metrics?: string[];
-      loadMode?: string;
-      order: number;
-      restTimeSeconds: number;
-      sets: Array<{
-        clientId: string;
-        completed: boolean;
-        type: string;
-        reps?: number;
-        weight?: number;
-        time?: number;
-        distance?: number;
-        powerAvg?: number;
-        heartRateAvg?: number;
-        cadence?: number;
-        calories?: number;
-        rpe?: number;
-        variant?: string;
-        metric?: string;
-        paceSeconds?: number;
-        speed?: number;
-        incline?: number;
-        distanceUnit?: string;
-      }>;
-    }>;
-  }>) => void;
+  hydrateFromServer: (serverLogs: ServerLog[]) => void;
+  /**
+   * Fill exercise/set detail for a single already-present log (from
+   * workoutLogs.getLogDetail). Patches only that row — used by History cards
+   * that arrived metadata-only and would otherwise read "0 exercises".
+   */
+  hydrateLogDetail: (serverLog: ServerLog) => void;
 }
 
 export const useHistoryStore = create<HistoryState>()(
@@ -214,50 +273,22 @@ export const useHistoryStore = create<HistoryState>()(
         return dates;
       },
 
+      hydrateLogDetail: (serverLog) => {
+        // Patch a single row's exercise detail in place. Only touches the
+        // matching log and never removes rows, so it can't disturb the
+        // queue-aware merge that hydrateFromServer performs.
+        set((state) => ({
+          logs: state.logs.map((l) =>
+            l.id === serverLog.clientId ? serverLogToLocal(serverLog) : l
+          ),
+        }));
+      },
+
       hydrateFromServer: (serverLogs) => {
         const localLogs = get().logs;
         const { fetchedRangeFrom, loadedRange } = get();
 
-        // Map a server payload into the local WorkoutLog shape. `exercises` is
-        // absent on metadata-only (listMeta) payloads, present on full seeds.
-        const toLocal = (sl: (typeof serverLogs)[number]): WorkoutLog => ({
-          id: sl.clientId,
-          templateId: sl.templateId,
-          templateName: sl.templateName,
-          exercises: (sl.exercises ?? []).map((e) => ({
-            id: e.clientId,
-            exerciseId: e.exerciseClientId,
-            name: e.name,
-            type: e.type as WorkoutLogExercise['type'],
-            metrics: resolveExerciseMetricsLoose(e.type, e.metrics),
-            loadMode: coerceLoadMode(e.loadMode),
-            order: e.order,
-            restTimeSeconds: e.restTimeSeconds,
-            sets: e.sets.map((s) => ({
-              id: s.clientId,
-              completed: s.completed,
-              type: s.type,
-              ...(s.reps !== undefined && { reps: s.reps }),
-              ...(s.weight !== undefined && { weight: s.weight }),
-              ...(s.time !== undefined && { time: s.time }),
-              ...(s.distance !== undefined && { distance: s.distance }),
-              ...(s.powerAvg !== undefined && { powerAvg: s.powerAvg }),
-              ...(s.heartRateAvg !== undefined && { heartRateAvg: s.heartRateAvg }),
-              ...(s.cadence !== undefined && { cadence: s.cadence }),
-              ...(s.calories !== undefined && { calories: s.calories }),
-              ...(s.rpe !== undefined && { rpe: s.rpe }),
-              ...(s.variant !== undefined && { variant: s.variant }),
-              ...(s.metric !== undefined && { metric: s.metric }),
-              ...(s.paceSeconds !== undefined && { paceSeconds: s.paceSeconds }),
-              ...(s.speed !== undefined && { speed: s.speed }),
-              ...(s.incline !== undefined && { incline: s.incline }),
-              ...(s.distanceUnit !== undefined && { distanceUnit: s.distanceUnit }),
-            })) as WorkoutSet[],
-          })),
-          startedAt: sl.startedAt,
-          completedAt: sl.completedAt,
-          durationSeconds: sl.durationSeconds,
-        });
+        const toLocal = serverLogToLocal;
 
         // Queue-aware server-wins: keep local only while it has writes in
         // flight (or the queue isn't loaded yet); a metadata-only payload
