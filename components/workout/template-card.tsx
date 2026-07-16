@@ -48,11 +48,11 @@ export function TemplateCard({ template, index, onPress, onStart, onLongPress, t
         {template.exercises.length > 0 && (
           <View className="mt-3 gap-1">
             {template.exercises.slice(0, 3).map((exercise) => (
-              <View key={exercise.id} className="flex-row items-center gap-2">
-                <Text className="text-sm text-muted-foreground">
+              <View key={exercise.id} className="flex-row flex-wrap items-center gap-x-2">
+                <Text className="shrink text-sm text-muted-foreground">
                   {exercise.defaultSetsCount} x {exercise.name}
                 </Text>
-                <Text className="text-xs text-muted-foreground/60">
+                <Text className="shrink text-xs text-muted-foreground/60">
                   {exerciseTypeLabel(exercise.type, exercise.metrics)}
                 </Text>
               </View>
