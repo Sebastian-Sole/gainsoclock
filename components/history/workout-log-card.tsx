@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Pressable, Alert } from 'react-native';
-import { useMutation } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Clock, ChevronDown, ChevronUp, Pencil, Trash2, Unlink } from 'lucide-react-native';
@@ -27,9 +27,24 @@ export function WorkoutLogCard({ log, linkedExternal }: WorkoutLogCardProps) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const deleteLog = useHistoryStore((s) => s.deleteLog);
+  const hydrateLogDetail = useHistoryStore((s) => s.hydrateLogDetail);
   // Direct mutation (not the offline sync queue): link state is server-owned
   // and only exists for imported workouts, which already require connectivity.
   const unlinkExternalWorkout = useMutation(api.healthData.unlinkExternalWorkout);
+
+  // A log that arrived metadata-only (imported #108 / cross-device — listMeta
+  // carries no exercises) reads "0 exercises". Fetch just this log's detail on
+  // demand and patch it into the store so the card fills in. Bounded to one
+  // log; skips once detail is present (and for genuinely empty logs it stays
+  // a cheap no-op subscription while the card is mounted).
+  const needsDetail = log.exercises.length === 0;
+  const logDetail = useQuery(
+    api.workoutLogs.getLogDetail,
+    needsDetail ? { clientId: log.id } : 'skip'
+  );
+  useEffect(() => {
+    if (logDetail) hydrateLogDetail(logDetail);
+  }, [logDetail, hydrateLogDetail]);
 
   const handleDelete = () => {
     Alert.alert(

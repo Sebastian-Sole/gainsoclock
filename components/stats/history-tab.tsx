@@ -1,17 +1,25 @@
 import { Text } from '@/components/ui/text';
 import { addMonths, endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { useRouter } from 'expo-router';
-import { CalendarDays, FileText, Plus, X } from 'lucide-react-native';
+import { CalendarDays, ChevronRight, FileText, Link2, Plus, X } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import React, { useMemo, useState } from 'react';
 import { Alert, FlatList, Modal, Pressable, View } from 'react-native';
 
 import { Calendar } from '@/components/history/calendar';
-import { ExternalWorkoutCard } from '@/components/history/external-workout-card';
+import {
+  ExternalWorkoutCard,
+  type MergeCandidate,
+} from '@/components/history/external-workout-card';
+import {
+  MergeReviewModal,
+  type MergeReviewItem,
+} from '@/components/history/merge-review-modal';
 import { Icon } from '@/components/ui/icon';
 import { WorkoutLogCard } from '@/components/history/workout-log-card';
 import { Colors } from '@/constants/theme';
 import { useExternalWorkouts, type ExternalWorkout } from '@/hooks/use-external-workouts';
+import { computeMergeSuggestions } from '@/lib/merge-suggestions';
 import type { WorkoutLog } from '@/lib/types';
 import { useHistoryStore } from '@/stores/history-store';
 import { useTemplateStore } from '@/stores/template-store';
@@ -67,6 +75,41 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
     });
     return map;
   }, [externalWorkouts, logIds]);
+
+  // Merge suggestions for imported workouts whose (often synthetic) timestamps
+  // couldn't auto-link (#117). Keyed by HealthKit UUID for per-card lookup;
+  // the full list also drives the batch review sheet.
+  const mergeSuggestions = useMemo(
+    () => computeMergeSuggestions({ externals: externalWorkouts, logs }),
+    [externalWorkouts, logs]
+  );
+  const suggestionByUuid = useMemo(() => {
+    const m = new Map<
+      string,
+      { suggested: MergeCandidate | null; candidates: MergeCandidate[] }
+    >();
+    for (const s of mergeSuggestions) {
+      m.set(s.external.healthKitUuid, {
+        suggested: s.suggested
+          ? { id: s.suggested.id, templateName: s.suggested.templateName }
+          : null,
+        candidates: s.candidates.map((c) => ({ id: c.id, templateName: c.templateName })),
+      });
+    }
+    return m;
+  }, [mergeSuggestions]);
+  const reviewItems = useMemo<MergeReviewItem[]>(
+    () =>
+      mergeSuggestions.map((s) => ({
+        workout: s.external,
+        suggested: s.suggested
+          ? { id: s.suggested.id, templateName: s.suggested.templateName }
+          : null,
+        candidates: s.candidates.map((c) => ({ id: c.id, templateName: c.templateName })),
+      })),
+    [mergeSuggestions]
+  );
+  const [showMergeReview, setShowMergeReview] = useState(false);
 
   const workoutDates = useMemo(() => {
     const dates = new Set<string>();
@@ -156,6 +199,25 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
         onNextMonth={() => onMonthChange(addMonths(currentMonth, 1))}
       />
 
+      {reviewItems.length > 0 && (
+        <Pressable
+          testID="merge-review-banner"
+          onPress={() => setShowMergeReview(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`Review ${reviewItems.length} imported workouts that may match a workout you logged`}
+          className="mt-5 flex-row items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3"
+        >
+          <Icon as={Link2} size={18} className="text-primary" />
+          <View className="flex-1">
+            <Text className="text-sm font-medium">Review imported workouts</Text>
+            <Text className="text-xs text-muted-foreground">
+              {reviewItems.length} may match a workout you logged
+            </Text>
+          </View>
+          <Icon as={ChevronRight} size={18} className="text-muted-foreground" />
+        </Pressable>
+      )}
+
       <Text className="mb-3 mt-6 text-sm font-medium text-muted-foreground">
         {format(selectedDate, 'EEEE, MMMM d, yyyy')}
       </Text>
@@ -182,7 +244,12 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
                 linkedExternal={linkedExternalByLogId.get(entry.log.id)}
               />
             ) : (
-              <ExternalWorkoutCard key={entry.workout._id} workout={entry.workout} />
+              <ExternalWorkoutCard
+                key={entry.workout._id}
+                workout={entry.workout}
+                suggested={suggestionByUuid.get(entry.workout.healthKitUuid)?.suggested ?? null}
+                candidates={suggestionByUuid.get(entry.workout.healthKitUuid)?.candidates ?? []}
+              />
             )
           )}
           <Pressable
@@ -246,6 +313,12 @@ export function HistoryTab({ currentMonth, selectedDate, onMonthChange, onSelect
           />
         </View>
       </Modal>
+
+      <MergeReviewModal
+        visible={showMergeReview}
+        onClose={() => setShowMergeReview(false)}
+        items={reviewItems}
+      />
     </>
   );
 }

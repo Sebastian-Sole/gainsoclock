@@ -1,18 +1,23 @@
+import { useMutation } from 'convex/react';
 import { format } from 'date-fns';
 import {
   Activity,
   Bike,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Dumbbell,
   Footprints,
+  Link2,
   Waves,
   type LucideIcon,
 } from 'lucide-react-native';
-import React from 'react';
-import { View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Pressable, View } from 'react-native';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { api } from '@/convex/_generated/api';
 import { formatDistance, formatDuration } from '@/lib/format';
 import { resolveHealthSourceName } from '@/lib/health-source';
 import { useSettingsStore, type DistanceUnit } from '@/stores/settings-store';
@@ -66,17 +71,32 @@ function spokenDuration(seconds: number): string {
   return `${seconds} seconds`;
 }
 
+/** A Fitbull log this imported workout could be merged into. */
+export type MergeCandidate = { id: string; templateName: string };
+
 interface ExternalWorkoutCardProps {
   workout: ExternalWorkout;
+  /** Same-day log the app is confident is the same session (chip CTA). */
+  suggested?: MergeCandidate | null;
+  /** All same-day logs available to merge into (manual picker). */
+  candidates?: MergeCandidate[];
 }
 
 /**
- * Read-only history card for a workout imported from Apple Health (e.g. a
- * Strava run or Garmin ride). Intentionally not a Pressable — there is no
- * detail screen for external workouts yet.
+ * History card for a workout imported from Apple Health. When the day has a
+ * Fitbull log it could belong to (#117), it offers a merge: a one-tap chip for
+ * a confident same-activity match, or an expandable picker to choose the log.
+ * With nothing to merge into, it stays a plain read-only card.
  */
-export function ExternalWorkoutCard({ workout }: ExternalWorkoutCardProps) {
+export function ExternalWorkoutCard({
+  workout,
+  suggested = null,
+  candidates = [],
+}: ExternalWorkoutCardProps) {
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
+  const linkWorkout = useMutation(api.healthData.linkExternalWorkout);
+  const unlinkWorkout = useMutation(api.healthData.unlinkExternalWorkout);
+  const [expanded, setExpanded] = useState(false);
 
   const activityLabel = humanizeActivityType(workout.activityType);
   const ActivityIcon = activityIcon(workout.activityType);
@@ -104,6 +124,23 @@ export function ExternalWorkoutCard({ workout }: ExternalWorkoutCardProps) {
     (s): s is string => s !== null
   );
 
+  const canMerge = candidates.length > 0;
+
+  const handleMerge = (logClientId: string) => {
+    linkWorkout({
+      healthKitUuid: workout.healthKitUuid,
+      workoutLogClientId: logClientId,
+    }).catch(() =>
+      Alert.alert('Could Not Merge', 'Check your connection and try again.')
+    );
+  };
+
+  const handleKeepSeparate = () => {
+    unlinkWorkout({ healthKitUuid: workout.healthKitUuid }).catch(() =>
+      Alert.alert('Something Went Wrong', 'Check your connection and try again.')
+    );
+  };
+
   const accessibilityLabel = [
     `${activityLabel} workout from ${sourceLabel}`,
     `at ${startTime}`,
@@ -115,16 +152,19 @@ export function ExternalWorkoutCard({ workout }: ExternalWorkoutCardProps) {
     ...(heartRate
       ? [`average heart rate ${Math.round(workout.avgHeartRateBpm ?? 0)}`]
       : []),
+    ...(suggested ? [`possible match: your ${suggested.templateName} workout`] : []),
   ].join(', ');
 
   return (
     <View
       testID="history-external-workout-card"
-      accessible
-      accessibilityLabel={accessibilityLabel}
       className="mb-3 rounded-xl border border-dashed border-border bg-muted/30 p-4"
     >
-      <View className="flex-row items-start gap-3">
+      <View
+        accessible
+        accessibilityLabel={accessibilityLabel}
+        className="flex-row items-start gap-3"
+      >
         <View className="h-9 w-9 items-center justify-center rounded-full bg-secondary">
           <Icon as={ActivityIcon} size={18} className="text-secondary-foreground" />
         </View>
@@ -140,18 +180,92 @@ export function ExternalWorkoutCard({ workout }: ExternalWorkoutCardProps) {
             </Text>
           </View>
           <View className="rounded-full bg-secondary px-2 py-0.5">
-            <Text className="text-xs text-secondary-foreground">
-              {sourceLabel}
-            </Text>
+            <Text className="text-xs text-secondary-foreground">{sourceLabel}</Text>
           </View>
         </View>
       </View>
 
       {stats.length > 0 && (
         <View className="mt-2 flex-row flex-wrap">
+          <Text className="text-xs text-muted-foreground">{stats.join(' · ')}</Text>
+        </View>
+      )}
+
+      {/* Suggested match — one-tap merge for a confident same-activity log. */}
+      {suggested && !expanded && (
+        <View className="mt-3 flex-row items-center gap-2 rounded-lg bg-primary/5 p-2 pl-3">
+          <View className="flex-1">
+            <Text className="text-xs text-muted-foreground">
+              Same session as your{' '}
+              <Text className="text-xs font-medium text-foreground">
+                {suggested.templateName}
+              </Text>{' '}
+              workout?
+            </Text>
+          </View>
+          <Pressable
+            testID="external-merge-suggested"
+            onPress={() => handleMerge(suggested.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`Merge into your ${suggested.templateName} workout`}
+            className="flex-row items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5"
+          >
+            <Icon as={Link2} size={13} className="text-primary-foreground" />
+            <Text className="text-xs font-medium text-primary-foreground">Merge</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Manual picker — expand to choose which workout this belongs to. */}
+      {canMerge && (
+        <Pressable
+          testID="external-merge-toggle"
+          onPress={() => setExpanded((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={expanded ? 'Hide merge options' : 'Merge into a workout'}
+          accessibilityState={{ expanded }}
+          className="mt-2 flex-row items-center gap-1 self-start py-1"
+        >
+          <Icon as={Link2} size={13} className="text-muted-foreground" />
           <Text className="text-xs text-muted-foreground">
-            {stats.join(' · ')}
+            {suggested ? 'Choose a different workout' : 'Merge into a workout'}
           </Text>
+          <Icon
+            as={expanded ? ChevronUp : ChevronDown}
+            size={13}
+            className="text-muted-foreground"
+          />
+        </Pressable>
+      )}
+
+      {expanded && (
+        <View className="mt-2 gap-2 border-t border-border pt-3">
+          {candidates.map((c) => (
+            <Pressable
+              key={c.id}
+              testID="external-merge-candidate"
+              onPress={() => handleMerge(c.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Merge into ${c.templateName}`}
+              className="flex-row items-center justify-between rounded-lg bg-background px-3 py-2.5"
+            >
+              <Text className="flex-1 text-sm font-medium">{c.templateName}</Text>
+              <View className="flex-row items-center gap-1.5">
+                <Icon as={Link2} size={13} className="text-primary" />
+                <Text className="text-xs font-medium text-primary">Merge</Text>
+              </View>
+            </Pressable>
+          ))}
+          <Pressable
+            testID="external-keep-separate"
+            onPress={handleKeepSeparate}
+            accessibilityRole="button"
+            accessibilityLabel="Keep this workout separate"
+            accessibilityHint="Stops suggesting a merge for this imported workout"
+            className="items-center py-2"
+          >
+            <Text className="text-xs text-muted-foreground">Keep separate</Text>
+          </Pressable>
         </View>
       )}
     </View>

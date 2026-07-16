@@ -147,6 +147,41 @@ export const unlinkExternalWorkout = mutation({
   },
 });
 
+// User-driven merge of an imported workout into a native log ("Merge" in
+// History / the review sheet, #117). The inverse of unlinkExternalWorkout:
+// sets the link and clears any prior dismissal, since an explicit link is the
+// user overriding a "keep separate". Time overlap is NOT required — this is
+// exactly for imports whose synthetic timestamps can't auto-match.
+export const linkExternalWorkout = mutation({
+  args: { healthKitUuid: v.string(), workoutLogClientId: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    // The target log must exist and belong to the caller.
+    const log = await ctx.db
+      .query("workoutLogs")
+      .withIndex("by_user_clientId", (q) =>
+        q.eq("userId", userId).eq("clientId", args.workoutLogClientId)
+      )
+      .unique();
+    if (!log) throw new Error("Workout not found");
+
+    const external = await ctx.db
+      .query("externalWorkouts")
+      .withIndex("by_user_uuid", (q) =>
+        q.eq("userId", userId).eq("healthKitUuid", args.healthKitUuid)
+      )
+      .unique();
+    if (!external) return;
+
+    await ctx.db.patch(external._id, {
+      linkedWorkoutLogClientId: args.workoutLogClientId,
+      linkDismissed: undefined,
+    });
+  },
+});
+
 // One-time backfill of linkedWorkoutLogClientId over a user's existing
 // external workouts (issue #117). Idempotent: only unlinked, non-dismissed
 // rows are considered, and re-running after completion is a no-op. Paged so

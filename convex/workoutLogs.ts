@@ -231,6 +231,83 @@ export const listFull = query({
   },
 });
 
+// Full exercise/set detail for a SINGLE log, or null when it doesn't exist.
+// Lazy companion to listMeta: a History card that arrived metadata-only
+// (imported #108 / cross-device — listMeta carries no exercises) fetches its
+// own detail on demand instead of forcing an unbounded listFull re-seed.
+// Reads are bounded to one log's rows, so this scales to any history size.
+export const getLogDetail = query({
+  args: { clientId: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const log = await ctx.db
+      .query("workoutLogs")
+      .withIndex("by_user_clientId", (q) =>
+        q.eq("userId", userId).eq("clientId", args.clientId)
+      )
+      .unique();
+    if (!log) return null;
+
+    const exercises = await ctx.db
+      .query("workoutLogExercises")
+      .withIndex("by_workout", (q) =>
+        q.eq("userId", userId).eq("workoutLogClientId", args.clientId)
+      )
+      .collect();
+
+    const exercisesWithSets = await Promise.all(
+      exercises.map(async (ex) => {
+        const [sets, def] = await Promise.all([
+          ctx.db
+            .query("workoutSets")
+            .withIndex("by_workout_exercise", (q) =>
+              q
+                .eq("userId", userId)
+                .eq("workoutLogExerciseClientId", ex.clientId)
+            )
+            .collect(),
+          ctx.db
+            .query("exercises")
+            .withIndex("by_user_clientId", (q) =>
+              q.eq("userId", userId).eq("clientId", ex.exerciseClientId)
+            )
+            .unique(),
+        ]);
+        return {
+          clientId: ex.clientId,
+          exerciseClientId: ex.exerciseClientId,
+          name: def?.name ?? "Unknown",
+          type: def?.type ?? ("reps_weight" as const),
+          metrics: ex.metrics ?? def?.metrics,
+          loadMode: ex.loadMode,
+          order: ex.order,
+          restTimeSeconds: ex.restTimeSeconds,
+          sets: sets
+            .sort((a, b) => a.order - b.order)
+            .map((s) => ({
+              clientId: s.clientId,
+              completed: s.completed,
+              type: s.type,
+              ...setValueFields(s),
+            })),
+        };
+      })
+    );
+
+    return {
+      clientId: log.clientId,
+      templateId: log.templateId,
+      templateName: log.templateName,
+      startedAt: log.startedAt,
+      completedAt: log.completedAt,
+      durationSeconds: log.durationSeconds,
+      exercises: exercisesWithSets.sort((a, b) => a.order - b.order),
+    };
+  },
+});
+
 export const create = mutation({
   args: {
     clientId: v.string(),
