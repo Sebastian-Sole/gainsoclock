@@ -14,6 +14,15 @@ import {
 interface WorkoutState {
   activeWorkout: ActiveWorkout | null;
 
+  /** Transient UI signal: which exercise the Focus logger should jump to
+   *  (set when tapping a summary row or after adding an exercise). Carried
+   *  through the store instead of route params — param-carrying hrefs made
+   *  dismissTo/navigate treat the logger as a different route and push a
+   *  duplicate on top of the summary (#141). Not persisted. The nonce makes
+   *  repeat requests for the same exercise re-fire. */
+  focusRequest: { id: string; nonce: number } | null;
+  requestFocusExercise: (id: string) => void;
+
   startWorkout: (templateName: string, exercises: TemplateExercise[], templateId?: string, planDayId?: string, previousLog?: WorkoutLog) => void;
   startEmptyWorkout: () => void;
   endWorkout: () => ActiveWorkout | null;
@@ -47,6 +56,12 @@ export const useWorkoutStore = create<WorkoutState>()(
   persist(
   (set, get) => ({
   activeWorkout: null,
+
+  focusRequest: null,
+  requestFocusExercise: (id) =>
+    set((state) => ({
+      focusRequest: { id, nonce: (state.focusRequest?.nonce ?? 0) + 1 },
+    })),
 
   startWorkout: (templateName, templateExercises, templateId, planDayId, previousLog) => {
     // Build a lookup of previous exercises by exerciseId for prefilling

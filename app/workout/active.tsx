@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Dumbbell, BookmarkPlus } from 'lucide-react-native';
@@ -67,8 +67,10 @@ export default function ActiveWorkoutScreen() {
   // Set when create.tsx dismisses back here after adding an exercise mid-
   // workout (summary, empty state, or the logger's pills bar) — the pager
   // should open on the newly added exercise (#113, #126). Also set when the
-  // summary's exercise rows navigate back to a specific exercise.
-  const { focusExerciseId } = useLocalSearchParams<{ focusExerciseId?: string }>();
+  // summary's exercise rows navigate back to a specific exercise. Delivered
+  // via the store, not route params — see focusRequest in workout-store
+  // (#141).
+  const focusRequest = useWorkoutStore((s) => s.focusRequest);
 
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
   const updateSet = useWorkoutStore((s) => s.updateSet);
@@ -253,7 +255,8 @@ export default function ActiveWorkoutScreen() {
           onAddExercise={() => router.push('/exercise/create?source=active')}
           onSetCompleted={handleSetCompleted}
           onAllComplete={handleAllComplete}
-          focusExerciseId={focusExerciseId}
+          focusExerciseId={focusRequest?.id}
+          focusNonce={focusRequest?.nonce}
         />
       </KeyboardAvoidingView>
 

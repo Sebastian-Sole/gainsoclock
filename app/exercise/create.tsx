@@ -164,16 +164,11 @@ export default function CreateExerciseScreen() {
     }
   };
 
-  // Cancelling the add-exercise flow mid-workout must resolve the stack the
-  // same way saving does: land on the logger, popping any transient screens
-  // stacked between (the finish summary). A plain back() from
-  // summary → create would strand the user on the summary (#141).
+  // Cancel = one plain back() for every entry point. Mid-workout this lands
+  // on the logger because the summary replaces itself with this screen
+  // rather than pushing (#141).
   const handleClose = () => {
-    if (isActiveWorkout) {
-      router.dismissTo('/workout/active');
-    } else {
-      router.back();
-    }
+    router.back();
   };
 
   const handleBack = () => {
@@ -245,12 +240,14 @@ export default function CreateExerciseScreen() {
         useWorkoutStore.getState().addExercise(exercise);
         // Land back on the Focus logger with the pager pointed at the exercise
         // that was just added, no matter where "add exercise" was tapped —
-        // summary, empty state, or the logger's pills bar (#113, #126).
-        // dismissTo also pops any screens stacked above the logger (summary).
-        router.dismissTo({
-          pathname: '/workout/active',
-          params: { focusExerciseId: exercise.id },
-        });
+        // summary, empty state, or the logger's pills bar (#113, #126). The
+        // logger is always the screen directly beneath this one (the summary
+        // hands over its stack slot via replace), so a plain back() is
+        // deterministic; the focus target travels via the store, because
+        // param-carrying hrefs made dismissTo/navigate push a duplicate
+        // logger instead of popping to the existing one (#141).
+        useWorkoutStore.getState().requestFocusExercise(exercise.id);
+        router.back();
         return;
       }
       useEditLogStore.getState().addExercise(exercise);

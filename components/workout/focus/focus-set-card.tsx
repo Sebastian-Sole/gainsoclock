@@ -1,17 +1,23 @@
 import React from 'react';
-import { View, Pressable, TextInput } from 'react-native';
+import { Alert, View, Pressable, TextInput } from 'react-native';
 import { useNumericField } from '@/hooks/use-numeric-field';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { Text } from '@/components/ui/text';
-import { ChevronsDown, Pencil, X } from 'lucide-react-native';
+import { Pencil, X } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { TimeInput } from '@/components/shared/time-input';
 import { IntervalSetInputs, MmSsInput } from '@/components/workout/interval-set-inputs';
 import { RpeInput } from '@/components/workout/rpe-input';
 import { useSettingsStore } from '@/stores/settings-store';
-import type { Exercise, MetricId, WorkoutSet } from '@/lib/types';
-import { effectiveLoad, loadModeFieldSuffix, resolveLoadMode } from '@/lib/load-mode';
+import type { Exercise, LoadMode, MetricId, WorkoutSet } from '@/lib/types';
+import {
+  LOAD_MODE_OPTIONS,
+  effectiveLoad,
+  loadModeFieldSuffix,
+  resolveLoadMode,
+} from '@/lib/load-mode';
+import { formatTime } from '@/lib/format';
 import {
   METRICS,
   metricUnitOverride,
@@ -78,10 +84,15 @@ interface FocusSetCardProps {
   onUpdate: (updates: Partial<WorkoutSet>) => void;
   onAddMetric: () => void;
   onRemoveMetric: (metricId: MetricId) => void;
-  /** Later sets exist, so per-metric "apply to following sets" is offered. */
+  /** Later sets exist, so per-metric "apply to remaining sets" is offered. */
   canApplyToFollowing?: boolean;
   /** Apply `updates` to this set and every set after it (#146). */
   onApplyToFollowing?: (updates: Partial<WorkoutSet>, label: string) => void;
+  /** Change this exercise's weight load mode (#142); offered on the weight
+   *  metric row's label when provided. */
+  onChangeLoadMode?: (loadMode: LoadMode) => void;
+  /** Scope note shown in the load-mode picker (active vs edit-log wording). */
+  loadModeHint?: string;
 }
 
 export function FocusSetCard({
@@ -95,11 +106,22 @@ export function FocusSetCard({
   onRemoveMetric,
   canApplyToFollowing = false,
   onApplyToFollowing,
+  onChangeLoadMode,
+  loadModeHint,
 }: FocusSetCardProps) {
   const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
   const metrics = resolveExerciseMetrics(exercise.type, exercise.metrics);
   // One ref per metric row so the pencil affordance can focus its field.
   const valueInputRefs = React.useRef<Record<string, TextInput | null>>({});
+
+  // "Apply to remaining sets" prompt (#146): appears under a metric row only
+  // after the user changes that metric's value on this set (mirrors the old
+  // pre-Focus applyAllPrompt). One prompt at a time; cleared when this card
+  // stops being the active set so it never lingers on a neighbor slot.
+  const [applyPromptField, setApplyPromptField] = React.useState<MetricId | null>(null);
+  React.useEffect(() => {
+    if (!editable) setApplyPromptField(null);
+  }, [editable]);
 
   // Intervals don't compose from the metric palette: one set is a whole
   // interval — a work segment (effort + duration) and a rest segment — with
@@ -117,7 +139,12 @@ export function FocusSetCard({
 
   const renderInput = (spec: MetricSpec) => {
     const value = set[spec.field];
-    const change = (v: number | undefined) => onUpdate(metricUpdate(spec.field, v));
+    const change = (v: number | undefined) => {
+      onUpdate(metricUpdate(spec.field, v));
+      // A value change on this set offers to carry it to the remaining sets
+      // (#146). Armed here, rendered under the row below.
+      if (canApplyToFollowing && onApplyToFollowing) setApplyPromptField(spec.id);
+    };
     // Screen readers hear the load-mode qualifier too ("Weight, per hand").
     const fieldSuffix = spec.id === 'weight' ? loadModeFieldSuffix(exercise.loadMode) : undefined;
     const fieldLabel = fieldSuffix ? `${spec.label}, ${fieldSuffix}` : spec.label;
@@ -187,10 +214,27 @@ export function FocusSetCard({
     );
   };
 
-  // Weight-field qualifier for unilateral exercises: "per hand"/"per side"
-  // (lib/load-mode.ts). Undefined for 'total'/legacy — nothing changes.
-  const weightSuffix = loadModeFieldSuffix(exercise.loadMode);
+  // Weight-field qualifier: always shown, including "total", so the active
+  // entry mode is never ambiguous (#142).
+  const weightSuffix = loadModeFieldSuffix(exercise.loadMode) ?? 'total';
   const isPerHand = resolveLoadMode(exercise.loadMode) === 'per_hand';
+
+  // Load-mode picker (#142): lives on the weight metric row itself. Native
+  // alert keeps it one tap and fully screen-reader reachable.
+  const openLoadModePicker = () => {
+    const current = resolveLoadMode(exercise.loadMode);
+    Alert.alert(
+      'Weight is entered as',
+      loadModeHint,
+      [
+        ...LOAD_MODE_OPTIONS.map((o) => ({
+          text: o.id === current ? `${o.label} ✓` : `${o.label} — ${o.description.toLowerCase()}`,
+          onPress: () => onChangeLoadMode?.(o.id),
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]
+    );
+  };
 
   return (
     <View>
@@ -205,38 +249,51 @@ export function FocusSetCard({
           id === 'weight' && isPerHand && set.weight !== undefined && set.weight > 0
             ? `= ${effectiveLoad(set.weight, exercise.loadMode)} ${unit} total`
             : undefined;
-        const showApply = canApplyToFollowing && onApplyToFollowing !== undefined;
         const applyValue = set[spec.field];
+        const showApplyPrompt =
+          applyPromptField === id &&
+          canApplyToFollowing &&
+          onApplyToFollowing !== undefined &&
+          applyValue !== undefined;
+        const applyValueLabel =
+          spec.inputKind === 'duration' || spec.inputKind === 'pace'
+            ? formatTime(applyValue ?? 0)
+            : `${applyValue}${unit ? ` ${unit}` : ''}`;
+        const canEditLoadMode = id === 'weight' && onChangeLoadMode !== undefined && editable;
+        const labelColumn = (
+          <>
+            <Text className="text-base font-semibold text-foreground">{spec.label}</Text>
+            {unitLine ? (
+              <Text
+                className={cn(
+                  'text-[10px] uppercase tracking-wide text-muted-foreground',
+                  canEditLoadMode && 'underline'
+                )}
+              >
+                {unitLine}
+              </Text>
+            ) : null}
+          </>
+        );
         return (
           <View key={id} className={cn('py-3', i > 0 && 'border-t border-border')}>
             <View className="flex-row items-center gap-2">
-              <View style={{ width: 94 }}>
-                <Text className="text-base font-semibold text-foreground">{spec.label}</Text>
-                {unitLine ? (
-                  <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">{unitLine}</Text>
-                ) : null}
-              </View>
-              {renderInput(spec)}
-              {showApply && (
+              {canEditLoadMode ? (
                 <Pressable
-                  onPress={() => {
-                    if (applyValue !== undefined) {
-                      onApplyToFollowing(metricUpdate(spec.field, applyValue), spec.label);
-                    }
-                  }}
-                  disabled={!editable || applyValue === undefined}
-                  hitSlop={8}
+                  style={{ width: 94 }}
+                  onPress={openLoadModePicker}
+                  hitSlop={6}
                   accessibilityRole="button"
-                  accessibilityLabel={`Apply ${spec.label} to all following sets`}
-                  className="w-6 items-center justify-center"
+                  accessibilityLabel={`Weight entry mode: ${weightSuffix}`}
+                  accessibilityHint="Change to total, per hand, or per side"
+                  testID="focus-weight-load-mode"
                 >
-                  <Icon
-                    as={ChevronsDown}
-                    size={15}
-                    className={cn('text-primary', applyValue === undefined && 'opacity-30')}
-                  />
+                  {labelColumn}
                 </Pressable>
+              ) : (
+                <View style={{ width: 94 }}>{labelColumn}</View>
               )}
+              {renderInput(spec)}
               <Pressable
                 onPress={() => onRemoveMetric(id)}
                 disabled={!editable || metrics.length <= 1}
@@ -255,6 +312,33 @@ export function FocusSetCard({
                 {totalHint}
               </Text>
             ) : null}
+            {showApplyPrompt && (
+              <View className="mt-2 flex-row items-center rounded-xl border border-primary bg-primary/10">
+                <Pressable
+                  onPress={() => {
+                    onApplyToFollowing(metricUpdate(spec.field, applyValue), spec.label);
+                    setApplyPromptField(null);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Apply ${applyValueLabel} to remaining sets`}
+                  testID={`focus-apply-${spec.id}`}
+                  className="min-h-[44px] flex-1 justify-center py-2.5 pl-3"
+                >
+                  <Text className="text-sm font-semibold text-primary">
+                    Apply {applyValueLabel} to remaining sets
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setApplyPromptField(null)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Dismiss"
+                  hitSlop={8}
+                  className="min-h-[44px] justify-center px-3"
+                >
+                  <Icon as={X} size={14} className="text-primary" />
+                </Pressable>
+              </View>
+            )}
           </View>
         );
       })}
@@ -275,8 +359,7 @@ export function FocusSetCard({
               disabled={!editable}
             />
           </View>
-          {/* spacers matching the apply/remove-metric columns so the control lines up */}
-          {canApplyToFollowing && onApplyToFollowing !== undefined && <View className="w-6" />}
+          {/* spacer matching the remove-metric column so the control lines up */}
           <View className="w-6" />
         </View>
       )}
