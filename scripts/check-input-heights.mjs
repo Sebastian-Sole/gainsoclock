@@ -17,8 +17,14 @@
 //      within 15 lines) has a fixed height in its className — the wrapper
 //      variant of the same clipping bug.
 //
+// It ALSO scans `<Input` primitive call sites (#144): the primitive centres
+// by structure (min-h wrapper + self-sizing field), but a caller-supplied
+// className can break that contract from outside — a fixed height stops the
+// box growing with Dynamic Type, and a named text-size class re-introduces
+// the line-height offset if inherited. Both are flagged at the call site.
+//
 // False positive? Add a `// input-height-ok: <reason>` comment on the line
-// directly above the flagged TextInput or wrapper. ~no deps.
+// directly above the flagged TextInput, Input, or wrapper. ~no deps.
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
@@ -50,8 +56,36 @@ const problems = [];
 for (const dir of SOURCE_DIRS) {
   for (const file of walk(dir)) {
     const src = readFileSync(file, "utf8");
-    if (!src.includes("<TextInput")) continue;
+    if (!src.includes("<TextInput") && !src.includes("<Input")) continue;
     const lines = src.split("\n");
+
+    // ── Input primitive call sites: className must not override the
+    //    centering/Dynamic-Type contract (#144). ─────────────────────────
+    for (let i = 0; i < lines.length; i++) {
+      if (!/<Input\b/.test(lines[i])) continue;
+      let propsEnd = i;
+      while (
+        propsEnd < lines.length - 1 &&
+        !/\/?>/.test(lines[propsEnd]) &&
+        propsEnd - i < 40
+      ) {
+        propsEnd++;
+      }
+      const props = lines.slice(i, propsEnd + 1).join("\n");
+      if (i > 0 && WAIVER.test(lines[i - 1])) continue;
+
+      const rel = relative(repoRoot, file);
+      if (FIXED_HEIGHT.test(props)) {
+        problems.push(
+          `${rel}:${i + 1} — <Input> call site passes a fixed height; the primitive's box must stay min-h so Dynamic Type can grow it`,
+        );
+      }
+      if (NAMED_TEXT_SIZE.test(props)) {
+        problems.push(
+          `${rel}:${i + 1} — <Input> call site passes a named text-size class (injects line-height, off-centres the placeholder); use the size variant or text-[Npx]`,
+        );
+      }
+    }
 
     for (let i = 0; i < lines.length; i++) {
       if (!lines[i].includes("<TextInput")) continue;
