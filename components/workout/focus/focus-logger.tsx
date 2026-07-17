@@ -16,6 +16,7 @@ import { FocusSetCard } from '@/components/workout/focus/focus-set-card';
 import { ProgressRing, useRingColors } from '@/components/shared/progress-ring';
 import { lightHaptic, mediumHaptic, successHaptic } from '@/lib/haptics';
 import { MAX_METRICS_PER_EXERCISE, METRIC_LIST, resolveExerciseMetrics } from '@/lib/metrics';
+import { firstIncompleteSetIndex } from '@/lib/set-progress';
 import type { Exercise, MetricId, WorkoutSet } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -149,7 +150,11 @@ export function FocusLogger({
   const ring = useRingColors();
 
   const [exIdx, setExIdx] = useState(0);
-  const [setIdx, setSetIdx] = useState(0);
+  // Open on the earliest incomplete set — resuming a half-done workout should
+  // land where the user actually is, not back on set 1 (#140).
+  const [setIdx, setSetIdx] = useState(() =>
+    firstIncompleteSetIndex(exercises[0]?.sets ?? [])
+  );
   const [showAddMetric, setShowAddMetric] = useState(false);
   const [showExMenu, setShowExMenu] = useState(false);
   const [pageW, setPageW] = useState(0);
@@ -213,14 +218,14 @@ export function FocusLogger({
     tx.value = -safeSetIdx * pageW;
   }, [pageW, safeSetIdx, safeExIdx, tx]);
 
-  // Jump to a caller-designated exercise (its first set) — e.g. one just added
-  // from the summary screen.
+  // Jump to a caller-designated exercise — e.g. one just added or tapped on
+  // the summary screen — landing on its earliest incomplete set (#140).
   useEffect(() => {
     if (!focusExerciseId) return;
     const idx = exercisesRef.current.findIndex((e) => e.id === focusExerciseId);
     if (idx !== -1) {
       setExIdx(idx);
-      setSetIdx(0);
+      setSetIdx(firstIncompleteSetIndex(exercisesRef.current[idx].sets));
     }
   }, [focusExerciseId]);
 
@@ -276,7 +281,7 @@ export function FocusLogger({
   const selectExercise = (i: number) => {
     lightHaptic();
     setExIdx(i);
-    setSetIdx(0);
+    setSetIdx(firstIncompleteSetIndex(exercises[i]?.sets ?? []));
   };
 
   const advanceAfterComplete = useCallback(() => {
