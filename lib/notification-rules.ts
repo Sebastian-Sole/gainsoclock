@@ -36,20 +36,25 @@ export function hasWorkoutToday(args: {
 /**
  * Decide whether the daily workout reminder should fire as a repeating
  * DAILY trigger, or be suppressed for today and rescheduled as a one-shot
- * for tomorrow (when a workout already happened today and today's
- * reminder time hasn't passed yet).
+ * for tomorrow. Today is suppressed when the reminder time hasn't passed
+ * yet and either a workout already happened today, or one is in progress
+ * right now — a "go work out" nudge mid-workout is wrong, and since a
+ * backgrounded app can't consult JS state at fire time, the suppression
+ * has to happen here at scheduling time.
  */
 export function planDailyReminder(args: {
   now: Date;
   hour: number;
   minute: number;
   workedOutToday: boolean;
+  /** A workout is active right now (not yet finished/logged). */
+  workoutInProgress?: boolean;
 }): DailyReminderPlan {
-  const { now, hour, minute, workedOutToday } = args;
+  const { now, hour, minute, workedOutToday, workoutInProgress } = args;
 
   const reminderToday = new Date(now);
   reminderToday.setHours(hour, minute, 0, 0);
-  if (workedOutToday && now < reminderToday) {
+  if ((workedOutToday || workoutInProgress) && now < reminderToday) {
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(hour, minute, 0, 0);

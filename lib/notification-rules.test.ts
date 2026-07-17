@@ -122,6 +122,54 @@ describe("planDailyReminder", () => {
     // tomorrow 18:00:00 - now 17:59:59 = 86401s.
     expect(plan).toEqual({ kind: "one-shot-tomorrow", seconds: 86401 });
   });
+
+  it("workout in progress + before reminder time -> one-shot for tomorrow (no nudge mid-workout)", () => {
+    const now = new Date(2026, 5, 15, 17, 50, 0); // mid-workout at 17:50, reminder 18:00
+    const plan = planDailyReminder({
+      now,
+      hour: 18,
+      minute: 0,
+      workedOutToday: false,
+      workoutInProgress: true,
+    });
+    // 2026-06-16 18:00 - 2026-06-15 17:50 = 24h10m = 87000s.
+    expect(plan).toEqual({ kind: "one-shot-tomorrow", seconds: 87000 });
+  });
+
+  it("workout in progress + after reminder time -> repeating daily (next fire is tomorrow)", () => {
+    const now = new Date(2026, 5, 15, 19, 0, 0);
+    const plan = planDailyReminder({
+      now,
+      hour: 18,
+      minute: 0,
+      workedOutToday: false,
+      workoutInProgress: true,
+    });
+    expect(plan).toEqual({ kind: "repeating-daily" });
+  });
+
+  it("workoutInProgress omitted behaves as before (no workout -> repeating daily)", () => {
+    const now = new Date(2026, 5, 15, 10, 0, 0);
+    const plan = planDailyReminder({
+      now,
+      hour: 18,
+      minute: 0,
+      workedOutToday: false,
+    });
+    expect(plan).toEqual({ kind: "repeating-daily" });
+  });
+
+  it("discarded workout (no longer in progress, nothing logged) -> repeating daily fires normally", () => {
+    const now = new Date(2026, 5, 15, 17, 50, 0);
+    const plan = planDailyReminder({
+      now,
+      hour: 18,
+      minute: 0,
+      workedOutToday: false,
+      workoutInProgress: false,
+    });
+    expect(plan).toEqual({ kind: "repeating-daily" });
+  });
 });
 
 describe("decideProteinNudge", () => {
