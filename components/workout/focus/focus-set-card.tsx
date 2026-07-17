@@ -3,7 +3,7 @@ import { View, Pressable, TextInput } from 'react-native';
 import { useNumericField } from '@/hooks/use-numeric-field';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { Text } from '@/components/ui/text';
-import { Pencil, X } from 'lucide-react-native';
+import { ChevronsDown, Pencil, X } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { TimeInput } from '@/components/shared/time-input';
@@ -78,6 +78,10 @@ interface FocusSetCardProps {
   onUpdate: (updates: Partial<WorkoutSet>) => void;
   onAddMetric: () => void;
   onRemoveMetric: (metricId: MetricId) => void;
+  /** Later sets exist, so per-metric "apply to following sets" is offered. */
+  canApplyToFollowing?: boolean;
+  /** Apply `updates` to this set and every set after it (#146). */
+  onApplyToFollowing?: (updates: Partial<WorkoutSet>, label: string) => void;
 }
 
 export function FocusSetCard({
@@ -89,6 +93,8 @@ export function FocusSetCard({
   onUpdate,
   onAddMetric,
   onRemoveMetric,
+  canApplyToFollowing = false,
+  onApplyToFollowing,
 }: FocusSetCardProps) {
   const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
   const metrics = resolveExerciseMetrics(exercise.type, exercise.metrics);
@@ -199,6 +205,8 @@ export function FocusSetCard({
           id === 'weight' && isPerHand && set.weight !== undefined && set.weight > 0
             ? `= ${effectiveLoad(set.weight, exercise.loadMode)} ${unit} total`
             : undefined;
+        const showApply = canApplyToFollowing && onApplyToFollowing !== undefined;
+        const applyValue = set[spec.field];
         return (
           <View key={id} className={cn('py-3', i > 0 && 'border-t border-border')}>
             <View className="flex-row items-center gap-2">
@@ -209,6 +217,26 @@ export function FocusSetCard({
                 ) : null}
               </View>
               {renderInput(spec)}
+              {showApply && (
+                <Pressable
+                  onPress={() => {
+                    if (applyValue !== undefined) {
+                      onApplyToFollowing(metricUpdate(spec.field, applyValue), spec.label);
+                    }
+                  }}
+                  disabled={!editable || applyValue === undefined}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Apply ${spec.label} to all following sets`}
+                  className="w-6 items-center justify-center"
+                >
+                  <Icon
+                    as={ChevronsDown}
+                    size={15}
+                    className={cn('text-primary', applyValue === undefined && 'opacity-30')}
+                  />
+                </Pressable>
+              )}
               <Pressable
                 onPress={() => onRemoveMetric(id)}
                 disabled={!editable || metrics.length <= 1}
@@ -247,7 +275,8 @@ export function FocusSetCard({
               disabled={!editable}
             />
           </View>
-          {/* spacer matching the remove-metric column so the control lines up */}
+          {/* spacers matching the apply/remove-metric columns so the control lines up */}
+          {canApplyToFollowing && onApplyToFollowing !== undefined && <View className="w-6" />}
           <View className="w-6" />
         </View>
       )}

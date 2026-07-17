@@ -50,6 +50,7 @@ export default function EditLogScreen() {
   const removeSet = useEditLogStore((s) => s.removeSet);
   const updateSet = useEditLogStore((s) => s.updateSet);
   const toggleSetComplete = useEditLogStore((s) => s.toggleSetComplete);
+  const updateSetsFromIndex = useEditLogStore((s) => s.updateSetsFromIndex);
 
   const [showDetails, setShowDetails] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -339,6 +340,7 @@ export default function EditLogScreen() {
               onMoveExercise={moveExercise}
               onAddMetric={addExerciseMetric}
               onRemoveMetric={removeExerciseMetric}
+              onUpdateSetsFromIndex={updateSetsFromIndex}
               onAddExercise={() => router.push('/exercise/create?source=edit-log')}
               // Editing an existing log: the CTA toggles the set instead of
               // marching to the next one, and there's no "workout finished".

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Pressable, ScrollView } from 'react-native';
+import { Alert, View, Pressable, ScrollView } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -37,6 +37,14 @@ export interface FocusLoggerProps {
   onAddMetric: (exerciseId: string, metricId: MetricId) => void;
   onRemoveMetric: (exerciseId: string, metricId: MetricId) => void;
   onAddExercise: () => void;
+  /** Apply `updates` to every set at index >= fromIndex — the stores'
+   *  updateSetsFromIndex. Enables the per-metric "apply to following sets"
+   *  affordance (#146) when provided. */
+  onUpdateSetsFromIndex?: (
+    exerciseId: string,
+    fromIndex: number,
+    updates: Partial<WorkoutSet>
+  ) => void;
 
   /** Fired when a set flips to complete — the active logger starts its rest timer. */
   onSetCompleted?: (exercise: Exercise) => void;
@@ -81,6 +89,8 @@ interface SetSlotProps {
   onUpdateSet: (exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => void;
   onShowAddMetric: () => void;
   onRemoveMetric: (exerciseId: string, metricId: MetricId) => void;
+  canApplyToFollowing: boolean;
+  onApplyToFollowing?: (updates: Partial<WorkoutSet>, label: string) => void;
 }
 
 /** One page of the set pager, absolutely positioned at its set's offset inside
@@ -99,6 +109,8 @@ const SetSlot = React.memo(function SetSlot({
   onUpdateSet,
   onShowAddMetric,
   onRemoveMetric,
+  canApplyToFollowing,
+  onApplyToFollowing,
 }: SetSlotProps) {
   return (
     <View style={{ position: 'absolute', top: 0, bottom: 0, left: offsetX, width: pageW }}>
@@ -117,6 +129,8 @@ const SetSlot = React.memo(function SetSlot({
           onUpdate={(updates) => onUpdateSet(exercise.id, set.id, updates)}
           onAddMetric={onShowAddMetric}
           onRemoveMetric={(m) => onRemoveMetric(exercise.id, m)}
+          canApplyToFollowing={canApplyToFollowing}
+          onApplyToFollowing={onApplyToFollowing}
         />
       </ScrollView>
     </View>
@@ -141,6 +155,7 @@ export function FocusLogger({
   onAddMetric,
   onRemoveMetric,
   onAddExercise,
+  onUpdateSetsFromIndex,
   onSetCompleted,
   onAllComplete,
   autoAdvance = true,
@@ -230,6 +245,37 @@ export function FocusLogger({
   }, [focusExerciseId]);
 
   const openAddMetric = useCallback(() => setShowAddMetric(true), []);
+
+  // Per-metric "apply to following sets" (#146): writes the tapped metric's
+  // current value onto this set and every set after it. Values rarely change
+  // set-to-set, so this saves re-entering them. Later sets that are already
+  // logged are never overwritten silently — a confirm interposes.
+  const applyToFollowingSets = useCallback(
+    (updates: Partial<WorkoutSet>, label: string) => {
+      if (!onUpdateSetsFromIndex) return;
+      const ex = exercisesRef.current[safeExIdx];
+      if (!ex) return;
+      const fromIndex = Math.min(setIdx, Math.max(0, ex.sets.length - 1));
+      const apply = () => {
+        lightHaptic();
+        onUpdateSetsFromIndex(ex.id, fromIndex, updates);
+      };
+      const completedAfter = ex.sets.filter((s, i) => i > fromIndex && s.completed).length;
+      if (completedAfter > 0) {
+        Alert.alert(
+          'Overwrite logged sets?',
+          `${completedAfter} of the following sets ${completedAfter === 1 ? 'is' : 'are'} already logged. Apply this ${label.toLowerCase()} to ${completedAfter === 1 ? 'it' : 'them'} too?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Apply', onPress: apply },
+          ]
+        );
+      } else {
+        apply();
+      }
+    },
+    [onUpdateSetsFromIndex, safeExIdx, setIdx]
+  );
 
   const commitFromGesture = useCallback((target: number) => {
     fromGestureRef.current = true;
@@ -502,6 +548,10 @@ export function FocusLogger({
                     onUpdateSet={onUpdateSet}
                     onShowAddMetric={openAddMetric}
                     onRemoveMetric={onRemoveMetric}
+                    canApplyToFollowing={i === safeSetIdx && hasNext}
+                    onApplyToFollowing={
+                      onUpdateSetsFromIndex ? applyToFollowingSets : undefined
+                    }
                   />
                 )
               )}

@@ -78,6 +78,7 @@ export default function ActiveWorkoutScreen() {
   const moveExercise = useWorkoutStore((s) => s.moveExercise);
   const addExerciseMetric = useWorkoutStore((s) => s.addExerciseMetric);
   const removeExerciseMetric = useWorkoutStore((s) => s.removeExerciseMetric);
+  const updateSetsFromIndex = useWorkoutStore((s) => s.updateSetsFromIndex);
   const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
   const stopRestTimer = useWorkoutStore((s) => s.stopRestTimer);
 
@@ -231,6 +232,7 @@ export default function ActiveWorkoutScreen() {
           onMoveExercise={moveExercise}
           onAddMetric={addExerciseMetric}
           onRemoveMetric={removeExerciseMetric}
+          onUpdateSetsFromIndex={updateSetsFromIndex}
           onAddExercise={() => router.push('/exercise/create?source=active')}
           onSetCompleted={handleSetCompleted}
           onAllComplete={handleAllComplete}
