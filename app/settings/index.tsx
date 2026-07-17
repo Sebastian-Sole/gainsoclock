@@ -66,16 +66,11 @@ import { useMealLogStore } from "@/stores/meal-log-store";
 import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useAuthCacheStore } from "@/stores/auth-cache-store";
 
-// Version + build come from app config at runtime (managed by pnpm release:*);
-// never hardcode them here.
+// Version comes from app config at runtime (managed by pnpm release:*);
+// never hardcode it here.
 function appVersionLabel(): string {
   const version = Constants.expoConfig?.version;
-  if (!version) return "Fitbull";
-  const build =
-    Platform.OS === "ios"
-      ? Constants.expoConfig?.ios?.buildNumber
-      : Constants.expoConfig?.android?.versionCode?.toString();
-  return `Fitbull v${version}${build ? ` (${build})` : ""}`;
+  return version ? `Fitbull v${version}` : "Fitbull";
 }
 
 function formatRelativeTime(timestamp: number): string {
