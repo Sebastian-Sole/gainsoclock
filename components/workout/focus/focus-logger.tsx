@@ -17,7 +17,8 @@ import { ProgressRing, useRingColors } from '@/components/shared/progress-ring';
 import { lightHaptic, mediumHaptic, successHaptic } from '@/lib/haptics';
 import { MAX_METRICS_PER_EXERCISE, METRIC_LIST, resolveExerciseMetrics } from '@/lib/metrics';
 import { firstIncompleteSetIndex } from '@/lib/set-progress';
-import type { Exercise, MetricId, WorkoutSet } from '@/lib/types';
+import type { Exercise, LoadMode, MetricId, WorkoutSet } from '@/lib/types';
+import { LOAD_MODE_OPTIONS, resolveLoadMode } from '@/lib/load-mode';
 import { cn } from '@/lib/utils';
 
 export interface FocusLoggerProps {
@@ -37,6 +38,12 @@ export interface FocusLoggerProps {
   onAddMetric: (exerciseId: string, metricId: MetricId) => void;
   onRemoveMetric: (exerciseId: string, metricId: MetricId) => void;
   onAddExercise: () => void;
+  /** Change how the exercise's weight is counted (#142). Adds a "Weight
+   *  entry" control to the exercise options sheet when provided. */
+  onChangeLoadMode?: (exercise: Exercise, loadMode: LoadMode) => void;
+  /** Scope note under the load-mode control — differs between the active
+   *  logger (row + library definition) and edit-log (this log only). */
+  loadModeHint?: string;
   /** Apply `updates` to every set at index >= fromIndex — the stores'
    *  updateSetsFromIndex. Enables the per-metric "apply to following sets"
    *  affordance (#146) when provided. */
@@ -155,6 +162,8 @@ export function FocusLogger({
   onAddMetric,
   onRemoveMetric,
   onAddExercise,
+  onChangeLoadMode,
+  loadModeHint = 'Applies to this exercise going forward · past workouts are unchanged.',
   onUpdateSetsFromIndex,
   onSetCompleted,
   onAllComplete,
@@ -703,6 +712,50 @@ export function FocusLogger({
               <Icon as={ChevronDown} size={18} className="text-foreground" />
               <Text className="font-semibold text-foreground">Move later</Text>
             </Pressable>
+            {onChangeLoadMode && metrics.includes('weight') && (
+              <View className="mt-4">
+                <Text className="mb-2 text-sm font-medium text-muted-foreground">
+                  Weight is entered as
+                </Text>
+                <View
+                  className="flex-row rounded-lg bg-secondary"
+                  accessibilityRole="radiogroup"
+                  accessibilityLabel="Weight entry mode"
+                >
+                  {LOAD_MODE_OPTIONS.map((option) => {
+                    const selected = resolveLoadMode(exercise.loadMode) === option.id;
+                    return (
+                      <Pressable
+                        key={option.id}
+                        onPress={() => {
+                          lightHaptic();
+                          onChangeLoadMode(exercise, option.id);
+                        }}
+                        className={cn(
+                          'min-h-[44px] flex-1 items-center justify-center rounded-lg px-2 py-3',
+                          selected && 'bg-primary'
+                        )}
+                        accessibilityRole="radio"
+                        accessibilityLabel={option.label}
+                        accessibilityHint={option.description}
+                        accessibilityState={{ checked: selected }}
+                        testID={`focus-load-mode-${option.id}`}
+                      >
+                        <Text
+                          className={cn(
+                            'text-sm font-medium',
+                            selected ? 'text-primary-foreground' : 'text-secondary-foreground'
+                          )}
+                        >
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text className="mt-1.5 text-xs text-muted-foreground">{loadModeHint}</Text>
+              </View>
+            )}
             <Pressable
               onPress={handleRemoveExercise}
               disabled={exercises.length <= 1}

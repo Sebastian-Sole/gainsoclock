@@ -18,7 +18,7 @@ import { TimeInput } from '@/components/shared/time-input';
 import type { Exercise, ExerciseType, ExerciseDefinition, IntervalDistanceUnit, LoadMode, MetricId, TemplateExercise } from '@/lib/types';
 import { createDefaultSets } from '@/lib/defaults';
 import { LOAD_MODE_OPTIONS, loadModeFieldSuffix } from '@/lib/load-mode';
-import { resolveExerciseMetrics } from '@/lib/metrics';
+import { METRICS, resolveExerciseMetrics } from '@/lib/metrics';
 import { generateId } from '@/lib/id';
 import { lightHaptic } from '@/lib/haptics';
 import { exerciseTypeLabel } from '@/lib/format';
@@ -50,6 +50,7 @@ export default function CreateExerciseScreen() {
   const addTemplateExercise = useTemplateCreateStore((s) => s.addExercise);
   const allExercises = useExerciseLibraryStore((s) => s.exercises);
   const getOrCreate = useExerciseLibraryStore((s) => s.getOrCreate);
+  const updateExercise = useExerciseLibraryStore((s) => s.updateExercise);
   const userDefaultRestTime = useSettingsStore((s) => s.defaultRestTime);
   const userDefaultSetsCount = useSettingsStore((s) => s.defaultSetsCount);
   const userDefaultRepsCount = useSettingsStore((s) => s.defaultRepsCount);
@@ -152,7 +153,11 @@ export default function CreateExerciseScreen() {
   const handleNext = () => {
     if (!canProceed()) return;
     lightHaptic();
-    if (step < TOTAL_STEPS - 1) {
+    if (selectedExercise && step === STEP_METRICS) {
+      // Existing exercise: the metrics step is a detour from the config step
+      // (#145) — return there, skipping the name step.
+      setStep(STEP_CONFIG);
+    } else if (step < TOTAL_STEPS - 1) {
       setStep(step + 1);
     } else {
       handleSave();
@@ -177,6 +182,9 @@ export default function CreateExerciseScreen() {
       handleClose();
     } else if (step === STEP_PRESET) {
       setStep(-1);
+    } else if (selectedExercise && step === STEP_METRICS) {
+      // Existing exercise: metrics is a detour from config — go back to it.
+      setStep(STEP_CONFIG);
     } else if (selectedExercise && step === STEP_CONFIG) {
       // Came from picker, go back to picker
       setSelectedExercise(null);
@@ -195,11 +203,24 @@ export default function CreateExerciseScreen() {
     if (!exerciseType) return;
     const trimmedName = name.trim();
 
-    // Ensure exercise exists in the library. For an existing name the library
-    // definition wins (including its loadMode) — the flag is a property of
-    // the exercise, not of this particular workout/template row.
+    // Ensure exercise exists in the library. The row uses what the user
+    // configured on this screen; when they deliberately edited an existing
+    // exercise's tracked metrics or load mode, the library definition is
+    // updated too (decision: definition + current row, #142/#145) — future
+    // uses inherit the change, already-written rows keep their snapshots.
     const exerciseDef = getOrCreate(trimmedName, exerciseType, metrics, loadMode);
-    const rowLoadMode = exerciseDef.loadMode;
+    const rowLoadMode = loadMode;
+    if (selectedExercise) {
+      const defMetrics = resolveExerciseMetrics(selectedExercise.type, selectedExercise.metrics);
+      const metricsChanged = defMetrics.join(',') !== metrics.join(',');
+      const loadModeChanged = (selectedExercise.loadMode ?? 'total') !== loadMode;
+      if (metricsChanged || loadModeChanged) {
+        updateExercise(exerciseDef.id, {
+          ...(metricsChanged ? { metrics } : {}),
+          ...(loadModeChanged ? { loadMode } : {}),
+        });
+      }
+    }
 
     const suggested = {
       ...(hasReps ? { suggestedReps: repsCount } : {}),
@@ -392,7 +413,28 @@ export default function CreateExerciseScreen() {
                   : 'How many sets for this exercise?'}
             </Text>
             <View className="gap-6">
-              {hasWeight && !selectedExercise && (
+              {selectedExercise && !isIntervals && (
+                <View>
+                  <Text className="mb-2 text-base font-medium">Tracked metrics</Text>
+                  <Pressable
+                    onPress={() => {
+                      lightHaptic();
+                      setStep(STEP_METRICS);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit tracked metrics"
+                    accessibilityHint="Add or remove the values logged for this exercise"
+                    testID="edit-tracked-metrics"
+                    className="min-h-[44px] flex-row items-center justify-between gap-3 rounded-lg bg-secondary px-4 py-3"
+                  >
+                    <Text className="flex-1 text-sm text-secondary-foreground">
+                      {metrics.map((m) => METRICS[m].label).join(' · ')}
+                    </Text>
+                    <Text className="text-sm font-semibold text-primary">Edit</Text>
+                  </Pressable>
+                </View>
+              )}
+              {hasWeight && (
                 <View>
                   <Text className="mb-2 text-base font-medium">Weight is entered as</Text>
                   <View

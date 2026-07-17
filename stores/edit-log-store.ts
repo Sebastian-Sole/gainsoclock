@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { normalizeIntervalSets } from '@/lib/defaults';
 import { MAX_METRICS_PER_EXERCISE, resolveExerciseMetrics } from '@/lib/metrics';
-import type { MetricId, WorkoutLog, WorkoutLogExercise, Exercise, WorkoutSet } from '@/lib/types';
+import type { LoadMode, MetricId, WorkoutLog, WorkoutLogExercise, Exercise, WorkoutSet } from '@/lib/types';
 
 interface EditLogState {
   editingLog: WorkoutLog | null;
@@ -19,6 +19,8 @@ interface EditLogState {
   moveExercise: (exerciseId: string, direction: 'up' | 'down') => void;
   addExerciseMetric: (exerciseId: string, metricId: MetricId) => void;
   removeExerciseMetric: (exerciseId: string, metricId: MetricId) => void;
+  /** Change how this row's weight is counted (total / per hand / per side). */
+  setExerciseLoadMode: (exerciseId: string, loadMode: LoadMode) => void;
 
   addSet: (exerciseId: string, set: WorkoutSet) => void;
   removeSet: (exerciseId: string, setId: string) => void;
@@ -147,6 +149,19 @@ export const useEditLogStore = create<EditLogState>()((set) => ({
             if (base.length <= 1) return { ...e, metrics: base };
             return { ...e, metrics: base.filter((m) => m !== metricId) };
           }),
+        },
+      };
+    }),
+
+  setExerciseLoadMode: (exerciseId, loadMode) =>
+    set((state) => {
+      if (!state.editingLog) return state;
+      return {
+        editingLog: {
+          ...state.editingLog,
+          exercises: state.editingLog.exercises.map((e) =>
+            e.id === exerciseId ? { ...e, loadMode } : e
+          ),
         },
       };
     }),

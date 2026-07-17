@@ -14,6 +14,9 @@ interface ExerciseLibraryState {
 
   addExercise: (name: string, type: ExerciseType, metrics: MetricId[], loadMode?: LoadMode) => ExerciseDefinition;
   getOrCreate: (name: string, type: ExerciseType, metrics: MetricId[], loadMode?: LoadMode) => ExerciseDefinition;
+  /** Edit a definition's tracked metrics / load mode. Applies to future uses;
+   *  rows already written keep their denormalized snapshots (#142/#145). */
+  updateExercise: (id: string, changes: { metrics?: MetricId[]; loadMode?: LoadMode }) => void;
   /** Soft-delete: hide from pickers/library default view, keep references working. */
   archiveExercise: (id: string) => void;
   unarchiveExercise: (id: string) => void;
@@ -65,6 +68,28 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>()(
           return existing;
         }
         return get().addExercise(name, type, metrics, loadMode);
+      },
+
+      updateExercise: (id, changes) => {
+        set((state) => ({
+          exercises: state.exercises.map((e) =>
+            e.id === id
+              ? {
+                  ...e,
+                  ...(changes.metrics !== undefined ? { metrics: changes.metrics } : {}),
+                  // 'total' is stored as absent locally (legacy convention).
+                  ...(changes.loadMode !== undefined
+                    ? { loadMode: changes.loadMode === 'total' ? undefined : changes.loadMode }
+                    : {}),
+                }
+              : e
+          ),
+        }));
+        syncToConvex(api.exercises.update, {
+          clientId: id,
+          ...(changes.metrics !== undefined ? { metrics: changes.metrics } : {}),
+          ...(changes.loadMode !== undefined ? { loadMode: changes.loadMode } : {}),
+        });
       },
 
       archiveExercise: (id) => {

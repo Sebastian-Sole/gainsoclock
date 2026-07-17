@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
-import type { ActiveWorkout, Exercise, MetricId, TemplateExercise, WorkoutLog, WorkoutSet } from '@/lib/types';
+import type { ActiveWorkout, Exercise, LoadMode, MetricId, TemplateExercise, WorkoutLog, WorkoutSet } from '@/lib/types';
 import { generateId } from '@/lib/id';
 import { createDefaultSets } from '@/lib/defaults';
 import {
@@ -26,6 +26,8 @@ interface WorkoutState {
   moveExercise: (exerciseId: string, direction: 'up' | 'down') => void;
   addExerciseMetric: (exerciseId: string, metricId: MetricId) => void;
   removeExerciseMetric: (exerciseId: string, metricId: MetricId) => void;
+  /** Change how this row's weight is counted (total / per hand / per side). */
+  setExerciseLoadMode: (exerciseId: string, loadMode: LoadMode) => void;
 
   // Set management
   addSet: (exerciseId: string, set: WorkoutSet) => void;
@@ -200,6 +202,19 @@ export const useWorkoutStore = create<WorkoutState>()(
             if (base.length <= 1) return { ...e, metrics: base };
             return { ...e, metrics: base.filter((m) => m !== metricId) };
           }),
+        },
+      };
+    }),
+
+  setExerciseLoadMode: (exerciseId, loadMode) =>
+    set((state) => {
+      if (!state.activeWorkout) return state;
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          exercises: state.activeWorkout.exercises.map((e) =>
+            e.id === exerciseId ? { ...e, loadMode } : e
+          ),
         },
       };
     }),

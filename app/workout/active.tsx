@@ -9,12 +9,13 @@ import { Icon } from '@/components/ui/icon';
 
 import { useWorkoutStore } from '@/stores/workout-store';
 import { useSettingsStore } from '@/stores/settings-store';
+import { useExerciseLibraryStore } from '@/stores/exercise-library-store';
 import { useRestTimer } from '@/hooks/use-rest-timer';
 import { useWorkoutTimer } from '@/hooks/use-workout-timer';
 import { createDefaultSet, createIntervalSet } from '@/lib/defaults';
 import { generateId } from '@/lib/id';
 import { formatTime, formatDuration } from '@/lib/format';
-import type { Exercise, WorkoutSet } from '@/lib/types';
+import type { Exercise, LoadMode, WorkoutSet } from '@/lib/types';
 import { hasIncompleteSets } from '@/lib/workout-progress';
 import { setActiveWorkoutVisible, cancelRestTimerNotification } from '@/lib/notifications';
 import { endRestActivity } from '@/lib/live-activity';
@@ -79,6 +80,21 @@ export default function ActiveWorkoutScreen() {
   const addExerciseMetric = useWorkoutStore((s) => s.addExerciseMetric);
   const removeExerciseMetric = useWorkoutStore((s) => s.removeExerciseMetric);
   const updateSetsFromIndex = useWorkoutStore((s) => s.updateSetsFromIndex);
+  const setExerciseLoadMode = useWorkoutStore((s) => s.setExerciseLoadMode);
+  const updateLibraryExercise = useExerciseLibraryStore((s) => s.updateExercise);
+
+  // Load-mode edits apply to this row AND the library definition (#142):
+  // future workouts inherit the fix, already-logged workouts keep their
+  // snapshots.
+  const handleChangeLoadMode = useCallback(
+    (exercise: Exercise, mode: LoadMode) => {
+      setExerciseLoadMode(exercise.id, mode);
+      if (exercise.exerciseId) {
+        updateLibraryExercise(exercise.exerciseId, { loadMode: mode });
+      }
+    },
+    [setExerciseLoadMode, updateLibraryExercise]
+  );
   const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
   const stopRestTimer = useWorkoutStore((s) => s.stopRestTimer);
 
@@ -233,6 +249,7 @@ export default function ActiveWorkoutScreen() {
           onAddMetric={addExerciseMetric}
           onRemoveMetric={removeExerciseMetric}
           onUpdateSetsFromIndex={updateSetsFromIndex}
+          onChangeLoadMode={handleChangeLoadMode}
           onAddExercise={() => router.push('/exercise/create?source=active')}
           onSetCompleted={handleSetCompleted}
           onAllComplete={handleAllComplete}
