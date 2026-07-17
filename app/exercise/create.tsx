@@ -159,10 +159,22 @@ export default function CreateExerciseScreen() {
     }
   };
 
+  // Cancelling the add-exercise flow mid-workout must resolve the stack the
+  // same way saving does: land on the logger, popping any transient screens
+  // stacked between (the finish summary). A plain back() from
+  // summary → create would strand the user on the summary (#141).
+  const handleClose = () => {
+    if (isActiveWorkout) {
+      router.dismissTo('/workout/active');
+    } else {
+      router.back();
+    }
+  };
+
   const handleBack = () => {
     lightHaptic();
     if (step === -1) {
-      router.back();
+      handleClose();
     } else if (step === STEP_PRESET) {
       setStep(-1);
     } else if (selectedExercise && step === STEP_CONFIG) {
@@ -249,7 +261,12 @@ export default function CreateExerciseScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
           {/* Header */}
           <View className="flex-row items-center justify-between px-4 py-3">
-            <Pressable onPress={() => router.back()} className="h-10 w-10 items-center justify-center">
+            <Pressable
+              onPress={handleClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              className="h-10 w-10 items-center justify-center"
+            >
               <Icon as={X} size={24} className="text-foreground" />
             </Pressable>
             <Text className="text-base font-semibold">Add Exercise</Text>
