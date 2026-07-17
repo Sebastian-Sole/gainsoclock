@@ -1,22 +1,17 @@
 import React from 'react';
-import { Alert, View, Pressable, TextInput } from 'react-native';
+import { View, Pressable, TextInput } from 'react-native';
 import { useNumericField } from '@/hooks/use-numeric-field';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { Text } from '@/components/ui/text';
-import { Pencil, X } from 'lucide-react-native';
+import { Pencil, Settings2, X } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { TimeInput } from '@/components/shared/time-input';
 import { IntervalSetInputs, MmSsInput } from '@/components/workout/interval-set-inputs';
 import { RpeInput } from '@/components/workout/rpe-input';
 import { useSettingsStore } from '@/stores/settings-store';
-import type { Exercise, LoadMode, MetricId, WorkoutSet } from '@/lib/types';
-import {
-  LOAD_MODE_OPTIONS,
-  effectiveLoad,
-  loadModeFieldSuffix,
-  resolveLoadMode,
-} from '@/lib/load-mode';
+import type { Exercise, MetricId, WorkoutSet } from '@/lib/types';
+import { effectiveLoad, loadModeFieldSuffix, resolveLoadMode } from '@/lib/load-mode';
 import { formatTime } from '@/lib/format';
 import {
   METRICS,
@@ -88,11 +83,9 @@ interface FocusSetCardProps {
   canApplyToFollowing?: boolean;
   /** Apply `updates` to this set and every set after it (#146). */
   onApplyToFollowing?: (updates: Partial<WorkoutSet>, label: string) => void;
-  /** Change this exercise's weight load mode (#142); offered on the weight
-   *  metric row's label when provided. */
-  onChangeLoadMode?: (loadMode: LoadMode) => void;
-  /** Scope note shown in the load-mode picker (active vs edit-log wording). */
-  loadModeHint?: string;
+  /** Open the load-mode picker sheet (#142); makes the weight row's unit
+   *  chip a button when provided. */
+  onPressLoadMode?: () => void;
 }
 
 export function FocusSetCard({
@@ -106,8 +99,7 @@ export function FocusSetCard({
   onRemoveMetric,
   canApplyToFollowing = false,
   onApplyToFollowing,
-  onChangeLoadMode,
-  loadModeHint,
+  onPressLoadMode,
 }: FocusSetCardProps) {
   const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
   const metrics = resolveExerciseMetrics(exercise.type, exercise.metrics);
@@ -219,23 +211,6 @@ export function FocusSetCard({
   const weightSuffix = loadModeFieldSuffix(exercise.loadMode) ?? 'total';
   const isPerHand = resolveLoadMode(exercise.loadMode) === 'per_hand';
 
-  // Load-mode picker (#142): lives on the weight metric row itself. Native
-  // alert keeps it one tap and fully screen-reader reachable.
-  const openLoadModePicker = () => {
-    const current = resolveLoadMode(exercise.loadMode);
-    Alert.alert(
-      'Weight is entered as',
-      loadModeHint,
-      [
-        ...LOAD_MODE_OPTIONS.map((o) => ({
-          text: o.id === current ? `${o.label} ✓` : `${o.label} — ${o.description.toLowerCase()}`,
-          onPress: () => onChangeLoadMode?.(o.id),
-        })),
-        { text: 'Cancel', style: 'cancel' as const },
-      ]
-    );
-  };
-
   return (
     <View>
       {metrics.map((id, i) => {
@@ -259,40 +234,33 @@ export function FocusSetCard({
           spec.inputKind === 'duration' || spec.inputKind === 'pace'
             ? formatTime(applyValue ?? 0)
             : `${applyValue}${unit ? ` ${unit}` : ''}`;
-        const canEditLoadMode = id === 'weight' && onChangeLoadMode !== undefined && editable;
-        const labelColumn = (
-          <>
-            <Text className="text-base font-semibold text-foreground">{spec.label}</Text>
-            {unitLine ? (
-              <Text
-                className={cn(
-                  'text-[10px] uppercase tracking-wide text-muted-foreground',
-                  canEditLoadMode && 'underline'
-                )}
-              >
-                {unitLine}
-              </Text>
-            ) : null}
-          </>
-        );
+        const canEditLoadMode = id === 'weight' && onPressLoadMode !== undefined && editable;
         return (
           <View key={id} className={cn('py-3', i > 0 && 'border-t border-border')}>
             <View className="flex-row items-center gap-2">
-              {canEditLoadMode ? (
-                <Pressable
-                  style={{ width: 94 }}
-                  onPress={openLoadModePicker}
-                  hitSlop={6}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Weight entry mode: ${weightSuffix}`}
-                  accessibilityHint="Change to total, per hand, or per side"
-                  testID="focus-weight-load-mode"
-                >
-                  {labelColumn}
-                </Pressable>
-              ) : (
-                <View style={{ width: 94 }}>{labelColumn}</View>
-              )}
+              <View style={{ width: 94 }}>
+                <Text className="text-base font-semibold text-foreground">{spec.label}</Text>
+                {canEditLoadMode ? (
+                  <Pressable
+                    onPress={onPressLoadMode}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Weight entry mode: ${weightSuffix}`}
+                    accessibilityHint="Change to total, per hand, or per side"
+                    testID="focus-weight-load-mode"
+                    className="mt-0.5 flex-row items-center gap-1 self-start rounded-md border border-border px-1.5 py-0.5"
+                  >
+                    <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {unitLine}
+                    </Text>
+                    <Icon as={Settings2} size={11} className="text-muted-foreground" />
+                  </Pressable>
+                ) : unitLine ? (
+                  <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {unitLine}
+                  </Text>
+                ) : null}
+              </View>
               {renderInput(spec)}
               <Pressable
                 onPress={() => onRemoveMetric(id)}
