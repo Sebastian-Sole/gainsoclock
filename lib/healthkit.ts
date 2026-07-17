@@ -11,6 +11,7 @@
 import { Platform } from 'react-native';
 import { useSettingsStore } from '@/stores/settings-store';
 import { resolveHealthSourceName } from '@/lib/health-source';
+import { sleepNightKey } from '@/lib/sleep-attribution';
 import type { WorkoutLog } from '@/lib/types';
 import type {
   QuantityTypeIdentifier,
@@ -546,8 +547,11 @@ export async function queryDailyMetrics(
     }
   }
 
-  // Sleep: sum the "asleep" category states (not inBed/awake), splitting each
-  // sample's duration across the local calendar days it overlaps.
+  // Sleep: sum the "asleep" category states (not inBed/awake). Each sample is
+  // attributed whole to the night it belongs to (the wake-up morning), via
+  // `sleepNightKey`, so a night that crosses midnight lands on ONE day instead
+  // of being split into two artificially low half-nights. See
+  // `lib/sleep-attribution.ts` and its test for the rationale.
   try {
     const samples = await hk.queryCategorySamples(
       'HKCategoryTypeIdentifierSleepAnalysis',
@@ -573,24 +577,11 @@ export async function queryDailyMetrics(
       if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
         continue;
       }
-      let cursor = startOfLocalDay(new Date(start));
-      while (cursor.getTime() < end) {
-        const nextDay = new Date(
-          cursor.getFullYear(),
-          cursor.getMonth(),
-          cursor.getDate() + 1
-        );
-        const overlapMs =
-          Math.min(end, nextDay.getTime()) - Math.max(start, cursor.getTime());
-        if (overlapMs > 0) {
-          const key = localDateKey(cursor);
-          sleepSecondsByDay.set(
-            key,
-            (sleepSecondsByDay.get(key) ?? 0) + overlapMs / 1000
-          );
-        }
-        cursor = nextDay;
-      }
+      const key = sleepNightKey(start);
+      sleepSecondsByDay.set(
+        key,
+        (sleepSecondsByDay.get(key) ?? 0) + (end - start) / 1000
+      );
     }
     for (const [key, seconds] of sleepSecondsByDay) {
       ensure(key).asleepSeconds = Math.round(seconds);

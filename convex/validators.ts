@@ -277,6 +277,9 @@ export const weeklyReviewStatsValidator = v.object({
   planAdherencePct: v.optional(v.number()),
   externalWorkoutCount: v.number(),
   avgSleepHours: v.optional(v.number()),
+  // Number of nights sleep was actually tracked this week (the denominator of
+  // avgSleepHours). Recommendations must not read too much into a sparse week.
+  sleepNights: v.optional(v.number()),
   avgRestingHr: v.optional(v.number()),
 });
 

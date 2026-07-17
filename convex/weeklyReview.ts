@@ -49,6 +49,7 @@ type WeekStats = {
   planAdherencePct?: number;
   externalWorkoutCount: number;
   avgSleepHours?: number;
+  sleepNights?: number;
   avgRestingHr?: number;
 };
 
@@ -76,6 +77,11 @@ const MAX_HISTORY_SCAN_PER_EXERCISE = 40;
 const MAX_PRIOR_SESSIONS_PER_EXERCISE = 8;
 const MAX_HIGHLIGHT_EXERCISES = 15;
 const REGENERATE_AFTER_MS = 24 * 60 * 60 * 1000;
+
+// A low-sleep "rest" recommendation should only fire when sleep was tracked on
+// a representative share of the week — otherwise one or two logged short nights
+// (or missing sleep data) read as a whole week of poor recovery.
+const MIN_SLEEP_NIGHTS_FOR_REST_REC = 4;
 
 // ── Small helpers ──────────────────────────────────────────────
 
@@ -387,6 +393,7 @@ async function buildWeekStats(
       ...(planAdherencePct !== undefined && { planAdherencePct }),
       externalWorkoutCount: unlinkedExternalCount,
       ...(avgSleepHours !== undefined && { avgSleepHours }),
+      ...(sleepValues.length > 0 && { sleepNights: sleepValues.length }),
       ...(avgRestingHr !== undefined && { avgRestingHr }),
     },
     highlights,
@@ -499,11 +506,17 @@ function ruleBasedRecommendation(
   stats: WeekStats,
   highlights: ProgressionHighlight[]
 ): Recommendation {
-  // Poor recovery → rest.
-  if (stats.avgSleepHours !== undefined && stats.avgSleepHours < 6.5) {
+  // Poor recovery → rest. Only when sleep was tracked on enough nights to be
+  // representative — a couple of logged short nights (or missing sleep data)
+  // must not read as a whole week of poor recovery.
+  if (
+    stats.avgSleepHours !== undefined &&
+    stats.avgSleepHours < 6.5 &&
+    (stats.sleepNights ?? 0) >= MIN_SLEEP_NIGHTS_FOR_REST_REC
+  ) {
     return {
       kind: "rest",
-      text: `You averaged ${stats.avgSleepHours}h of sleep this week — prioritize an extra rest day and earlier nights before pushing intensity.`,
+      text: `You averaged ${stats.avgSleepHours}h of sleep across ${stats.sleepNights} tracked nights this week — prioritize an extra rest day and earlier nights before pushing intensity.`,
     };
   }
 
@@ -562,7 +575,7 @@ narrative: 3-5 encouraging sentences summarizing the user's training week in sec
 
 recommendation: exactly ONE recommendation. Pick the kind using these rules, in priority order:
 - "deload" if a lift has stalled for 3+ weeks (session bests flat or declining across the listed history)
-- "rest" if recovery metrics are poor (average sleep well under 7h, elevated resting heart rate, or HRV trending down)
+- "rest" if recovery metrics are poor (average sleep well under 7h, elevated resting heart rate, or HRV trending down). Only treat low sleep as poor recovery when it was tracked on most of the week; if only a night or two was tracked, do not conclude the user slept badly all week or cite the average as if it covered every night.
 - "volume" if lifts are progressing well (new PRs, climbing session bests) — suggest adding a set or a small load increase
 - "swap" if plan adherence is poor and scheduled days keep getting missed — suggest moving a specific workout to a different day
 - "keep_going" otherwise
@@ -610,7 +623,12 @@ function buildReviewUserPrompt(
     `- External workouts (Apple Health): ${stats.externalWorkoutCount}`
   );
   if (stats.avgSleepHours !== undefined) {
-    lines.push(`- Average sleep: ${stats.avgSleepHours}h/night`);
+    const nights = stats.sleepNights ?? 0;
+    // Surface the sample size so the model doesn't treat a sparsely-tracked
+    // week as a full week of poor sleep.
+    lines.push(
+      `- Average sleep: ${stats.avgSleepHours}h/night (tracked ${nights} night${nights === 1 ? "" : "s"} this week)`
+    );
   }
   if (stats.avgRestingHr !== undefined) {
     lines.push(`- Average resting heart rate: ${stats.avgRestingHr} bpm`);
