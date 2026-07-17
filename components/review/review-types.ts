@@ -25,6 +25,7 @@ export interface WeeklyReviewStats {
   planAdherencePct?: number;
   externalWorkoutCount: number;
   avgSleepHours?: number;
+  sleepNights?: number;
   avgRestingHr?: number;
 }
 
