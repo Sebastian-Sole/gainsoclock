@@ -46,6 +46,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Constants from "expo-constants";
 
 import { useHealthImport } from "@/hooks/use-health-import";
 import { useHealthKit } from "@/hooks/use-healthkit";
@@ -64,6 +65,18 @@ import { useTemplateStore } from "@/stores/template-store";
 import { useMealLogStore } from "@/stores/meal-log-store";
 import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useAuthCacheStore } from "@/stores/auth-cache-store";
+
+// Version + build come from app config at runtime (managed by pnpm release:*);
+// never hardcode them here.
+function appVersionLabel(): string {
+  const version = Constants.expoConfig?.version;
+  if (!version) return "Fitbull";
+  const build =
+    Platform.OS === "ios"
+      ? Constants.expoConfig?.ios?.buildNumber
+      : Constants.expoConfig?.android?.versionCode?.toString();
+  return `Fitbull v${version}${build ? ` (${build})` : ""}`;
+}
 
 function formatRelativeTime(timestamp: number): string {
   const minutes = Math.floor((Date.now() - timestamp) / 60_000);
@@ -896,7 +909,7 @@ export default function SettingsScreen() {
         {/* App info */}
         <View className="mt-8 items-center pb-8">
           <Text className="text-sm text-muted-foreground">
-            Fitbull v1.0.0
+            {appVersionLabel()}
           </Text>
 
           <Text className="text-sm text-muted-foreground">
