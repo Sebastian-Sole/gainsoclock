@@ -93,9 +93,10 @@ export function coerceLoadMode(input: unknown): LoadMode | undefined {
     : undefined;
 }
 
-/** Entered-weight → effective-total multiplier. Mirrors lib/load-mode.ts. */
+/** Entered-weight → effective-total multiplier. Mirrors lib/load-mode.ts:
+ *  per_hand and per_side both double (a per-side set covers both sides). */
 export function loadMultiplier(loadMode: LoadMode | undefined): number {
-  return loadMode === "per_hand" ? 2 : 1;
+  return loadMode === "per_hand" || loadMode === "per_side" ? 2 : 1;
 }
 
 /**

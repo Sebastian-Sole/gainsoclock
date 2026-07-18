@@ -15,9 +15,9 @@ import type { LoadMode } from './types';
  * - `per_hand` — two implements moved simultaneously (DB bench, DB curls).
  *   Effective total = 2 × entered weight.
  * - `per_side` — one loaded side worked at a time (single-arm row, lunge
- *   holding one DB). Effective total = 1 × entered weight per rep: the label
- *   changes, not the math. The flag exists so entry is unambiguous and
- *   future analytics can distinguish unilateral work.
+ *   holding one DB, plate-loaded per side). A logged set covers BOTH sides,
+ *   so the effective total is 2 × entered weight — same math as per_hand,
+ *   the difference is whether the implements move together or in turn.
  *
  * Back-compat: an ABSENT loadMode means `total`. Legacy exercises and
  * historical log rows are therefore unchanged in interpretation — no
@@ -45,12 +45,12 @@ export function resolveLoadMode(loadMode: LoadMode | undefined): LoadMode {
 }
 
 /**
- * Entered-weight → effective-total multiplier. Only `per_hand` scales
- * (two implements move at once); `per_side` is 1 — one loaded side moves
- * per rep, the flag only disambiguates entry.
+ * Entered-weight → effective-total multiplier. Both `per_hand` (two
+ * implements at once) and `per_side` (one side at a time, a set covers
+ * both sides) double the entered weight; only `total` is 1.
  */
 export function loadMultiplier(loadMode: LoadMode | undefined): number {
-  return resolveLoadMode(loadMode) === 'per_hand' ? 2 : 1;
+  return resolveLoadMode(loadMode) === 'total' ? 1 : 2;
 }
 
 /**

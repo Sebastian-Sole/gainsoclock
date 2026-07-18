@@ -11,7 +11,7 @@ import { IntervalSetInputs, MmSsInput } from '@/components/workout/interval-set-
 import { RpeInput } from '@/components/workout/rpe-input';
 import { useSettingsStore } from '@/stores/settings-store';
 import type { Exercise, MetricId, WorkoutSet } from '@/lib/types';
-import { effectiveLoad, loadModeFieldSuffix, resolveLoadMode } from '@/lib/load-mode';
+import { effectiveLoad, loadModeFieldSuffix, loadMultiplier } from '@/lib/load-mode';
 import { formatTime } from '@/lib/format';
 import {
   METRICS,
@@ -209,7 +209,7 @@ export function FocusSetCard({
   // Weight-field qualifier: always shown, including "total", so the active
   // entry mode is never ambiguous (#142).
   const weightSuffix = loadModeFieldSuffix(exercise.loadMode) ?? 'total';
-  const isPerHand = resolveLoadMode(exercise.loadMode) === 'per_hand';
+  const doublesLoad = loadMultiplier(exercise.loadMode) > 1;
 
   return (
     <View>
@@ -219,9 +219,9 @@ export function FocusSetCard({
         const suffix = id === 'weight' ? weightSuffix : undefined;
         const unitLine = suffix ? [unit, suffix].filter(Boolean).join(' · ') : unit;
         // Lightweight derived total ("2 × 10 = 20 kg") — only where doubling
-        // actually happens (per_hand) and a weight is entered.
+        // actually happens (per_hand / per_side) and a weight is entered.
         const totalHint =
-          id === 'weight' && isPerHand && set.weight !== undefined && set.weight > 0
+          id === 'weight' && doublesLoad && set.weight !== undefined && set.weight > 0
             ? `= ${effectiveLoad(set.weight, exercise.loadMode)} ${unit} total`
             : undefined;
         const applyValue = set[spec.field];

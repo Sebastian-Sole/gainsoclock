@@ -515,15 +515,15 @@ describe("sessionTotals", () => {
   });
 
   // Load-mode effective load (issue #132): volume uses the exercise's
-  // effective total — per_hand doubles, per_side/total/absent are unchanged.
-  it("doubles per_hand volume, leaves per_side/total/legacy as entered", () => {
+  // effective total — per_hand and per_side double, total/absent unchanged.
+  it("doubles per_hand and per_side volume, leaves total/legacy as entered", () => {
     const totals = sessionTotals([
       {
         loadMode: "per_hand", // 2 × 10 kg dumbbells → 20 kg × 10 reps
         sets: [{ id: "a", type: "metrics", weight: 10, reps: 10, completed: true }],
       },
       {
-        loadMode: "per_side",
+        loadMode: "per_side", // set covers both sides → 48 kg × 5 reps
         sets: [{ id: "b", type: "metrics", weight: 24, reps: 5, completed: true }],
       },
       {
@@ -531,7 +531,7 @@ describe("sessionTotals", () => {
         sets: [{ id: "c", type: "metrics", weight: 100, reps: 2, completed: true }],
       },
     ]);
-    expect(totals.volume).toBe(200 + 120 + 200);
+    expect(totals.volume).toBe(200 + 240 + 200);
   });
 });
 
