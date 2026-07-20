@@ -138,7 +138,11 @@ export function useNotificationSetup() {
 
       const [hour, minute] = time.split(':').map(Number);
       if (Number.isFinite(hour) && Number.isFinite(minute)) {
-        scheduleDailyWorkoutReminder(hour, minute, { workoutLogDates: workoutLogDates() });
+        // Fire-and-forget: swallow rejection from a denied permission or a
+        // failed native schedule so it can't become an unhandled rejection.
+        scheduleDailyWorkoutReminder(hour, minute, {
+          workoutLogDates: workoutLogDates(),
+        }).catch(() => {});
       }
     });
     return unsub;
@@ -169,7 +173,11 @@ export function useNotificationSetup() {
 
       const [hour, minute] = notificationsReminderTime.split(':').map(Number);
       if (Number.isFinite(hour) && Number.isFinite(minute)) {
-        scheduleDailyWorkoutReminder(hour, minute, { workoutLogDates: workoutLogDates() });
+        // Fire-and-forget: swallow rejection from a denied permission or a
+        // failed native schedule so it can't become an unhandled rejection.
+        scheduleDailyWorkoutReminder(hour, minute, {
+          workoutLogDates: workoutLogDates(),
+        }).catch(() => {});
       }
     };
 
@@ -201,7 +209,11 @@ export function useNotificationSetup() {
       if (!notificationsReminderEnabled) return;
       const [hour, minute] = notificationsReminderTime.split(':').map(Number);
       if (Number.isFinite(hour) && Number.isFinite(minute)) {
-        scheduleDailyWorkoutReminder(hour, minute, { workoutLogDates: workoutLogDates() });
+        // Fire-and-forget: swallow rejection from a denied permission or a
+        // failed native schedule so it can't become an unhandled rejection.
+        scheduleDailyWorkoutReminder(hour, minute, {
+          workoutLogDates: workoutLogDates(),
+        }).catch(() => {});
       }
     });
     return unsub;
@@ -375,7 +387,11 @@ export function useNotificationSetup() {
     if (notificationsReminderEnabled) {
       const [hour, minute] = notificationsReminderTime.split(':').map(Number);
       if (Number.isFinite(hour) && Number.isFinite(minute)) {
-        scheduleDailyWorkoutReminder(hour, minute, { workoutLogDates: workoutLogDates() });
+        // Fire-and-forget: swallow rejection from a denied permission or a
+        // failed native schedule so it can't become an unhandled rejection.
+        scheduleDailyWorkoutReminder(hour, minute, {
+          workoutLogDates: workoutLogDates(),
+        }).catch(() => {});
       }
     }
 

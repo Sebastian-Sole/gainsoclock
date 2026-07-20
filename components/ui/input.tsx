@@ -109,7 +109,10 @@ export function Input({
         inputTextVariants({ size }),
         leftIcon || rightIcon ? 'flex-1' : 'w-full',
       )}
-      style={[{ height: fieldHeight }, style]}
+      // Caller `style` first so the one-line height guard always wins: a
+      // caller-supplied `height` must not reintroduce the placeholder
+      // baseline/clipping quirk this component exists to prevent.
+      style={[style, { height: fieldHeight }]}
       placeholderTextColor={placeholderTextColor ?? colors.mutedForeground}
       keyboardType={keyboardType}
       inputAccessoryViewID={accessoryID}
