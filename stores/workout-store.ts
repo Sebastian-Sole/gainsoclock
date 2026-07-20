@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
-import type { ActiveWorkout, Exercise, MetricId, TemplateExercise, WorkoutLog, WorkoutSet } from '@/lib/types';
+import type { ActiveWorkout, Exercise, LoadMode, MetricId, TemplateExercise, WorkoutLog, WorkoutSet } from '@/lib/types';
 import { generateId } from '@/lib/id';
 import { createDefaultSets } from '@/lib/defaults';
 import {
@@ -13,6 +13,15 @@ import {
 
 interface WorkoutState {
   activeWorkout: ActiveWorkout | null;
+
+  /** Transient UI signal: which exercise the Focus logger should jump to
+   *  (set when tapping a summary row or after adding an exercise). Carried
+   *  through the store instead of route params — param-carrying hrefs made
+   *  dismissTo/navigate treat the logger as a different route and push a
+   *  duplicate on top of the summary (#141). Not persisted. The nonce makes
+   *  repeat requests for the same exercise re-fire. */
+  focusRequest: { id: string; nonce: number } | null;
+  requestFocusExercise: (id: string) => void;
 
   startWorkout: (templateName: string, exercises: TemplateExercise[], templateId?: string, planDayId?: string, previousLog?: WorkoutLog) => void;
   startEmptyWorkout: () => void;
@@ -26,6 +35,8 @@ interface WorkoutState {
   moveExercise: (exerciseId: string, direction: 'up' | 'down') => void;
   addExerciseMetric: (exerciseId: string, metricId: MetricId) => void;
   removeExerciseMetric: (exerciseId: string, metricId: MetricId) => void;
+  /** Change how this row's weight is counted (total / per hand / per side). */
+  setExerciseLoadMode: (exerciseId: string, loadMode: LoadMode) => void;
 
   // Set management
   addSet: (exerciseId: string, set: WorkoutSet) => void;
@@ -45,6 +56,12 @@ export const useWorkoutStore = create<WorkoutState>()(
   persist(
   (set, get) => ({
   activeWorkout: null,
+
+  focusRequest: null,
+  requestFocusExercise: (id) =>
+    set((state) => ({
+      focusRequest: { id, nonce: (state.focusRequest?.nonce ?? 0) + 1 },
+    })),
 
   startWorkout: (templateName, templateExercises, templateId, planDayId, previousLog) => {
     // Build a lookup of previous exercises by exerciseId for prefilling
@@ -200,6 +217,19 @@ export const useWorkoutStore = create<WorkoutState>()(
             if (base.length <= 1) return { ...e, metrics: base };
             return { ...e, metrics: base.filter((m) => m !== metricId) };
           }),
+        },
+      };
+    }),
+
+  setExerciseLoadMode: (exerciseId, loadMode) =>
+    set((state) => {
+      if (!state.activeWorkout) return state;
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          exercises: state.activeWorkout.exercises.map((e) =>
+            e.id === exerciseId ? { ...e, loadMode } : e
+          ),
         },
       };
     }),

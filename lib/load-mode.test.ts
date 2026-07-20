@@ -41,9 +41,9 @@ describe("loadMultiplier / effectiveLoad", () => {
     expect(effectiveLoad(12.5, "per_hand")).toBe(25);
   });
 
-  it("'per_side' is multiplier 1: one loaded side moves per rep", () => {
-    expect(loadMultiplier("per_side")).toBe(1);
-    expect(effectiveLoad(24, "per_side")).toBe(24);
+  it("'per_side' is multiplier 2: a logged set covers both sides", () => {
+    expect(loadMultiplier("per_side")).toBe(2);
+    expect(effectiveLoad(24, "per_side")).toBe(48);
   });
 });
 

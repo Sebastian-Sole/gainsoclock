@@ -52,6 +52,39 @@ export const create = mutation({
   },
 });
 
+// Update a definition's tracked metrics and/or weight load mode (#142/#145).
+// Editing applies to the library definition (all future uses) plus whatever
+// row the caller is configuring — past logs keep their denormalized
+// snapshots. Missing rows are a silent no-op for the same dead-letter
+// reason as `archive` below.
+export const update = mutation({
+  args: {
+    clientId: v.string(),
+    metrics: v.optional(v.array(metricIdValidator)),
+    // Present = set explicitly; "total" is stored as-is (the absent="total"
+    // legacy convention only applies to rows that predate loadMode).
+    loadMode: v.optional(loadModeValidator),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const existing = await ctx.db
+      .query("exercises")
+      .withIndex("by_user_clientId", (q) =>
+        q.eq("userId", userId).eq("clientId", args.clientId)
+      )
+      .unique();
+    if (!existing) return null;
+
+    await ctx.db.patch(existing._id, {
+      ...(args.metrics !== undefined && { metrics: args.metrics }),
+      ...(args.loadMode !== undefined && { loadMode: args.loadMode }),
+    });
+    return null;
+  },
+});
+
 // Soft-delete: mark an exercise archived. Templates, plans, workout logs and
 // stats reference exercises by clientId with denormalized name/type, so an
 // archived exercise keeps working everywhere it's already used — it's only

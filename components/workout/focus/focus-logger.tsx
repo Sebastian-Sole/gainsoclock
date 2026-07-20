@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Pressable, ScrollView } from 'react-native';
+import { Alert, View, Pressable, ScrollView } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -16,7 +16,9 @@ import { FocusSetCard } from '@/components/workout/focus/focus-set-card';
 import { ProgressRing, useRingColors } from '@/components/shared/progress-ring';
 import { lightHaptic, mediumHaptic, successHaptic } from '@/lib/haptics';
 import { MAX_METRICS_PER_EXERCISE, METRIC_LIST, resolveExerciseMetrics } from '@/lib/metrics';
-import type { Exercise, MetricId, WorkoutSet } from '@/lib/types';
+import { firstIncompleteSetIndex } from '@/lib/set-progress';
+import type { Exercise, LoadMode, MetricId, WorkoutSet } from '@/lib/types';
+import { LOAD_MODE_OPTIONS, resolveLoadMode } from '@/lib/load-mode';
 import { cn } from '@/lib/utils';
 
 export interface FocusLoggerProps {
@@ -36,6 +38,20 @@ export interface FocusLoggerProps {
   onAddMetric: (exerciseId: string, metricId: MetricId) => void;
   onRemoveMetric: (exerciseId: string, metricId: MetricId) => void;
   onAddExercise: () => void;
+  /** Change how the exercise's weight is counted (#142). Makes the weight
+   *  metric row's label a load-mode picker when provided. */
+  onChangeLoadMode?: (exercise: Exercise, loadMode: LoadMode) => void;
+  /** Scope note under the load-mode control — differs between the active
+   *  logger (row + library definition) and edit-log (this log only). */
+  loadModeHint?: string;
+  /** Apply `updates` to every set at index >= fromIndex — the stores'
+   *  updateSetsFromIndex. Enables the per-metric "apply to following sets"
+   *  affordance (#146) when provided. */
+  onUpdateSetsFromIndex?: (
+    exerciseId: string,
+    fromIndex: number,
+    updates: Partial<WorkoutSet>
+  ) => void;
 
   /** Fired when a set flips to complete — the active logger starts its rest timer. */
   onSetCompleted?: (exercise: Exercise) => void;
@@ -44,9 +60,12 @@ export interface FocusLoggerProps {
   /** Advance to the next unlogged set after completing one. Off while editing. */
   autoAdvance?: boolean;
   completeLabel?: string;
-  /** Point the pager at this exercise (first set) when set/changed — e.g. after
-   *  adding an exercise mid-workout from any entry point (#113, #126). */
+  /** Point the pager at this exercise when set/changed — e.g. after adding an
+   *  exercise mid-workout from any entry point (#113, #126). */
   focusExerciseId?: string;
+  /** Bumped for every focus request so re-focusing the SAME exercise (e.g.
+   *  tapping its summary row twice) still re-fires the jump (#141). */
+  focusNonce?: number;
 }
 
 /** Left padding of the pills scroll content (`px-4`), subtracted from a pill's
@@ -80,6 +99,9 @@ interface SetSlotProps {
   onUpdateSet: (exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => void;
   onShowAddMetric: () => void;
   onRemoveMetric: (exerciseId: string, metricId: MetricId) => void;
+  canApplyToFollowing: boolean;
+  onApplyToFollowing?: (updates: Partial<WorkoutSet>, label: string) => void;
+  onPressLoadMode?: () => void;
 }
 
 /** One page of the set pager, absolutely positioned at its set's offset inside
@@ -98,6 +120,9 @@ const SetSlot = React.memo(function SetSlot({
   onUpdateSet,
   onShowAddMetric,
   onRemoveMetric,
+  canApplyToFollowing,
+  onApplyToFollowing,
+  onPressLoadMode,
 }: SetSlotProps) {
   return (
     <View style={{ position: 'absolute', top: 0, bottom: 0, left: offsetX, width: pageW }}>
@@ -116,6 +141,9 @@ const SetSlot = React.memo(function SetSlot({
           onUpdate={(updates) => onUpdateSet(exercise.id, set.id, updates)}
           onAddMetric={onShowAddMetric}
           onRemoveMetric={(m) => onRemoveMetric(exercise.id, m)}
+          canApplyToFollowing={canApplyToFollowing}
+          onApplyToFollowing={onApplyToFollowing}
+          onPressLoadMode={onPressLoadMode}
         />
       </ScrollView>
     </View>
@@ -140,18 +168,27 @@ export function FocusLogger({
   onAddMetric,
   onRemoveMetric,
   onAddExercise,
+  onChangeLoadMode,
+  loadModeHint = 'Applies to this exercise going forward · past workouts are unchanged.',
+  onUpdateSetsFromIndex,
   onSetCompleted,
   onAllComplete,
   autoAdvance = true,
   completeLabel = 'Complete set',
   focusExerciseId,
+  focusNonce,
 }: FocusLoggerProps) {
   const ring = useRingColors();
 
   const [exIdx, setExIdx] = useState(0);
-  const [setIdx, setSetIdx] = useState(0);
+  // Open on the earliest incomplete set — resuming a half-done workout should
+  // land where the user actually is, not back on set 1 (#140).
+  const [setIdx, setSetIdx] = useState(() =>
+    firstIncompleteSetIndex(exercises[0]?.sets ?? [])
+  );
   const [showAddMetric, setShowAddMetric] = useState(false);
   const [showExMenu, setShowExMenu] = useState(false);
+  const [showLoadMode, setShowLoadMode] = useState(false);
   const [pageW, setPageW] = useState(0);
   // Row translateX. At rest it sits at -safeSetIdx * pageW; each set's slot is
   // absolutely positioned at index * pageW, so no commit ever has to reset it.
@@ -213,18 +250,50 @@ export function FocusLogger({
     tx.value = -safeSetIdx * pageW;
   }, [pageW, safeSetIdx, safeExIdx, tx]);
 
-  // Jump to a caller-designated exercise (its first set) — e.g. one just added
-  // from the summary screen.
+  // Jump to a caller-designated exercise — e.g. one just added or tapped on
+  // the summary screen — landing on its earliest incomplete set (#140).
   useEffect(() => {
     if (!focusExerciseId) return;
     const idx = exercisesRef.current.findIndex((e) => e.id === focusExerciseId);
     if (idx !== -1) {
       setExIdx(idx);
-      setSetIdx(0);
+      setSetIdx(firstIncompleteSetIndex(exercisesRef.current[idx].sets));
     }
-  }, [focusExerciseId]);
+  }, [focusExerciseId, focusNonce]);
 
   const openAddMetric = useCallback(() => setShowAddMetric(true), []);
+  const openLoadMode = useCallback(() => setShowLoadMode(true), []);
+
+  // Per-metric "apply to following sets" (#146): writes the tapped metric's
+  // current value onto this set and every set after it. Values rarely change
+  // set-to-set, so this saves re-entering them. Later sets that are already
+  // logged are never overwritten silently — a confirm interposes.
+  const applyToFollowingSets = useCallback(
+    (updates: Partial<WorkoutSet>, label: string) => {
+      if (!onUpdateSetsFromIndex) return;
+      const ex = exercisesRef.current[safeExIdx];
+      if (!ex) return;
+      const fromIndex = Math.min(setIdx, Math.max(0, ex.sets.length - 1));
+      const apply = () => {
+        lightHaptic();
+        onUpdateSetsFromIndex(ex.id, fromIndex, updates);
+      };
+      const completedAfter = ex.sets.filter((s, i) => i > fromIndex && s.completed).length;
+      if (completedAfter > 0) {
+        Alert.alert(
+          'Overwrite logged sets?',
+          `${completedAfter} of the following sets ${completedAfter === 1 ? 'is' : 'are'} already logged. Apply this ${label.toLowerCase()} to ${completedAfter === 1 ? 'it' : 'them'} too?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Apply', onPress: apply },
+          ]
+        );
+      } else {
+        apply();
+      }
+    },
+    [onUpdateSetsFromIndex, safeExIdx, setIdx]
+  );
 
   const commitFromGesture = useCallback((target: number) => {
     fromGestureRef.current = true;
@@ -276,7 +345,7 @@ export function FocusLogger({
   const selectExercise = (i: number) => {
     lightHaptic();
     setExIdx(i);
-    setSetIdx(0);
+    setSetIdx(firstIncompleteSetIndex(exercises[i]?.sets ?? []));
   };
 
   const advanceAfterComplete = useCallback(() => {
@@ -497,6 +566,11 @@ export function FocusLogger({
                     onUpdateSet={onUpdateSet}
                     onShowAddMetric={openAddMetric}
                     onRemoveMetric={onRemoveMetric}
+                    canApplyToFollowing={i === safeSetIdx && hasNext}
+                    onApplyToFollowing={
+                      onUpdateSetsFromIndex ? applyToFollowingSets : undefined
+                    }
+                    onPressLoadMode={onChangeLoadMode ? openLoadMode : undefined}
                   />
                 )
               )}
@@ -611,6 +685,62 @@ export function FocusLogger({
                 ))}
               </View>
             )}
+          </View>
+        </View>
+      )}
+
+      {/* Load-mode sheet (#142) — opened from the weight row's unit chip. */}
+      {showLoadMode && onChangeLoadMode && (
+        <View className="absolute inset-0" style={{ zIndex: 60 }}>
+          <Pressable
+            className="absolute inset-0 bg-black/50"
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            onPress={() => setShowLoadMode(false)}
+          />
+          <View className="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-border bg-card px-5 pb-10 pt-4">
+            <View className="mb-3 h-1 w-9 self-center rounded-full bg-border" />
+            <Text className="mb-3 text-base font-bold text-foreground">Weight is entered as</Text>
+            <View
+              className="flex-row rounded-lg bg-secondary"
+              accessibilityRole="radiogroup"
+              accessibilityLabel="Weight entry mode"
+            >
+              {LOAD_MODE_OPTIONS.map((option) => {
+                const selected = resolveLoadMode(exercise.loadMode) === option.id;
+                return (
+                  <Pressable
+                    key={option.id}
+                    onPress={() => {
+                      lightHaptic();
+                      onChangeLoadMode(exercise, option.id);
+                    }}
+                    className={cn(
+                      'min-h-[44px] flex-1 items-center justify-center rounded-lg px-2 py-3',
+                      selected && 'bg-primary'
+                    )}
+                    accessibilityRole="radio"
+                    accessibilityLabel={option.label}
+                    accessibilityHint={option.description}
+                    accessibilityState={{ checked: selected }}
+                    testID={`focus-load-mode-${option.id}`}
+                  >
+                    <Text
+                      className={cn(
+                        'text-sm font-medium',
+                        selected ? 'text-primary-foreground' : 'text-secondary-foreground'
+                      )}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text className="mt-1.5 text-xs text-muted-foreground">
+              {LOAD_MODE_OPTIONS.find((o) => o.id === resolveLoadMode(exercise.loadMode))?.description}
+            </Text>
+            <Text className="mt-1 text-xs text-muted-foreground">{loadModeHint}</Text>
           </View>
         </View>
       )}

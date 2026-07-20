@@ -8,6 +8,7 @@ import {
 } from "@/lib/notification-rules";
 import { useNutritionGoalsStore } from "@/stores/nutrition-goals-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useWorkoutStore } from "@/stores/workout-store";
 import * as Notifications from "expo-notifications";
 import { Alert, Linking } from "react-native";
 import { format } from "date-fns";
@@ -205,7 +206,19 @@ export async function scheduleDailyWorkoutReminder(
     lastWorkoutLoggedDate,
     logDates: opts?.workoutLogDates ?? [],
   });
-  const plan = planDailyReminder({ now, hour, minute, workedOutToday });
+  // A workout in progress suppresses today the same way a finished one does:
+  // once the OS presents a backgrounded notification, no JS guard can stop
+  // it, so the mid-workout check must happen here at scheduling time. The
+  // activeWorkout-watcher effect in use-notification-setup re-arms when the
+  // workout ends (finished or discarded).
+  const workoutInProgress = useWorkoutStore.getState().activeWorkout != null;
+  const plan = planDailyReminder({
+    now,
+    hour,
+    minute,
+    workedOutToday,
+    workoutInProgress,
+  });
   if (plan.kind === "one-shot-tomorrow") {
     await Notifications.scheduleNotificationAsync({
       identifier: IDENTIFIERS.DAILY_REMINDER,

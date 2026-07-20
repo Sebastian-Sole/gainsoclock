@@ -138,7 +138,11 @@ export function useNotificationSetup() {
 
       const [hour, minute] = time.split(':').map(Number);
       if (Number.isFinite(hour) && Number.isFinite(minute)) {
-        scheduleDailyWorkoutReminder(hour, minute, { workoutLogDates: workoutLogDates() });
+        // Fire-and-forget: swallow rejection from a denied permission or a
+        // failed native schedule so it can't become an unhandled rejection.
+        scheduleDailyWorkoutReminder(hour, minute, {
+          workoutLogDates: workoutLogDates(),
+        }).catch(() => {});
       }
     });
     return unsub;
@@ -169,7 +173,11 @@ export function useNotificationSetup() {
 
       const [hour, minute] = notificationsReminderTime.split(':').map(Number);
       if (Number.isFinite(hour) && Number.isFinite(minute)) {
-        scheduleDailyWorkoutReminder(hour, minute, { workoutLogDates: workoutLogDates() });
+        // Fire-and-forget: swallow rejection from a denied permission or a
+        // failed native schedule so it can't become an unhandled rejection.
+        scheduleDailyWorkoutReminder(hour, minute, {
+          workoutLogDates: workoutLogDates(),
+        }).catch(() => {});
       }
     };
 
@@ -177,6 +185,38 @@ export function useNotificationSetup() {
       if (state === 'active') rearmDailyReminder();
     });
     return () => subscription.remove();
+  }, []);
+
+  // Re-plan the daily reminder when a workout starts or ends. A reminder
+  // armed before the workout began would otherwise be presented by the OS
+  // while the app is backgrounded (phone locked between sets), where the
+  // foreground handler's mid-workout guard never runs. The scheduler itself
+  // reads activeWorkout, so re-running it on the start transition swaps the
+  // pending trigger for a one-shot tomorrow; on the end transition (finish
+  // OR discard) it restores normal planning. Mirrors the rest-timer pattern
+  // of reacting to store state rather than hooking every startWorkout call
+  // site.
+  useEffect(() => {
+    let prevActive = useWorkoutStore.getState().activeWorkout != null;
+
+    const unsub = useWorkoutStore.subscribe((state) => {
+      const active = state.activeWorkout != null;
+      if (active === prevActive) return;
+      prevActive = active;
+
+      const { notificationsReminderEnabled, notificationsReminderTime } =
+        useSettingsStore.getState();
+      if (!notificationsReminderEnabled) return;
+      const [hour, minute] = notificationsReminderTime.split(':').map(Number);
+      if (Number.isFinite(hour) && Number.isFinite(minute)) {
+        // Fire-and-forget: swallow rejection from a denied permission or a
+        // failed native schedule so it can't become an unhandled rejection.
+        scheduleDailyWorkoutReminder(hour, minute, {
+          workoutLogDates: workoutLogDates(),
+        }).catch(() => {});
+      }
+    });
+    return unsub;
   }, []);
 
   // Subscribe to settings changes for weekly review notification
@@ -347,7 +387,11 @@ export function useNotificationSetup() {
     if (notificationsReminderEnabled) {
       const [hour, minute] = notificationsReminderTime.split(':').map(Number);
       if (Number.isFinite(hour) && Number.isFinite(minute)) {
-        scheduleDailyWorkoutReminder(hour, minute, { workoutLogDates: workoutLogDates() });
+        // Fire-and-forget: swallow rejection from a denied permission or a
+        // failed native schedule so it can't become an unhandled rejection.
+        scheduleDailyWorkoutReminder(hour, minute, {
+          workoutLogDates: workoutLogDates(),
+        }).catch(() => {});
       }
     }
 

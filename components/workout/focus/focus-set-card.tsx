@@ -3,7 +3,7 @@ import { View, Pressable, TextInput } from 'react-native';
 import { useNumericField } from '@/hooks/use-numeric-field';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { Text } from '@/components/ui/text';
-import { Pencil, X } from 'lucide-react-native';
+import { Pencil, Settings2, X } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { TimeInput } from '@/components/shared/time-input';
@@ -11,7 +11,8 @@ import { IntervalSetInputs, MmSsInput } from '@/components/workout/interval-set-
 import { RpeInput } from '@/components/workout/rpe-input';
 import { useSettingsStore } from '@/stores/settings-store';
 import type { Exercise, MetricId, WorkoutSet } from '@/lib/types';
-import { effectiveLoad, loadModeFieldSuffix, resolveLoadMode } from '@/lib/load-mode';
+import { effectiveLoad, loadModeFieldSuffix, loadMultiplier } from '@/lib/load-mode';
+import { formatTime } from '@/lib/format';
 import {
   METRICS,
   metricUnitOverride,
@@ -78,6 +79,13 @@ interface FocusSetCardProps {
   onUpdate: (updates: Partial<WorkoutSet>) => void;
   onAddMetric: () => void;
   onRemoveMetric: (metricId: MetricId) => void;
+  /** Later sets exist, so per-metric "apply to remaining sets" is offered. */
+  canApplyToFollowing?: boolean;
+  /** Apply `updates` to this set and every set after it (#146). */
+  onApplyToFollowing?: (updates: Partial<WorkoutSet>, label: string) => void;
+  /** Open the load-mode picker sheet (#142); makes the weight row's unit
+   *  chip a button when provided. */
+  onPressLoadMode?: () => void;
 }
 
 export function FocusSetCard({
@@ -89,11 +97,23 @@ export function FocusSetCard({
   onUpdate,
   onAddMetric,
   onRemoveMetric,
+  canApplyToFollowing = false,
+  onApplyToFollowing,
+  onPressLoadMode,
 }: FocusSetCardProps) {
   const rpeEnabled = useSettingsStore((s) => s.rpeEnabled);
   const metrics = resolveExerciseMetrics(exercise.type, exercise.metrics);
   // One ref per metric row so the pencil affordance can focus its field.
   const valueInputRefs = React.useRef<Record<string, TextInput | null>>({});
+
+  // "Apply to remaining sets" prompt (#146): appears under a metric row only
+  // after the user changes that metric's value on this set (mirrors the old
+  // pre-Focus applyAllPrompt). One prompt at a time; cleared when this card
+  // stops being the active set so it never lingers on a neighbor slot.
+  const [applyPromptField, setApplyPromptField] = React.useState<MetricId | null>(null);
+  React.useEffect(() => {
+    if (!editable) setApplyPromptField(null);
+  }, [editable]);
 
   // Intervals don't compose from the metric palette: one set is a whole
   // interval — a work segment (effort + duration) and a rest segment — with
@@ -111,7 +131,12 @@ export function FocusSetCard({
 
   const renderInput = (spec: MetricSpec) => {
     const value = set[spec.field];
-    const change = (v: number | undefined) => onUpdate(metricUpdate(spec.field, v));
+    const change = (v: number | undefined) => {
+      onUpdate(metricUpdate(spec.field, v));
+      // A value change on this set offers to carry it to the remaining sets
+      // (#146). Armed here, rendered under the row below.
+      if (canApplyToFollowing && onApplyToFollowing) setApplyPromptField(spec.id);
+    };
     // Screen readers hear the load-mode qualifier too ("Weight, per hand").
     const fieldSuffix = spec.id === 'weight' ? loadModeFieldSuffix(exercise.loadMode) : undefined;
     const fieldLabel = fieldSuffix ? `${spec.label}, ${fieldSuffix}` : spec.label;
@@ -181,10 +206,10 @@ export function FocusSetCard({
     );
   };
 
-  // Weight-field qualifier for unilateral exercises: "per hand"/"per side"
-  // (lib/load-mode.ts). Undefined for 'total'/legacy — nothing changes.
-  const weightSuffix = loadModeFieldSuffix(exercise.loadMode);
-  const isPerHand = resolveLoadMode(exercise.loadMode) === 'per_hand';
+  // Weight-field qualifier: always shown, including "total", so the active
+  // entry mode is never ambiguous (#142).
+  const weightSuffix = loadModeFieldSuffix(exercise.loadMode) ?? 'total';
+  const doublesLoad = loadMultiplier(exercise.loadMode) > 1;
 
   return (
     <View>
@@ -194,18 +219,46 @@ export function FocusSetCard({
         const suffix = id === 'weight' ? weightSuffix : undefined;
         const unitLine = suffix ? [unit, suffix].filter(Boolean).join(' · ') : unit;
         // Lightweight derived total ("2 × 10 = 20 kg") — only where doubling
-        // actually happens (per_hand) and a weight is entered.
+        // actually happens (per_hand / per_side) and a weight is entered.
         const totalHint =
-          id === 'weight' && isPerHand && set.weight !== undefined && set.weight > 0
+          id === 'weight' && doublesLoad && set.weight !== undefined && set.weight > 0
             ? `= ${effectiveLoad(set.weight, exercise.loadMode)} ${unit} total`
             : undefined;
+        const applyValue = set[spec.field];
+        const showApplyPrompt =
+          applyPromptField === id &&
+          canApplyToFollowing &&
+          onApplyToFollowing !== undefined &&
+          applyValue !== undefined;
+        const applyValueLabel =
+          spec.inputKind === 'duration' || spec.inputKind === 'pace'
+            ? formatTime(applyValue ?? 0)
+            : `${applyValue}${unit ? ` ${unit}` : ''}`;
+        const canEditLoadMode = id === 'weight' && onPressLoadMode !== undefined && editable;
         return (
           <View key={id} className={cn('py-3', i > 0 && 'border-t border-border')}>
             <View className="flex-row items-center gap-2">
               <View style={{ width: 94 }}>
                 <Text className="text-base font-semibold text-foreground">{spec.label}</Text>
-                {unitLine ? (
-                  <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">{unitLine}</Text>
+                {canEditLoadMode ? (
+                  <Pressable
+                    onPress={onPressLoadMode}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Weight entry mode: ${weightSuffix}`}
+                    accessibilityHint="Change to total, per hand, or per side"
+                    testID="focus-weight-load-mode"
+                    className="mt-0.5 flex-row items-center gap-1 self-start rounded-md border border-border px-1.5 py-0.5"
+                  >
+                    <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {unitLine}
+                    </Text>
+                    <Icon as={Settings2} size={11} className="text-muted-foreground" />
+                  </Pressable>
+                ) : unitLine ? (
+                  <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {unitLine}
+                  </Text>
                 ) : null}
               </View>
               {renderInput(spec)}
@@ -227,6 +280,33 @@ export function FocusSetCard({
                 {totalHint}
               </Text>
             ) : null}
+            {showApplyPrompt && (
+              <View className="mt-2 flex-row items-center rounded-xl border border-primary bg-primary/10">
+                <Pressable
+                  onPress={() => {
+                    onApplyToFollowing(metricUpdate(spec.field, applyValue), spec.label);
+                    setApplyPromptField(null);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Apply ${applyValueLabel} to remaining sets`}
+                  testID={`focus-apply-${spec.id}`}
+                  className="min-h-[44px] flex-1 justify-center py-2.5 pl-3"
+                >
+                  <Text className="text-sm font-semibold text-primary">
+                    Apply {applyValueLabel} to remaining sets
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setApplyPromptField(null)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Dismiss"
+                  hitSlop={8}
+                  className="min-h-[44px] justify-center px-3"
+                >
+                  <Icon as={X} size={14} className="text-primary" />
+                </Pressable>
+              </View>
+            )}
           </View>
         );
       })}

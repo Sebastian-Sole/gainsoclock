@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Dumbbell, BookmarkPlus } from 'lucide-react-native';
@@ -9,12 +9,13 @@ import { Icon } from '@/components/ui/icon';
 
 import { useWorkoutStore } from '@/stores/workout-store';
 import { useSettingsStore } from '@/stores/settings-store';
+import { useExerciseLibraryStore } from '@/stores/exercise-library-store';
 import { useRestTimer } from '@/hooks/use-rest-timer';
 import { useWorkoutTimer } from '@/hooks/use-workout-timer';
 import { createDefaultSet, createIntervalSet } from '@/lib/defaults';
 import { generateId } from '@/lib/id';
 import { formatTime, formatDuration } from '@/lib/format';
-import type { Exercise, WorkoutSet } from '@/lib/types';
+import type { Exercise, LoadMode, WorkoutSet } from '@/lib/types';
 import { hasIncompleteSets } from '@/lib/workout-progress';
 import { setActiveWorkoutVisible, cancelRestTimerNotification } from '@/lib/notifications';
 import { endRestActivity } from '@/lib/live-activity';
@@ -66,8 +67,10 @@ export default function ActiveWorkoutScreen() {
   // Set when create.tsx dismisses back here after adding an exercise mid-
   // workout (summary, empty state, or the logger's pills bar) — the pager
   // should open on the newly added exercise (#113, #126). Also set when the
-  // summary's exercise rows navigate back to a specific exercise.
-  const { focusExerciseId } = useLocalSearchParams<{ focusExerciseId?: string }>();
+  // summary's exercise rows navigate back to a specific exercise. Delivered
+  // via the store, not route params — see focusRequest in workout-store
+  // (#141).
+  const focusRequest = useWorkoutStore((s) => s.focusRequest);
 
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
   const updateSet = useWorkoutStore((s) => s.updateSet);
@@ -78,6 +81,22 @@ export default function ActiveWorkoutScreen() {
   const moveExercise = useWorkoutStore((s) => s.moveExercise);
   const addExerciseMetric = useWorkoutStore((s) => s.addExerciseMetric);
   const removeExerciseMetric = useWorkoutStore((s) => s.removeExerciseMetric);
+  const updateSetsFromIndex = useWorkoutStore((s) => s.updateSetsFromIndex);
+  const setExerciseLoadMode = useWorkoutStore((s) => s.setExerciseLoadMode);
+  const updateLibraryExercise = useExerciseLibraryStore((s) => s.updateExercise);
+
+  // Load-mode edits apply to this row AND the library definition (#142):
+  // future workouts inherit the fix, already-logged workouts keep their
+  // snapshots.
+  const handleChangeLoadMode = useCallback(
+    (exercise: Exercise, mode: LoadMode) => {
+      setExerciseLoadMode(exercise.id, mode);
+      if (exercise.exerciseId) {
+        updateLibraryExercise(exercise.exerciseId, { loadMode: mode });
+      }
+    },
+    [setExerciseLoadMode, updateLibraryExercise]
+  );
   const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
   const stopRestTimer = useWorkoutStore((s) => s.stopRestTimer);
 
@@ -231,10 +250,13 @@ export default function ActiveWorkoutScreen() {
           onMoveExercise={moveExercise}
           onAddMetric={addExerciseMetric}
           onRemoveMetric={removeExerciseMetric}
+          onUpdateSetsFromIndex={updateSetsFromIndex}
+          onChangeLoadMode={handleChangeLoadMode}
           onAddExercise={() => router.push('/exercise/create?source=active')}
           onSetCompleted={handleSetCompleted}
           onAllComplete={handleAllComplete}
-          focusExerciseId={focusExerciseId}
+          focusExerciseId={focusRequest?.id}
+          focusNonce={focusRequest?.nonce}
         />
       </KeyboardAvoidingView>
 

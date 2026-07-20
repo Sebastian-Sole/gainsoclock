@@ -1,7 +1,7 @@
 import { Text } from "@/components/ui/text";
 import { Input } from '@/components/ui/input';
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Plus, Trash2 } from "lucide-react-native";
+import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react-native";
 import { useColorScheme } from "nativewind";
 import React, { useEffect, useState } from "react";
 import {
@@ -31,7 +31,17 @@ export default function EditTemplateScreen() {
   const exercises = useTemplateCreateStore((s) => s.exercises);
   const removeExercise = useTemplateCreateStore((s) => s.removeExercise);
   const setExercises = useTemplateCreateStore((s) => s.setExercises);
+  const reorderExercises = useTemplateCreateStore((s) => s.reorderExercises);
   const clearExercises = useTemplateCreateStore((s) => s.clearExercises);
+
+  const moveExercise = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= exercises.length) return;
+    const next = [...exercises];
+    [next[index], next[target]] = [next[target], next[index]];
+    lightHaptic();
+    reorderExercises(next);
+  };
 
   const [name, setName] = useState("");
 
@@ -111,22 +121,56 @@ export default function EditTemplateScreen() {
             </View>
           ) : (
             <View className="gap-1 rounded-xl border border-border bg-card px-3">
-              {exercises.map((exercise, index) => (
-                <View key={exercise.id} className="flex-row items-center">
-                  <View className="flex-1">
-                    <ExerciseRow exercise={exercise} index={index} />
+              {exercises.map((exercise, index) => {
+                const isFirst = index === 0;
+                const isLast = index === exercises.length - 1;
+                const chevronColor = isDark ? "#a1a1aa" : "#71717a";
+                const disabledColor = isDark ? "#3f3f46" : "#d4d4d8";
+                return (
+                  <View key={exercise.id} className="flex-row items-center">
+                    <View className="flex-1">
+                      <ExerciseRow exercise={exercise} index={index} />
+                    </View>
+                    <Pressable
+                      onPress={() => moveExercise(index, -1)}
+                      disabled={isFirst}
+                      accessibilityRole="button"
+                      accessibilityLabel="Move exercise up"
+                      accessibilityState={{ disabled: isFirst }}
+                      className="h-11 w-11 items-center justify-center"
+                    >
+                      <ChevronUp
+                        size={20}
+                        color={isFirst ? disabledColor : chevronColor}
+                      />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => moveExercise(index, 1)}
+                      disabled={isLast}
+                      accessibilityRole="button"
+                      accessibilityLabel="Move exercise down"
+                      accessibilityState={{ disabled: isLast }}
+                      className="h-11 w-11 items-center justify-center"
+                    >
+                      <ChevronDown
+                        size={20}
+                        color={isLast ? disabledColor : chevronColor}
+                      />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        lightHaptic();
+                        removeExercise(exercise.id);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove exercise"
+                      className="h-11 w-11 items-center justify-center"
+                    >
+                      <Trash2 size={16} color="#ef4444" />
+                    </Pressable>
                   </View>
-                  <Pressable
-                    onPress={() => {
-                      lightHaptic();
-                      removeExercise(exercise.id);
-                    }}
-                    className="h-8 w-8 items-center justify-center"
-                  >
-                    <Trash2 size={16} color="#ef4444" />
-                  </Pressable>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
 

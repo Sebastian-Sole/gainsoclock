@@ -86,10 +86,10 @@ describe("sessionBestOneRm", () => {
     expect(perHand).toBeCloseTo(20 * (1 + 10 / 30), 10);
   });
 
-  it("per_side and total match the legacy (loadMode-less) math", () => {
+  it("per_side doubles like per_hand; total matches the legacy (loadMode-less) math", () => {
     const sets = [set({ id: "a", weight: 24, reps: 8 })];
     const legacy = sessionBestOneRm(sets);
-    expect(sessionBestOneRm(sets, "epley", "per_side")).toBe(legacy);
+    expect(sessionBestOneRm(sets, "epley", "per_side")).toBeCloseTo(48 * (1 + 8 / 30), 10);
     expect(sessionBestOneRm(sets, "epley", "total")).toBe(legacy);
   });
 });

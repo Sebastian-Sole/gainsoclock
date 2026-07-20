@@ -69,7 +69,10 @@ export default function WorkoutSummaryScreen() {
 
   const goToExercise = (exerciseId: string) => {
     lightHaptic();
-    router.navigate({ pathname: '/workout/active', params: { focusExerciseId: exerciseId } });
+    // The summary is always pushed from the logger, so a plain back() lands
+    // there deterministically; the focus target travels via the store (#141).
+    useWorkoutStore.getState().requestFocusExercise(exerciseId);
+    router.back();
   };
 
   const confirmRemoveExercise = (exerciseId: string, name: string) => {
@@ -158,7 +161,17 @@ export default function WorkoutSummaryScreen() {
       {/* CTAs */}
       <View className="gap-3 px-5 pb-2 pt-2">
         <Pressable
-          onPress={() => router.push('/exercise/create?source=active')}
+          // Pop this transient screen BEFORE opening the add-exercise flow so
+          // the exercise stack sits directly above the logger. workout/ and
+          // exercise/ are nested stacks, so href-based dismissTo/navigate
+          // from create can't pop back into this group (they push a duplicate
+          // group instead), and replace here would swap out the whole workout
+          // group including the logger. back()+push is the only stack shape
+          // where create's save/cancel back() lands on the logger (#141).
+          onPress={() => {
+            router.back();
+            router.push('/exercise/create?source=active');
+          }}
           accessibilityRole="button"
           accessibilityLabel="Add exercise"
           className="flex-row items-center justify-center gap-2 rounded-2xl border border-primary bg-accent py-4"
