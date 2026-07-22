@@ -117,10 +117,10 @@ export function Input({
   // what the min-h-wrapper rule exists to protect.
   const fieldHeight = Math.ceil(INPUT_FONT_SIZE[size ?? 'default'] * 1.35 * fontScale);
 
-  // Numeric keypads have no return key, so they are otherwise undismissable.
-  // Attach the floating per-input "Done" pill (works inside modals; the
-  // system toolbar sits flush on the keypad and can't be spaced or themed).
-  // A caller-supplied inputAccessoryViewID or returnKeyType wins.
+  // Numeric keypads have no return key, so they are otherwise undismissable —
+  // and iOS renders no toolbar of its own with the software keyboard up.
+  // Attach the system-styled per-input Done bar (works inside modals). A
+  // caller-supplied inputAccessoryViewID or returnKeyType wins.
   const kb = useKeyboardDoneBar();
   const isNumericKeypad = keyboardType !== undefined && NUMERIC_KEYBOARDS.has(keyboardType);
   const useDoneBar = isNumericKeypad && props.inputAccessoryViewID === undefined;
