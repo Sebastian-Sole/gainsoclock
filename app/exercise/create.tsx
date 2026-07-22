@@ -24,6 +24,7 @@ import { lightHaptic } from '@/lib/haptics';
 import { exerciseTypeLabel } from '@/lib/format';
 import { useTemplateCreateStore } from '@/stores/exercise-draft-store';
 import { useWorkoutStore } from '@/stores/workout-store';
+import { useHistoryStore } from '@/stores/history-store';
 import { useEditLogStore } from '@/stores/edit-log-store';
 import { useExerciseLibraryStore } from '@/stores/exercise-library-store';
 import { useSettingsStore } from '@/stores/settings-store';
@@ -56,6 +57,7 @@ export default function CreateExerciseScreen() {
   const userDefaultRepsCount = useSettingsStore((s) => s.defaultRepsCount);
   const userDistanceUnit = useSettingsStore((s) => s.distanceUnit);
   const weightUnit = useSettingsStore((s) => s.weightUnit);
+  const prefillFromLastWorkout = useSettingsStore((s) => s.prefillFromLastWorkout);
 
   // -1 = picker, 0-4 = wizard steps
   const [step, setStep] = useState(-1);
@@ -226,6 +228,18 @@ export default function CreateExerciseScreen() {
     };
 
     if (isActiveWorkout || source === 'edit-log') {
+      // When adding an exercise to a live workout, prefill from the last time
+      // this exercise was performed (clone its sets with fresh IDs, uncompleted),
+      // matching the template-scoped prefill in `startWorkout`. Falls back to
+      // the configured defaults when there's no history or the setting is off.
+      const previousSets =
+        isActiveWorkout && prefillFromLastWorkout
+          ? useHistoryStore.getState().getLastSetsForExercise(exerciseDef.id)
+          : undefined;
+      const sets =
+        previousSets && previousSets.length > 0
+          ? previousSets.map((s) => ({ ...s, id: generateId(), completed: false }))
+          : createDefaultSets(exerciseType, metrics, setsCount, suggested);
       const exercise: Exercise = {
         id: generateId(),
         exerciseId: exerciseDef.id,
@@ -233,7 +247,7 @@ export default function CreateExerciseScreen() {
         type: exerciseType,
         metrics,
         loadMode: rowLoadMode,
-        sets: createDefaultSets(exerciseType, metrics, setsCount, suggested),
+        sets,
         restTimeSeconds: restTime,
       };
       if (isActiveWorkout) {
