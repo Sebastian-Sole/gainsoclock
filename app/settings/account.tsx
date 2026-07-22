@@ -12,7 +12,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { keyboardDoneAccessoryID } from "@/components/shared/keyboard-done-accessory";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -340,7 +339,6 @@ export default function AccountScreen() {
               autoCorrect={false}
               maxLength={80}
               textContentType="name"
-              inputAccessoryViewID={keyboardDoneAccessoryID}
               returnKeyType="done"
               accessibilityLabel="Display name"
               accessibilityLabelledBy="account-name-label"
@@ -576,7 +574,6 @@ export default function AccountScreen() {
                       autoCorrect={false}
                       autoComplete="email"
                       textContentType="emailAddress"
-                      inputAccessoryViewID={keyboardDoneAccessoryID}
                       returnKeyType="done"
                       accessibilityLabel="New email"
                       accessibilityLabelledBy="account-new-email-label"
@@ -600,7 +597,6 @@ export default function AccountScreen() {
                       autoCapitalize="none"
                       autoCorrect={false}
                       textContentType="password"
-                      inputAccessoryViewID={keyboardDoneAccessoryID}
                       returnKeyType="done"
                       accessibilityLabel="Current password for email change"
                       accessibilityLabelledBy="account-email-password-label"
@@ -680,7 +676,6 @@ export default function AccountScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                   textContentType="password"
-                  inputAccessoryViewID={keyboardDoneAccessoryID}
                   returnKeyType="done"
                   accessibilityLabel="Current password"
                   accessibilityLabelledBy="account-current-password-label"
@@ -705,7 +700,6 @@ export default function AccountScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                   textContentType="newPassword"
-                  inputAccessoryViewID={keyboardDoneAccessoryID}
                   returnKeyType="done"
                   accessibilityLabel="New password"
                   accessibilityLabelledBy="account-new-password-label"
@@ -730,7 +724,6 @@ export default function AccountScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                   textContentType="newPassword"
-                  inputAccessoryViewID={keyboardDoneAccessoryID}
                   returnKeyType="done"
                   accessibilityLabel="Confirm new password"
                   accessibilityLabelledBy="account-confirm-password-label"

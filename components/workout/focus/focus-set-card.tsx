@@ -5,7 +5,6 @@ import { useTokenColors } from '@/hooks/use-token-colors';
 import { Text } from '@/components/ui/text';
 import { Pencil, Settings2, X } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
-import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { TimeInput } from '@/components/shared/time-input';
 import { IntervalSetInputs, MmSsInput } from '@/components/workout/interval-set-inputs';
 import { RpeInput } from '@/components/workout/rpe-input';
@@ -62,7 +61,7 @@ function BigInput({
       placeholderTextColor={colors.mutedForeground}
       accessibilityLabel={accessibilityLabel}
       keyboardType={allowDecimals ? 'decimal-pad' : 'number-pad'}
-      inputAccessoryViewID={keyboardDoneAccessoryID}
+      returnKeyType="done"
       selectTextOnFocus
       className="min-w-[70px] text-right text-3xl font-extrabold text-foreground"
       testID={testID}

@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { Pressable, TextInput, useWindowDimensions, type TextInputProps } from 'react-native';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { cn } from '@/lib/utils';
 
@@ -73,7 +72,7 @@ export function Input({
   size,
   style,
   placeholderTextColor,
-  inputAccessoryViewID,
+  returnKeyType,
   keyboardType,
   leftIcon,
   rightIcon,
@@ -92,13 +91,13 @@ export function Input({
   // what the min-h-wrapper rule exists to protect.
   const fieldHeight = Math.ceil(INPUT_FONT_SIZE[size ?? 'default'] * 1.35 * fontScale);
 
-  // Numeric keypads have no return key, so without the accessory bar there is
-  // no way to dismiss them. Opt in automatically; an explicit id still wins.
-  const accessoryID =
-    inputAccessoryViewID ??
-    (keyboardType && NUMERIC_KEYBOARDS.has(keyboardType)
-      ? keyboardDoneAccessoryID
-      : undefined);
+  // Numeric keypads have no return key, so they are otherwise undismissable.
+  // With returnKeyType set, iOS (New Architecture) renders a native "Done"
+  // toolbar above the keypad — per input, so it works inside modals, where a
+  // shared InputAccessoryView never attaches. An explicit returnKeyType wins.
+  const resolvedReturnKeyType =
+    returnKeyType ??
+    (keyboardType && NUMERIC_KEYBOARDS.has(keyboardType) ? 'done' : undefined);
 
   const field = (
     // input-height-ok: height is font-scaled (one line, grows with Dynamic
@@ -115,7 +114,7 @@ export function Input({
       style={[style, { height: fieldHeight }]}
       placeholderTextColor={placeholderTextColor ?? colors.mutedForeground}
       keyboardType={keyboardType}
-      inputAccessoryViewID={accessoryID}
+      returnKeyType={resolvedReturnKeyType}
       {...props}
     />
   );
