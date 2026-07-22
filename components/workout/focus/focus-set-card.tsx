@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Pressable, TextInput } from 'react-native';
-import { useKeyboardDoneBar } from '@/components/shared/keyboard-done-bar';
 import { useNumericField } from '@/hooks/use-numeric-field';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { Text } from '@/components/ui/text';
@@ -49,29 +48,24 @@ function BigInput({
     onNumber: (n) => onChange(n ?? undefined),
   });
   const colors = useTokenColors();
-  const kb = useKeyboardDoneBar();
 
   return (
-    <>
-      {/* input-height-ok: borderless display-style BigInput — self-sizing, no box to clip against */}
-      <TextInput
-        ref={inputRef}
-        value={text}
-        editable={editable}
-        onChangeText={onChangeText}
-        onBlur={onBlur}
-        placeholder="—"
-        placeholderTextColor={colors.mutedForeground}
-        accessibilityLabel={accessibilityLabel}
-        keyboardType={allowDecimals ? 'decimal-pad' : 'number-pad'}
-        returnKeyType={kb.returnKeyType}
-        inputAccessoryViewID={kb.inputAccessoryViewID}
-        selectTextOnFocus
-        className="min-w-[70px] text-right text-3xl font-extrabold text-foreground"
-        testID={testID}
-      />
-      {kb.bar}
-    </>
+    // input-height-ok: borderless display-style BigInput — self-sizing, no box to clip against
+    <TextInput
+      ref={inputRef}
+      value={text}
+      editable={editable}
+      onChangeText={onChangeText}
+      onBlur={onBlur}
+      placeholder="—"
+      placeholderTextColor={colors.mutedForeground}
+      accessibilityLabel={accessibilityLabel}
+      keyboardType={allowDecimals ? 'decimal-pad' : 'number-pad'}
+      returnKeyType="done"
+      selectTextOnFocus
+      className="min-w-[70px] text-right text-3xl font-extrabold text-foreground"
+      testID={testID}
+    />
   );
 }
 

@@ -520,9 +520,9 @@ export function FocusLogger({
         </Pressable>
       </View>
 
-      {/* Set header — the remove-set control lives here, next to the set it
-          deletes, not up with the exercise-level controls. */}
-      <View className="flex-row items-center justify-between px-5 pb-2">
+      {/* Set header — the remove-set control lives here, right beside the
+          title of the set it deletes, not up with the exercise controls. */}
+      <View className="flex-row items-center gap-3 px-5 pb-2">
         <View className="flex-row items-baseline gap-2">
           <Text className="text-2xl font-extrabold text-foreground">Set {safeSetIdx + 1}</Text>
           <Text className="font-mono text-xs uppercase tracking-wide text-muted-foreground">

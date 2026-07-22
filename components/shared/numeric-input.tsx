@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Pressable, TextInput, Keyboard } from 'react-native';
 import { Minus, Plus } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
-import { useKeyboardDoneBar } from '@/components/shared/keyboard-done-bar';
 import { cn } from '@/lib/utils';
 
 interface NumericInputProps {
@@ -26,7 +25,6 @@ export function NumericInput({
 }: NumericInputProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const kb = useKeyboardDoneBar();
 
   // Raw text while the field is being edited. `null` means "not editing" — show
   // the derived value; a string (including "") means show the user's raw input,
@@ -80,8 +78,7 @@ export function NumericInput({
         onChangeText={handleChange}
         onBlur={handleBlur}
         keyboardType="number-pad"
-        returnKeyType={kb.returnKeyType}
-        inputAccessoryViewID={kb.inputAccessoryViewID}
+        returnKeyType="done"
         accessibilityLabel={label}
         className="min-w-[48px] rounded-md border border-input bg-background px-2 py-1 text-center text-foreground"
       />
@@ -93,7 +90,6 @@ export function NumericInput({
       >
         <Plus size={16} color={isDark ? '#f2f2f2' : '#1c1008'} />
       </Pressable>
-      {kb.bar}
     </View>
   );
 }
