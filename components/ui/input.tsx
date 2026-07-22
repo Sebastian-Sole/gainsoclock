@@ -8,6 +8,7 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { useKeyboardDoneBar } from '@/components/shared/keyboard-done-bar';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { cn } from '@/lib/utils';
 
@@ -117,12 +118,14 @@ export function Input({
   const fieldHeight = Math.ceil(INPUT_FONT_SIZE[size ?? 'default'] * 1.35 * fontScale);
 
   // Numeric keypads have no return key, so they are otherwise undismissable.
-  // With returnKeyType set, iOS (New Architecture) renders a native "Done"
-  // toolbar above the keypad — per input, so it works inside modals, where a
-  // shared InputAccessoryView never attaches. An explicit returnKeyType wins.
+  // Attach the floating per-input "Done" pill (works inside modals; the
+  // system toolbar sits flush on the keypad and can't be spaced or themed).
+  // A caller-supplied inputAccessoryViewID or returnKeyType wins.
+  const kb = useKeyboardDoneBar();
+  const isNumericKeypad = keyboardType !== undefined && NUMERIC_KEYBOARDS.has(keyboardType);
+  const useDoneBar = isNumericKeypad && props.inputAccessoryViewID === undefined;
   const resolvedReturnKeyType =
-    returnKeyType ??
-    (keyboardType && NUMERIC_KEYBOARDS.has(keyboardType) ? 'done' : undefined);
+    returnKeyType ?? (isNumericKeypad ? kb.returnKeyType : undefined);
 
   const field = (
     <View className={cn('justify-center', leftIcon || rightIcon ? 'flex-1' : 'w-full')}>
@@ -146,6 +149,7 @@ export function Input({
         keyboardType={keyboardType}
         returnKeyType={resolvedReturnKeyType}
         {...props}
+        inputAccessoryViewID={useDoneBar ? kb.inputAccessoryViewID : props.inputAccessoryViewID}
       />
       {showPlaceholder && (
         <View pointerEvents="none" className="absolute inset-0 flex-row items-center">
@@ -179,6 +183,7 @@ export function Input({
       {leftIcon}
       {field}
       {rightIcon}
+      {useDoneBar ? kb.bar : null}
     </Pressable>
   );
 }

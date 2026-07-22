@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { useKeyboardDoneBar } from '@/components/shared/keyboard-done-bar';
 import { cn } from '@/lib/utils';
 
 interface TimeInputProps {
@@ -12,6 +13,7 @@ interface TimeInputProps {
 }
 
 export function TimeInput({ value, onValueChange, className, accessibilityLabel }: TimeInputProps) {
+  const kb = useKeyboardDoneBar();
   const hours = Math.floor(value / 3600);
   const minutes = Math.floor((value % 3600) / 60);
   const seconds = value % 60;
@@ -63,7 +65,8 @@ export function TimeInput({ value, onValueChange, className, accessibilityLabel 
         onBlur={() => setHoursText(null)}
         accessibilityLabel={`${labelBase}, hours`}
         keyboardType="numeric"
-        returnKeyType="done"
+        returnKeyType={kb.returnKeyType}
+        inputAccessoryViewID={kb.inputAccessoryViewID}
         className={fieldClass}
         maxLength={2}
         placeholder="0"
@@ -78,7 +81,8 @@ export function TimeInput({ value, onValueChange, className, accessibilityLabel 
         onBlur={() => setMinutesText(null)}
         accessibilityLabel={`${labelBase}, minutes`}
         keyboardType="numeric"
-        returnKeyType="done"
+        returnKeyType={kb.returnKeyType}
+        inputAccessoryViewID={kb.inputAccessoryViewID}
         className={fieldClass}
         maxLength={2}
         selectTextOnFocus
@@ -91,11 +95,13 @@ export function TimeInput({ value, onValueChange, className, accessibilityLabel 
         onBlur={() => setSecondsText(null)}
         accessibilityLabel={`${labelBase}, seconds`}
         keyboardType="numeric"
-        returnKeyType="done"
+        returnKeyType={kb.returnKeyType}
+        inputAccessoryViewID={kb.inputAccessoryViewID}
         className={fieldClass}
         maxLength={2}
         selectTextOnFocus
       />
+      {kb.bar}
     </View>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
+import { useKeyboardDoneBar } from '@/components/shared/keyboard-done-bar';
 import { Text } from '@/components/ui/text';
 import { TimeInput } from '@/components/shared/time-input';
 import { SetInput } from './set-input';
@@ -40,6 +41,7 @@ export function MmSsInput({
   const seconds = value % 60;
   const [minutesText, setMinutesText] = useState<string | null>(null);
   const [secondsText, setSecondsText] = useState<string | null>(null);
+  const kb = useKeyboardDoneBar();
 
   const handleMinutes = (text: string) => {
     setMinutesText(text);
@@ -71,7 +73,8 @@ export function MmSsInput({
         onFocus={() => setMinutesText(String(minutes))}
         onBlur={() => setMinutesText(null)}
         keyboardType="numeric"
-        returnKeyType="done"
+        returnKeyType={kb.returnKeyType}
+        inputAccessoryViewID={kb.inputAccessoryViewID}
         maxLength={2}
         selectTextOnFocus
         className={fieldClass}
@@ -83,11 +86,13 @@ export function MmSsInput({
         onFocus={() => setSecondsText(String(seconds))}
         onBlur={() => setSecondsText(null)}
         keyboardType="numeric"
-        returnKeyType="done"
+        returnKeyType={kb.returnKeyType}
+        inputAccessoryViewID={kb.inputAccessoryViewID}
         maxLength={2}
         selectTextOnFocus
         className={fieldClass}
       />
+      {kb.bar}
     </View>
   );
 }
