@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Pressable, TextInput, useWindowDimensions, type TextInputProps } from 'react-native';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { useKeyboardDoneBar } from '@/components/shared/keyboard-done-bar';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { cn } from '@/lib/utils';
 
@@ -92,12 +93,14 @@ export function Input({
   const fieldHeight = Math.ceil(INPUT_FONT_SIZE[size ?? 'default'] * 1.35 * fontScale);
 
   // Numeric keypads have no return key, so they are otherwise undismissable.
-  // With returnKeyType set, iOS (New Architecture) renders a native "Done"
-  // toolbar above the keypad — per input, so it works inside modals, where a
-  // shared InputAccessoryView never attaches. An explicit returnKeyType wins.
+  // Attach the themed per-input "Done" bar (works inside modals, matches the
+  // app theme — the system toolbar that returnKeyType summons does not).
+  // A caller-supplied inputAccessoryViewID or returnKeyType wins.
+  const kb = useKeyboardDoneBar();
+  const isNumericKeypad = keyboardType !== undefined && NUMERIC_KEYBOARDS.has(keyboardType);
+  const useDoneBar = isNumericKeypad && props.inputAccessoryViewID === undefined;
   const resolvedReturnKeyType =
-    returnKeyType ??
-    (keyboardType && NUMERIC_KEYBOARDS.has(keyboardType) ? 'done' : undefined);
+    returnKeyType ?? (isNumericKeypad ? kb.returnKeyType : undefined);
 
   const field = (
     // input-height-ok: height is font-scaled (one line, grows with Dynamic
@@ -116,6 +119,7 @@ export function Input({
       keyboardType={keyboardType}
       returnKeyType={resolvedReturnKeyType}
       {...props}
+      inputAccessoryViewID={useDoneBar ? kb.inputAccessoryViewID : props.inputAccessoryViewID}
     />
   );
 
@@ -132,6 +136,7 @@ export function Input({
       {leftIcon}
       {field}
       {rightIcon}
+      {useDoneBar ? kb.bar : null}
     </Pressable>
   );
 }

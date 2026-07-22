@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Pressable, TextInput } from 'react-native';
+import { useKeyboardDoneBar } from '@/components/shared/keyboard-done-bar';
 import { useNumericField } from '@/hooks/use-numeric-field';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { Text } from '@/components/ui/text';
@@ -48,24 +49,29 @@ function BigInput({
     onNumber: (n) => onChange(n ?? undefined),
   });
   const colors = useTokenColors();
+  const kb = useKeyboardDoneBar();
 
   return (
-    // input-height-ok: borderless display-style BigInput — self-sizing, no box to clip against
-    <TextInput
-      ref={inputRef}
-      value={text}
-      editable={editable}
-      onChangeText={onChangeText}
-      onBlur={onBlur}
-      placeholder="—"
-      placeholderTextColor={colors.mutedForeground}
-      accessibilityLabel={accessibilityLabel}
-      keyboardType={allowDecimals ? 'decimal-pad' : 'number-pad'}
-      returnKeyType="done"
-      selectTextOnFocus
-      className="min-w-[70px] text-right text-3xl font-extrabold text-foreground"
-      testID={testID}
-    />
+    <>
+      {/* input-height-ok: borderless display-style BigInput — self-sizing, no box to clip against */}
+      <TextInput
+        ref={inputRef}
+        value={text}
+        editable={editable}
+        onChangeText={onChangeText}
+        onBlur={onBlur}
+        placeholder="—"
+        placeholderTextColor={colors.mutedForeground}
+        accessibilityLabel={accessibilityLabel}
+        keyboardType={allowDecimals ? 'decimal-pad' : 'number-pad'}
+        returnKeyType={kb.returnKeyType}
+        inputAccessoryViewID={kb.inputAccessoryViewID}
+        selectTextOnFocus
+        className="min-w-[70px] text-right text-3xl font-extrabold text-foreground"
+        testID={testID}
+      />
+      {kb.bar}
+    </>
   );
 }
 
@@ -240,20 +246,30 @@ export function FocusSetCard({
               <View style={{ width: 94 }}>
                 <Text className="text-base font-semibold text-foreground">{spec.label}</Text>
                 {canEditLoadMode ? (
-                  <Pressable
-                    onPress={onPressLoadMode}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Weight entry mode: ${weightSuffix}`}
-                    accessibilityHint="Change to total, per hand, or per side"
-                    testID="focus-weight-load-mode"
-                    className="mt-0.5 flex-row items-center gap-1 self-start rounded-md border border-border px-1.5 py-0.5"
-                  >
-                    <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      {unitLine}
-                    </Text>
-                    <Icon as={Settings2} size={11} className="text-muted-foreground" />
-                  </Pressable>
+                  <>
+                    {unit ? (
+                      <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {unit}
+                      </Text>
+                    ) : null}
+                    {/* Mode only — with the unit on its own line the chip
+                        always fits the label column, keeping a constant gap
+                        to the stepper button ("KG · PER HAND" overflowed). */}
+                    <Pressable
+                      onPress={onPressLoadMode}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Weight entry mode: ${weightSuffix}`}
+                      accessibilityHint="Change to total, per hand, or per side"
+                      testID="focus-weight-load-mode"
+                      className="mt-1 flex-row items-center gap-1 self-start rounded-md border border-border px-1.5 py-0.5"
+                    >
+                      <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {weightSuffix}
+                      </Text>
+                      <Icon as={Settings2} size={11} className="text-muted-foreground" />
+                    </Pressable>
+                  </>
                 ) : unitLine ? (
                   <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     {unitLine}

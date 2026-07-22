@@ -509,37 +509,39 @@ export function FocusLogger({
           {exercise.name} ·{' '}
           {exercise.type === 'intervals' ? 'intervals' : `${metrics.length} metrics`}
         </Text>
-        <View className="flex-row items-center gap-2">
-          <Pressable
-            onPress={handleRemoveSet}
-            disabled={sets.length <= 1}
-            accessibilityRole="button"
-            accessibilityLabel="Remove this set"
-            className="h-7 w-8 items-center justify-center rounded-lg border border-border"
-          >
-            <Icon
-              as={Trash2}
-              size={13}
-              className={cn('text-muted-foreground', sets.length <= 1 && 'opacity-30')}
-            />
-          </Pressable>
-          <Pressable
-            onPress={() => setShowExMenu(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Reorder or remove exercise"
-            testID="focus-exercise-menu"
-            className="h-7 w-8 items-center justify-center rounded-lg border border-border"
-          >
-            <Icon as={MoreHorizontal} size={16} className="text-muted-foreground" />
-          </Pressable>
-        </View>
+        <Pressable
+          onPress={() => setShowExMenu(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Reorder or remove exercise"
+          testID="focus-exercise-menu"
+          className="h-7 w-8 items-center justify-center rounded-lg border border-border"
+        >
+          <Icon as={MoreHorizontal} size={16} className="text-muted-foreground" />
+        </Pressable>
       </View>
 
-      <View className="flex-row items-baseline gap-2 px-5 pb-2">
-        <Text className="text-2xl font-extrabold text-foreground">Set {safeSetIdx + 1}</Text>
-        <Text className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
-          of {sets.length}
-        </Text>
+      {/* Set header — the remove-set control lives here, next to the set it
+          deletes, not up with the exercise-level controls. */}
+      <View className="flex-row items-center justify-between px-5 pb-2">
+        <View className="flex-row items-baseline gap-2">
+          <Text className="text-2xl font-extrabold text-foreground">Set {safeSetIdx + 1}</Text>
+          <Text className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
+            of {sets.length}
+          </Text>
+        </View>
+        <Pressable
+          onPress={handleRemoveSet}
+          disabled={sets.length <= 1}
+          accessibilityRole="button"
+          accessibilityLabel="Remove this set"
+          className="h-7 w-8 items-center justify-center rounded-lg border border-border"
+        >
+          <Icon
+            as={Trash2}
+            size={13}
+            className={cn('text-muted-foreground', sets.length <= 1 && 'opacity-30')}
+          />
+        </Pressable>
       </View>
 
       {/* Swipeable set pager. The detector sits on the (untranslated) viewport
