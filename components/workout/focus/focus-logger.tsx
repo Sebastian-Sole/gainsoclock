@@ -542,6 +542,14 @@ export function FocusLogger({
             className={cn('text-muted-foreground', sets.length <= 1 && 'opacity-30')}
           />
         </Pressable>
+        <Pressable
+          onPress={handleAddSet}
+          accessibilityRole="button"
+          accessibilityLabel="Add set"
+          className="h-7 w-8 items-center justify-center rounded-lg border border-border"
+        >
+          <Icon as={Plus} size={13} className="text-muted-foreground" />
+        </Pressable>
       </View>
 
       {/* Swipeable set pager. The detector sits on the (untranslated) viewport
