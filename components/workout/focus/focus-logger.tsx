@@ -66,6 +66,14 @@ export interface FocusLoggerProps {
   /** Bumped for every focus request so re-focusing the SAME exercise (e.g.
    *  tapping its summary row twice) still re-fires the jump (#141). */
   focusNonce?: number;
+
+  /** Open the set-timing stopwatch for this exercise. Supplied by the active
+   *  screen only (routes to /workout/stopwatch) — the edit-log screen leaves
+   *  it off, which hides the Duration row's stopwatch button. */
+  onOpenStopwatch?: (exercise: Exercise) => void;
+  /** A stopwatch session is running or holds unlogged efforts — tints the
+   *  Duration row's button so a dismissed session stays discoverable. */
+  stopwatchActive?: boolean;
 }
 
 /** Left padding of the pills scroll content (`px-4`), subtracted from a pill's
@@ -102,6 +110,8 @@ interface SetSlotProps {
   canApplyToFollowing: boolean;
   onApplyToFollowing?: (updates: Partial<WorkoutSet>, label: string) => void;
   onPressLoadMode?: () => void;
+  onOpenStopwatch?: () => void;
+  stopwatchActive: boolean;
 }
 
 /** One page of the set pager, absolutely positioned at its set's offset inside
@@ -123,6 +133,8 @@ const SetSlot = React.memo(function SetSlot({
   canApplyToFollowing,
   onApplyToFollowing,
   onPressLoadMode,
+  onOpenStopwatch,
+  stopwatchActive,
 }: SetSlotProps) {
   return (
     <View style={{ position: 'absolute', top: 0, bottom: 0, left: offsetX, width: pageW }}>
@@ -144,6 +156,8 @@ const SetSlot = React.memo(function SetSlot({
           canApplyToFollowing={canApplyToFollowing}
           onApplyToFollowing={onApplyToFollowing}
           onPressLoadMode={onPressLoadMode}
+          onOpenStopwatch={onOpenStopwatch}
+          stopwatchActive={stopwatchActive}
         />
       </ScrollView>
     </View>
@@ -177,6 +191,8 @@ export function FocusLogger({
   completeLabel = 'Complete set',
   focusExerciseId,
   focusNonce,
+  onOpenStopwatch,
+  stopwatchActive = false,
 }: FocusLoggerProps) {
   const ring = useRingColors();
 
@@ -263,6 +279,12 @@ export function FocusLogger({
 
   const openAddMetric = useCallback(() => setShowAddMetric(true), []);
   const openLoadMode = useCallback(() => setShowLoadMode(true), []);
+  const openStopwatch = useCallback(() => {
+    const ex = exercisesRef.current[safeExIdx];
+    if (!ex || !onOpenStopwatch) return;
+    lightHaptic();
+    onOpenStopwatch(ex);
+  }, [safeExIdx, onOpenStopwatch]);
 
   // Per-metric "apply to following sets" (#146): writes the tapped metric's
   // current value onto this set and every set after it. Values rarely change
@@ -581,6 +603,8 @@ export function FocusLogger({
                       onUpdateSetsFromIndex ? applyToFollowingSets : undefined
                     }
                     onPressLoadMode={onChangeLoadMode ? openLoadMode : undefined}
+                    onOpenStopwatch={onOpenStopwatch ? openStopwatch : undefined}
+                    stopwatchActive={stopwatchActive}
                   />
                 )
               )}
