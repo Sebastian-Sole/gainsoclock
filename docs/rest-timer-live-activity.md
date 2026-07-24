@@ -1,5 +1,10 @@
 # Rest-Timer Live Activity (Dynamic Island) — Spike Notes (#115)
 
+> **Superseded (July 2026):** the rest countdown is now one state of the
+> interactive workout Live Activity (`docs/workout-live-activity.md`), built
+> on `@bacons/apple-targets`; `expo-live-activity` was removed. Kept for the
+> ios/-regeneration build steps and the option analysis.
+
 Shows the running rest timer as an iOS Live Activity: a countdown in the
 Dynamic Island (iPhone 14 Pro and later) and on the Lock Screen (any device on
 iOS 16.2+). Started when the rest timer starts, ended on skip / expiry /

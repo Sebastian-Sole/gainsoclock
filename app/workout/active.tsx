@@ -19,7 +19,6 @@ import type { Exercise, LoadMode, WorkoutSet } from '@/lib/types';
 import { hasStopwatchData } from '@/lib/stopwatch';
 import { hasIncompleteSets } from '@/lib/workout-progress';
 import { setActiveWorkoutVisible, cancelRestTimerNotification } from '@/lib/notifications';
-import { endRestActivity } from '@/lib/live-activity';
 import { FocusLogger } from '@/components/workout/focus/focus-logger';
 import { SaveTemplateSheet } from '@/components/workout/save-template-sheet';
 import { FocusReward } from '@/components/workout/focus/focus-reward';
@@ -161,13 +160,13 @@ export default function ActiveWorkoutScreen() {
 
   const handleAllComplete = () => {
     // Every set is logged — a rest timer still running from an earlier set has
-    // no next set, so stop it and cancel its OS notification + Live Activity
-    // before the summary takes over (#135). All three are no-ops when idle.
-    // Same for the set stopwatch: with nothing left to time, don't leave it
-    // counting invisibly under the summary.
+    // no next set, so stop it and cancel its OS notification before the
+    // summary takes over (#135). Both are no-ops when idle. (The Live
+    // Activity clears its rest state via the plan sync and stays up offering
+    // Finish.) Same for the set stopwatch: with nothing left to time, don't
+    // leave it counting invisibly under the summary.
     stopRestTimer();
     cancelRestTimerNotification();
-    endRestActivity();
     resetStopwatch();
     router.push('/workout/summary');
   };

@@ -1,45 +1,47 @@
-// Rest-timer Live Activity (Dynamic Island + Lock Screen), iOS 16.2+.
+// Workout Live Activity bridge (lock-screen set logging + rest countdown),
+// iOS 16.2+, interactive on iOS 17+.
 //
-// Wraps `expo-live-activity` the same way lib/haptics.ts wraps expo-haptics:
-// components and hooks call these functions unconditionally and the wrapper
-// decides whether anything happens. All expo-live-activity access stays in
-// this file (same rule as HealthKit in lib/healthkit.ts).
+// Wraps the local Expo module `modules/fitbull-workout-activity` the same way
+// lib/haptics.ts wraps expo-haptics: callers use these functions
+// unconditionally and the wrapper decides whether anything happens. All native
+// access stays in this file. This supersedes the expo-live-activity rest-timer
+// wrapper (docs/rest-timer-live-activity.md) — the workout activity absorbs
+// the rest countdown as one of its states.
 //
-// Degradation contract (spike requirement, see docs/rest-timer-live-activity.md):
-// every path is a silent no-op when any of these hold —
-//   - Platform is Android/web,
-//   - the JS package is present but the native module wasn't compiled into the
-//     dev client (expo-live-activity uses requireOptionalNativeModule, so the
-//     import succeeds and the module object is null → calls would throw),
-//   - iOS < 16.2 or the user disabled Live Activities (native side throws),
-//   - the widget extension target is missing from the binary (activity starts
-//     but renders nothing, or the request fails).
-// The rest timer itself must never break because of this feature.
+// Degradation contract: every path is a silent no-op when Platform ≠ iOS,
+// when the dev client was built without the module, when iOS < 16.2, or when
+// the user disabled Live Activities. The in-app logger, rest timer, and
+// notifications must never break because of this feature.
 import { Platform } from 'react-native';
 
-type LiveActivityModule = typeof import('expo-live-activity');
+import type { ActivityEvent, ActivitySessionPlan } from '@/lib/activity-projection';
 
-let cachedModule: LiveActivityModule | null = null;
+interface WorkoutActivityModule {
+  /** Write the plan to the App Group and start/update the Live Activity. */
+  syncPlan(planJson: string): void;
+  /** End the activity and clear App Group state. */
+  endActivity(reason: string): void;
+  /** Return and clear the pending native event log (JSON array string). */
+  drainEvents(): string;
+}
+
+let cachedModule: WorkoutActivityModule | null = null;
 let loadFailed = false;
 
-// The id of the currently running rest activity. The rest timer is a
-// singleton (one per active workout), so a single id is enough.
-let activityId: string | null = null;
-
-function getLiveActivity(): LiveActivityModule | null {
+function getModule(): WorkoutActivityModule | null {
   if (Platform.OS !== 'ios') return null;
   if (loadFailed) return null;
   if (cachedModule) return cachedModule;
-
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    cachedModule = require('expo-live-activity') as LiveActivityModule;
+    const { requireNativeModule } = require('expo-modules-core') as typeof import('expo-modules-core');
+    cachedModule = requireNativeModule<WorkoutActivityModule>('FitbullWorkoutActivity');
     return cachedModule;
   } catch {
     loadFailed = true;
     if (__DEV__) {
       console.warn(
-        '[LiveActivity] expo-live-activity unavailable — rebuild the dev client to enable the rest-timer Live Activity.'
+        '[WorkoutActivity] native module unavailable — rebuild the dev client to enable lock-screen set logging.'
       );
     }
     return null;
@@ -47,53 +49,59 @@ function getLiveActivity(): LiveActivityModule | null {
 }
 
 /**
- * Start (or retarget) the rest-timer Live Activity counting down to `endsAt`.
- * ActivityKit renders the countdown natively (`Text(timerInterval:)`), so no
- * further updates are needed while the timer runs. Calling again while an
- * activity is live (e.g. "+15" or a new set) updates it in place.
+ * Push the current session plan to the native side. Starts the Live Activity
+ * on the first call for a workout, updates it in place afterwards. Call on
+ * every relevant store change — the native side diffs before touching
+ * ActivityKit.
  */
-export function startRestActivity(endsAt: Date, exerciseName?: string): void {
-  const liveActivity = getLiveActivity();
-  if (!liveActivity) return;
-
-  const state = {
-    title: 'Rest Timer',
-    subtitle: exerciseName,
-    progressBar: { date: endsAt.getTime() },
-  };
-
+export function syncWorkoutActivity(plan: ActivitySessionPlan): void {
+  const native = getModule();
+  if (!native) return;
   try {
-    if (activityId) {
-      liveActivity.updateActivity(activityId, state);
-      return;
-    }
-    activityId =
-      liveActivity.startActivity(state, {
-        timerType: 'digital',
-        // Tapping the island/lock-screen card brings the logger back up.
-        deepLinkUrl: 'fitbull://workout/active',
-      }) ?? null;
+    native.syncPlan(JSON.stringify(plan));
   } catch {
-    // Native module null on this build, iOS < 16.2, or Live Activities
-    // disabled by the user — the in-app timer and OS notification still work.
-    activityId = null;
+    // iOS < 16.2, Live Activities disabled by the user, or the activity
+    // request was rejected — the in-app experience is unaffected.
+  }
+}
+
+/** End the workout Live Activity (finish or discard). Safe when none runs. */
+export function endWorkoutActivity(reason: 'finished' | 'discarded'): void {
+  const native = getModule();
+  if (!native) return;
+  try {
+    native.endActivity(reason);
+  } catch {
+    // Already ended or module unavailable.
   }
 }
 
 /**
- * End the rest-timer Live Activity (skip, expiry, workout finish/discard).
- * Safe to call when no activity is running.
+ * Drain lock-screen tap events recorded while JS was asleep. Returns oldest
+ * first; the native log is cleared atomically so events replay exactly once.
  */
-export function endRestActivity(): void {
-  if (!activityId) return;
-  const liveActivity = getLiveActivity();
-  if (!liveActivity) return;
-
-  const id = activityId;
-  activityId = null;
+export function drainActivityEvents(): ActivityEvent[] {
+  const native = getModule();
+  if (!native) return [];
   try {
-    liveActivity.stopActivity(id, { title: 'Rest Timer' });
+    const raw = native.drainEvents();
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isActivityEvent);
   } catch {
-    // Already ended or module unavailable — nothing to clean up.
+    return [];
   }
+}
+
+function isActivityEvent(value: unknown): value is ActivityEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.workoutId === 'string' &&
+    typeof candidate.at === 'number' &&
+    (candidate.type === 'setLogged' ||
+      candidate.type === 'restStarted' ||
+      candidate.type === 'restSkipped' ||
+      candidate.type === 'finishRequested')
+  );
 }

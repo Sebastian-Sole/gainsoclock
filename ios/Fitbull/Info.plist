@@ -69,8 +69,6 @@
     <string>Fitbull uses speech recognition to turn your dictated messages into text for the AI coach.</string>
     <key>NSSupportsLiveActivities</key>
     <true/>
-    <key>NSSupportsLiveActivitiesFrequentUpdates</key>
-    <false/>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

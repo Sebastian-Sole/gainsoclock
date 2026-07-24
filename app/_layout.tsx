@@ -22,6 +22,7 @@ import { UnlockToastHost } from "@/components/achievements/unlock-toast";
 import { NAV_THEME } from "@/lib/theme";
 import secureStorage from "@/lib/secure-storage";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
+import { useWorkoutActivity } from "@/hooks/use-workout-activity";
 import { ConvexSyncProvider } from "@/providers/convex-sync-provider";
 import { NetworkProvider } from "@/providers/network-provider";
 import { PostHogProvider } from "@/providers/posthog-provider";
@@ -112,6 +113,10 @@ function RootNavigator() {
   const userIdResult = useQuery(api.user.me);
   const pathname = usePathname();
   const lastIdentifiedRef = useRef<string | null>(null);
+
+  // Lock-screen Live Activity bridge — mounted here (inside every provider,
+  // above every screen) so it outlives the workout modal stack.
+  useWorkoutActivity();
 
   useEffect(() => {
     if (__DEV__) console.timeEnd("cold-start");
