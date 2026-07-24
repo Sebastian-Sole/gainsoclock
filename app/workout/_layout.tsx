@@ -10,6 +10,7 @@ export default function WorkoutLayout() {
           options={{ gestureEnabled: false }}
         />
         <Stack.Screen name="complete" />
+        <Stack.Screen name="stopwatch" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="[id]" />
         <Stack.Screen name="summary" options={{ gestureEnabled: false }} />
       </Stack>

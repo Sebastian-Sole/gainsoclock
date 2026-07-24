@@ -143,6 +143,19 @@ export interface WorkoutTemplate {
   updatedAt: string;
 }
 
+// Live stopwatch session for timed sets (planks, dead hangs). Records efforts
+// (one Start→Stop cycle each); nothing is written to sets until an explicit
+// commit maps efforts onto sets. Anchored to epoch-ms timestamps so it keeps
+// counting while backgrounded and survives an app restart with the persisted
+// active workout. Transitions are pure functions in lib/stopwatch.ts.
+export interface StopwatchState {
+  exerciseId: string; // the Exercise this session's efforts commit to
+  startedAt: number | null; // epoch ms of the current run segment; null = stopped
+  accumulatedMs: number; // current effort's banked time (frozen while stopped)
+  pausedAt: number | null; // epoch ms of the last Stop — drives the rest readout
+  efforts: number[]; // finished efforts, ms each, oldest first
+}
+
 // Active Workout
 export interface ActiveWorkout {
   id: string;
@@ -154,6 +167,7 @@ export interface ActiveWorkout {
   restTimeRemaining: number;
   restTimerEndsAt?: number; // Unix ms timestamp — survives backgrounding
   restTimerExerciseName?: string; // Shown in the rest-timer Live Activity
+  stopwatch?: StopwatchState; // set-timing stopwatch; cleared with the workout
   planDayId?: string; // If started from a workout plan day
 }
 

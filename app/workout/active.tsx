@@ -16,9 +16,9 @@ import { createDefaultSet, createIntervalSet } from '@/lib/defaults';
 import { generateId } from '@/lib/id';
 import { formatTime, formatDuration } from '@/lib/format';
 import type { Exercise, LoadMode, WorkoutSet } from '@/lib/types';
+import { hasStopwatchData } from '@/lib/stopwatch';
 import { hasIncompleteSets } from '@/lib/workout-progress';
 import { setActiveWorkoutVisible, cancelRestTimerNotification } from '@/lib/notifications';
-import { endRestActivity } from '@/lib/live-activity';
 import { FocusLogger } from '@/components/workout/focus/focus-logger';
 import { SaveTemplateSheet } from '@/components/workout/save-template-sheet';
 import { FocusReward } from '@/components/workout/focus/focus-reward';
@@ -83,6 +83,8 @@ export default function ActiveWorkoutScreen() {
   const removeExerciseMetric = useWorkoutStore((s) => s.removeExerciseMetric);
   const updateSetsFromIndex = useWorkoutStore((s) => s.updateSetsFromIndex);
   const setExerciseLoadMode = useWorkoutStore((s) => s.setExerciseLoadMode);
+  const stopwatchActive = useWorkoutStore((s) => hasStopwatchData(s.activeWorkout?.stopwatch));
+  const openStopwatch = useWorkoutStore((s) => s.openStopwatch);
   const updateLibraryExercise = useExerciseLibraryStore((s) => s.updateExercise);
 
   // Load-mode edits apply to this row AND the library definition (#142):
@@ -99,6 +101,7 @@ export default function ActiveWorkoutScreen() {
   );
   const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
   const stopRestTimer = useWorkoutStore((s) => s.stopRestTimer);
+  const resetStopwatch = useWorkoutStore((s) => s.resetStopwatch);
 
   const weightUnit = useSettingsStore((s) => s.weightUnit);
   const distanceUnit = useSettingsStore((s) => s.distanceUnit);
@@ -150,13 +153,21 @@ export default function ActiveWorkoutScreen() {
     setRewardTick((t) => t + 1);
   };
 
+  const handleOpenStopwatch = (exercise: Exercise) => {
+    openStopwatch(exercise.id);
+    router.push('/workout/stopwatch');
+  };
+
   const handleAllComplete = () => {
     // Every set is logged — a rest timer still running from an earlier set has
-    // no next set, so stop it and cancel its OS notification + Live Activity
-    // before the summary takes over (#135). All three are no-ops when idle.
+    // no next set, so stop it and cancel its OS notification before the
+    // summary takes over (#135). Both are no-ops when idle. (The Live
+    // Activity clears its rest state via the plan sync and stays up offering
+    // Finish.) Same for the set stopwatch: with nothing left to time, don't
+    // leave it counting invisibly under the summary.
     stopRestTimer();
     cancelRestTimerNotification();
-    endRestActivity();
+    resetStopwatch();
     router.push('/workout/summary');
   };
 
@@ -257,6 +268,8 @@ export default function ActiveWorkoutScreen() {
           onAllComplete={handleAllComplete}
           focusExerciseId={focusRequest?.id}
           focusNonce={focusRequest?.nonce}
+          onOpenStopwatch={handleOpenStopwatch}
+          stopwatchActive={stopwatchActive}
         />
       </KeyboardAvoidingView>
 

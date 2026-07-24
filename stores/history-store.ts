@@ -152,6 +152,12 @@ interface HistoryState {
   updateLog: (id: string, updates: Partial<Omit<WorkoutLog, 'id'>>) => void;
   deleteLog: (id: string) => void;
   getLastLogForTemplate: (templateId: string) => WorkoutLog | undefined;
+  /**
+   * Sets from the most recent completed log that recorded this exercise,
+   * regardless of which template it belonged to. Used to prefill an exercise
+   * added mid-workout, mirroring the template-scoped prefill in `startWorkout`.
+   */
+  getLastSetsForExercise: (exerciseId: string) => WorkoutSet[] | undefined;
   getLogsForDate: (date: Date) => WorkoutLog[];
   getDatesWithWorkouts: (year: number, month: number) => Set<string>;
   extendRange: (viewingMonth: Date) => void;
@@ -253,6 +259,19 @@ export const useHistoryStore = create<HistoryState>()(
       getLastLogForTemplate: (templateId) => {
         // Logs are sorted most-recent first
         return get().logs.find((log) => log.templateId === templateId);
+      },
+
+      getLastSetsForExercise: (exerciseId) => {
+        // Logs are sorted most-recent first; return the sets from the first
+        // (most recent) log that recorded this exercise with at least one set.
+        // Metadata-only logs carry no exercises and are skipped naturally.
+        for (const log of get().logs) {
+          const ex = log.exercises.find(
+            (e) => e.exerciseId === exerciseId && e.sets.length > 0
+          );
+          if (ex) return ex.sets;
+        }
+        return undefined;
       },
 
       getLogsForDate: (date) => {

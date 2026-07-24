@@ -6,7 +6,6 @@ import {
   scheduleRestTimerNotification,
   cancelRestTimerNotification,
 } from '@/lib/notifications';
-import { startRestActivity, endRestActivity } from '@/lib/live-activity';
 
 export function useRestTimer() {
   const endsAt = useWorkoutStore((s) => s.activeWorkout?.restTimerEndsAt ?? null);
@@ -80,21 +79,18 @@ export function useRestTimer() {
     return () => sub.remove();
   }, [isActive, endsAt]);
 
-  // Schedule / cancel the OS notification and the Live Activity (Dynamic
-  // Island countdown, iOS-only no-op elsewhere) when the timer starts or stops
+  // Schedule / cancel the OS notification when the timer starts or stops.
+  // (The Live Activity mirrors rest state on its own via the workout-activity
+  // plan sync in hooks/use-workout-activity.ts — rest fields live on the
+  // active workout, so every start/stop already re-syncs the card.)
   useEffect(() => {
     if (isActive && endsAt && endsAt !== prevEndsAt.current) {
       prevEndsAt.current = endsAt;
       const seconds = Math.max(1, Math.ceil((endsAt - Date.now()) / 1000));
       scheduleRestTimerNotification(seconds);
-      startRestActivity(
-        new Date(endsAt),
-        useWorkoutStore.getState().activeWorkout?.restTimerExerciseName
-      );
     } else if (!isActive && prevEndsAt.current) {
       prevEndsAt.current = null;
       cancelRestTimerNotification();
-      endRestActivity();
     }
   }, [isActive, endsAt]);
 
@@ -106,7 +102,6 @@ export function useRestTimer() {
   const stop = () => {
     stopTimer();
     cancelRestTimerNotification();
-    endRestActivity();
   };
 
   return { isActive, remaining, stop };

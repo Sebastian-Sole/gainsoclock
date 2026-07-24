@@ -3,13 +3,24 @@ import { persist } from 'zustand/middleware';
 import { zustandStorage } from '@/lib/storage';
 import type { ActiveWorkout, Exercise, LoadMode, MetricId, TemplateExercise, WorkoutLog, WorkoutSet } from '@/lib/types';
 import { generateId } from '@/lib/id';
-import { createDefaultSets } from '@/lib/defaults';
+import { createDefaultSet, createDefaultSets } from '@/lib/defaults';
 import {
   MAX_METRICS_PER_EXERCISE,
   resolveExerciseMetrics,
   editedCardioField,
   solveCardioTriple,
 } from '@/lib/metrics';
+import {
+  applyEffortsToSets,
+  createStopwatch,
+  discardEffort as swDiscardEffort,
+  hasStopwatchData,
+  pendingEffortsSeconds,
+  pauseStopwatch as swPause,
+  resetEffort as swResetEffort,
+  startNextEffort as swStartNext,
+  startStopwatch as swStart,
+} from '@/lib/stopwatch';
 
 interface WorkoutState {
   activeWorkout: ActiveWorkout | null;
@@ -50,6 +61,25 @@ interface WorkoutState {
   startRestTimer: (seconds: number, exerciseName?: string) => void;
   tickRestTimer: () => void;
   stopRestTimer: () => void;
+
+  // Set-timing stopwatch (Focus logger). One Start→Stop cycle records one
+  // effort; commitStopwatch maps efforts onto sets. State lives on the active
+  // workout so it persists with it; transitions are pure (lib/stopwatch.ts).
+  /** Ensure a session exists for this exercise. An in-progress session — even
+   *  for another exercise — is kept; the stopwatch screen shows whose it is. */
+  openStopwatch: (exerciseId: string) => void;
+  startStopwatch: () => void;
+  pauseStopwatch: () => void;
+  /** Bank the frozen effort and start timing the next set. */
+  startNextEffort: () => void;
+  /** Drop a recorded effort (bad split) before committing. */
+  discardStopwatchEffort: (index: number) => void;
+  /** Zero the current stopped time; recorded efforts are untouched. */
+  resetStopwatchEffort: () => void;
+  /** Write pending efforts onto the session's exercise — filling incomplete
+   *  sets in order, creating sets beyond the plan — and clear the session. */
+  commitStopwatch: () => void;
+  resetStopwatch: () => void;
 }
 
 export const useWorkoutStore = create<WorkoutState>()(
@@ -403,6 +433,105 @@ export const useWorkoutStore = create<WorkoutState>()(
           restTimerExerciseName: undefined,
         },
       };
+    }),
+
+  openStopwatch: (exerciseId) =>
+    set((state) => {
+      if (!state.activeWorkout) return state;
+      const sw = state.activeWorkout.stopwatch;
+      // Never silently discard a session with unlogged data.
+      if (sw && (hasStopwatchData(sw) || sw.exerciseId === exerciseId)) return state;
+      return { activeWorkout: { ...state.activeWorkout, stopwatch: createStopwatch(exerciseId) } };
+    }),
+
+  startStopwatch: () =>
+    set((state) => {
+      if (!state.activeWorkout?.stopwatch) return state;
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          stopwatch: swStart(state.activeWorkout.stopwatch, Date.now()),
+        },
+      };
+    }),
+
+  pauseStopwatch: () =>
+    set((state) => {
+      if (!state.activeWorkout?.stopwatch) return state;
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          stopwatch: swPause(state.activeWorkout.stopwatch, Date.now()),
+        },
+      };
+    }),
+
+  startNextEffort: () =>
+    set((state) => {
+      if (!state.activeWorkout?.stopwatch) return state;
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          stopwatch: swStartNext(state.activeWorkout.stopwatch, Date.now()),
+        },
+      };
+    }),
+
+  resetStopwatchEffort: () =>
+    set((state) => {
+      if (!state.activeWorkout?.stopwatch) return state;
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          stopwatch: swResetEffort(state.activeWorkout.stopwatch),
+        },
+      };
+    }),
+
+  discardStopwatchEffort: (index) =>
+    set((state) => {
+      if (!state.activeWorkout?.stopwatch) return state;
+      return {
+        activeWorkout: {
+          ...state.activeWorkout,
+          stopwatch: swDiscardEffort(state.activeWorkout.stopwatch, index),
+        },
+      };
+    }),
+
+  commitStopwatch: () =>
+    set((state) => {
+      const workout = state.activeWorkout;
+      const sw = workout?.stopwatch;
+      if (!workout || !sw) return state;
+      const efforts = pendingEffortsSeconds(sw, Date.now());
+      if (efforts.length === 0) {
+        return { activeWorkout: { ...workout, stopwatch: undefined } };
+      }
+      return {
+        activeWorkout: {
+          ...workout,
+          stopwatch: undefined,
+          exercises: workout.exercises.map((e) =>
+            e.id === sw.exerciseId
+              ? {
+                  ...e,
+                  sets: applyEffortsToSets(e.sets, efforts, (template) =>
+                    template
+                      ? { ...template, id: generateId(), completed: false }
+                      : createDefaultSet(e.type, e.metrics)
+                  ),
+                }
+              : e
+          ),
+        },
+      };
+    }),
+
+  resetStopwatch: () =>
+    set((state) => {
+      if (!state.activeWorkout) return state;
+      return { activeWorkout: { ...state.activeWorkout, stopwatch: undefined } };
     }),
 }),
     {

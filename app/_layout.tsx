@@ -11,7 +11,6 @@ import { ThemeProvider } from "@react-navigation/native";
 import { Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { KeyboardDoneAccessory } from '@/components/shared/keyboard-done-accessory';
 import { useColorScheme } from "nativewind";
 import { PortalHost } from "@rn-primitives/portal";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -23,6 +22,7 @@ import { UnlockToastHost } from "@/components/achievements/unlock-toast";
 import { NAV_THEME } from "@/lib/theme";
 import secureStorage from "@/lib/secure-storage";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
+import { useWorkoutActivity } from "@/hooks/use-workout-activity";
 import { ConvexSyncProvider } from "@/providers/convex-sync-provider";
 import { NetworkProvider } from "@/providers/network-provider";
 import { PostHogProvider } from "@/providers/posthog-provider";
@@ -113,6 +113,10 @@ function RootNavigator() {
   const userIdResult = useQuery(api.user.me);
   const pathname = usePathname();
   const lastIdentifiedRef = useRef<string | null>(null);
+
+  // Lock-screen Live Activity bridge — mounted here (inside every provider,
+  // above every screen) so it outlives the workout modal stack.
+  useWorkoutActivity();
 
   useEffect(() => {
     if (__DEV__) console.timeEnd("cold-start");
@@ -219,9 +223,6 @@ function RootNavigator() {
         </Stack>
         <PortalHost />
         <UnlockToastHost />
-        {/* Mounted once: any TextInput carrying `keyboardDoneAccessoryID`
-            (all numeric Inputs) attaches its "Done" bar to this. */}
-        <KeyboardDoneAccessory />
         <StatusBar style="auto" />
       </ThemeProvider>
     </SafeAreaProvider>

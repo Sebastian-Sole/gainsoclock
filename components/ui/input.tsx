@@ -1,7 +1,14 @@
 import * as React from 'react';
-import { Pressable, TextInput, useWindowDimensions, type TextInputProps } from 'react-native';
+import {
+  Pressable,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+  type TextInputProps,
+} from 'react-native';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { keyboardDoneAccessoryID } from '@/components/shared/keyboard-done-accessory';
+import { useKeyboardDoneBar } from '@/components/shared/keyboard-done-bar';
 import { useTokenColors } from '@/hooks/use-token-colors';
 import { cn } from '@/lib/utils';
 
@@ -14,9 +21,11 @@ import { cn } from '@/lib/utils';
  * TextInput, and the TextInput itself is pinned to exactly one font-scaled
  * line (#144) — self-sizing alone proved insufficient because New-Arch flex
  * measurement can intermittently stretch the field to the wrapper height.
- * Value and placeholder share that one line box, immune to UIKit's baseline
- * quirks. The wrapper is a Pressable that forwards focus so the whole box
- * stays a tap target. Do not put a box height on the TextInput, and do not
+ * Even then, with the software keyboard up iOS draws the native placeholder
+ * a half-line low (caret and value stay centred), so the visible placeholder
+ * is our own flex-centred overlay; the native one is painted transparent and
+ * kept only for screen readers. The wrapper is a Pressable that forwards
+ * focus so the whole box stays a tap target. Do not put a box height on the TextInput, and do not
  * use Tailwind text-size classes (`text-base`, `text-lg`) — they inject a
  * line-height that re-introduces the offset; size with `text-[Npx]` only.
  *
@@ -72,16 +81,32 @@ export function Input({
   className,
   size,
   style,
+  placeholder,
   placeholderTextColor,
-  inputAccessoryViewID,
+  returnKeyType,
   keyboardType,
   leftIcon,
   rightIcon,
+  value,
+  defaultValue,
+  onChangeText,
   ...props
 }: InputProps) {
   const colors = useTokenColors();
   const inputRef = React.useRef<TextInput>(null);
   const { fontScale } = useWindowDimensions();
+
+  // iOS's own placeholder drawing is not trusted: with the software keyboard
+  // up it renders the placeholder a half-line low, clipped by the box bottom
+  // (New Arch; the value text and caret stay centred). So the native
+  // placeholder is kept only for screen readers — painted transparent — and
+  // the visible placeholder is our own flex-centred overlay, which cannot
+  // drift. Empty-state tracking mirrors controlled/uncontrolled usage.
+  const [uncontrolledEmpty, setUncontrolledEmpty] = React.useState(
+    (defaultValue ?? '') === ''
+  );
+  const empty = value !== undefined ? value === '' : uncontrolledEmpty;
+  const showPlaceholder = empty && placeholder !== undefined && placeholder !== '';
 
   // Pin the field to exactly one font-scaled line (#144). Flex measurement
   // on the New Architecture can intermittently hand the TextInput the whole
@@ -92,32 +117,57 @@ export function Input({
   // what the min-h-wrapper rule exists to protect.
   const fieldHeight = Math.ceil(INPUT_FONT_SIZE[size ?? 'default'] * 1.35 * fontScale);
 
-  // Numeric keypads have no return key, so without the accessory bar there is
-  // no way to dismiss them. Opt in automatically; an explicit id still wins.
-  const accessoryID =
-    inputAccessoryViewID ??
-    (keyboardType && NUMERIC_KEYBOARDS.has(keyboardType)
-      ? keyboardDoneAccessoryID
-      : undefined);
+  // Numeric keypads have no return key, so they are otherwise undismissable —
+  // and iOS renders no toolbar of its own with the software keyboard up.
+  // Attach the system-styled per-input Done bar (works inside modals). A
+  // caller-supplied inputAccessoryViewID or returnKeyType wins.
+  const kb = useKeyboardDoneBar();
+  const isNumericKeypad = keyboardType !== undefined && NUMERIC_KEYBOARDS.has(keyboardType);
+  const useDoneBar = isNumericKeypad && props.inputAccessoryViewID === undefined;
+  const resolvedReturnKeyType =
+    returnKeyType ?? (isNumericKeypad ? kb.returnKeyType : undefined);
 
   const field = (
-    // input-height-ok: height is font-scaled (one line, grows with Dynamic
-    // Type) — see the #144 note above; this is not a fixed-box height.
-    <TextInput
-      ref={inputRef}
-      className={cn(
-        inputTextVariants({ size }),
-        leftIcon || rightIcon ? 'flex-1' : 'w-full',
+    <View className={cn('justify-center', leftIcon || rightIcon ? 'flex-1' : 'w-full')}>
+      {/* input-height-ok: height is font-scaled (one line, grows with Dynamic
+          Type) — see the #144 note above; this is not a fixed-box height. */}
+      <TextInput
+        ref={inputRef}
+        className={cn(inputTextVariants({ size }), 'w-full')}
+        // Caller `style` first so the one-line height guard always wins: a
+        // caller-supplied `height` must not reintroduce the placeholder
+        // baseline/clipping quirk this component exists to prevent.
+        style={[style, { height: fieldHeight }]}
+        value={value}
+        defaultValue={defaultValue}
+        onChangeText={(text) => {
+          setUncontrolledEmpty(text === '');
+          onChangeText?.(text);
+        }}
+        placeholder={placeholder}
+        placeholderTextColor="transparent"
+        keyboardType={keyboardType}
+        returnKeyType={resolvedReturnKeyType}
+        {...props}
+        inputAccessoryViewID={useDoneBar ? kb.inputAccessoryViewID : props.inputAccessoryViewID}
+      />
+      {showPlaceholder && (
+        <View pointerEvents="none" className="absolute inset-0 flex-row items-center">
+          <Text
+            numberOfLines={1}
+            style={{
+              fontSize: INPUT_FONT_SIZE[size ?? 'default'],
+              color:
+                typeof placeholderTextColor === 'string'
+                  ? placeholderTextColor
+                  : colors.mutedForeground,
+            }}
+          >
+            {placeholder}
+          </Text>
+        </View>
       )}
-      // Caller `style` first so the one-line height guard always wins: a
-      // caller-supplied `height` must not reintroduce the placeholder
-      // baseline/clipping quirk this component exists to prevent.
-      style={[style, { height: fieldHeight }]}
-      placeholderTextColor={placeholderTextColor ?? colors.mutedForeground}
-      keyboardType={keyboardType}
-      inputAccessoryViewID={accessoryID}
-      {...props}
-    />
+    </View>
   );
 
   return (
@@ -133,6 +183,7 @@ export function Input({
       {leftIcon}
       {field}
       {rightIcon}
+      {useDoneBar ? kb.bar : null}
     </Pressable>
   );
 }
